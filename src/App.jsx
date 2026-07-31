@@ -1,0 +1,104 @@
+import {
+  BrowserRouter,
+  Route,
+  Routes,
+} from "react-router-dom";
+
+// Публічні сторінки
+import Home from "./pages/Home";
+import About from "./pages/About";
+import Contacts from "./pages/Contacts";
+import AdminLogin from "./pages/AdminLogin";
+import AccessDenied from "./pages/AccessDenied";
+import CreateListing from "./pages/CreateListing";
+// Захист адмінських сторінок
+import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
+
+// Компоненти адміністративної панелі
+import AdminLayout from "./components/admin/AdminLayout";
+
+// Сторінки адміністративної панелі
+import Dashboard from "./pages/admin/Dashboard";
+import AdminListings from "./pages/admin/AdminListings";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminContacts from "./pages/admin/AdminContacts";
+
+const App = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Публічні сторінки */}
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
+        <Route
+          path="/about"
+          element={<About />}
+        />
+
+        <Route
+          path="/contacts"
+          element={<Contacts />}
+        />
+        <Route
+          path="/create-listing"
+          element={<CreateListing />}
+        />
+        <Route
+          path="/admin-login"
+          element={<AdminLogin />}
+        />
+
+        {/* Сторінка відмови в доступі */}
+        <Route
+          path="/403"
+          element={<AccessDenied />}
+        />
+
+        {/* Захищена адміністративна панель */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedAdminRoute>
+              <AdminLayout />
+            </ProtectedAdminRoute>
+          }
+        >
+          {/* Головна сторінка адмін-панелі */}
+          <Route
+            index
+            element={<Dashboard />}
+          />
+
+          {/* Керування оголошеннями */}
+          <Route
+            path="listings"
+            element={<AdminListings />}
+          />
+
+          {/* Керування користувачами */}
+          <Route
+            path="users"
+            element={<AdminUsers />}
+          />
+
+          {/* Повідомлення з форми зворотного зв'язку */}
+          <Route
+            path="contacts"
+            element={<AdminContacts />}
+          />
+        </Route>
+
+        {/* Невідома адреса */}
+        <Route
+          path="*"
+          element={<Home />}
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+export default App;

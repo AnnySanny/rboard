@@ -22,6 +22,9 @@ import Dashboard from "./pages/admin/Dashboard";
 import AdminListings from "./pages/admin/AdminListings";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminContacts from "./pages/admin/AdminContacts";
+import AdminCreateListing from "./pages/admin/AdminCreateListing";
+import AdminNews from "./pages/admin/AdminNews";
+import AdminLogs from "./pages/admin/AdminLogs";
 
 const App = () => {
   return (
@@ -76,6 +79,18 @@ const App = () => {
           <Route
             path="listings"
             element={<AdminListings />}
+          />
+          <Route
+            path="admin-create-listing"
+            element={<AdminCreateListing />}
+          />
+          <Route
+            path="news"
+            element={<AdminNews />}
+          />
+          <Route
+            path="logs"
+            element={<AdminLogs />}
           />
 
           {/* Керування користувачами */}

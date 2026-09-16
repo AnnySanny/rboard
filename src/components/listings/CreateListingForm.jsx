@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 
 import {
@@ -6,9 +6,10 @@ import {
     doc,
     runTransaction,
     serverTimestamp,
+    getDoc,
 } from "firebase/firestore";
 
-import { auth, db } from "../../firebase";
+import { db } from "../../firebase";
 import CityAutocomplete from "./CityAutocomplete";
 
 const MAX_GUEST_LISTINGS = 3;
@@ -133,8 +134,59 @@ export default function CreateListingForm({
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
 
-    const currentUser = auth.currentUser;
-    const isAuthenticated = Boolean(currentUser);
+    const savedUser = localStorage.getItem("rboardUser");
+
+    let currentUser = null;
+
+    try {
+        currentUser = savedUser
+            ? JSON.parse(savedUser)
+            : null;
+    } catch {
+        currentUser = null;
+    }
+
+    const isAuthenticated = Boolean(currentUser?.id);
+
+
+    useEffect(() => {
+    if (!isAuthenticated || !currentUser?.id) {
+        return;
+    }
+
+    const loadUserData = async () => {
+        try {
+            const userRef = doc(
+                db,
+                "users",
+                currentUser.id
+            );
+
+            const userSnapshot = await getDoc(userRef);
+
+            if (!userSnapshot.exists()) {
+                return;
+            }
+
+            const userData = userSnapshot.data();
+
+            setForm((previousForm) => ({
+                ...previousForm,
+                authorName:
+                    userData.login || "",
+                contact:
+                    userData.phone || "",
+            }));
+        } catch (error) {
+            console.error(
+                "Помилка завантаження даних користувача:",
+                error
+            );
+        }
+    };
+
+    loadUserData();
+}, [isAuthenticated, currentUser?.id]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -253,11 +305,12 @@ export default function CreateListingForm({
             comment: form.comment.trim(),
 
             status: "pending",
-
+            views: 0,
             author: {
                 isAuthenticated,
-                uid: currentUser?.uid || null,
-                email: currentUser?.email || null,
+                uid: currentUser?.id || null,
+                login: currentUser?.login || null,
+                phone: currentUser?.phone || null,
                 label: isAuthenticated
                     ? "Авторизований користувач"
                     : "Не авторизований",
@@ -347,7 +400,7 @@ export default function CreateListingForm({
                     const periodIsActive =
                         savedPeriodEndsAt &&
                         savedPeriodEndsAt.getTime() >
-                            now.getTime();
+                        now.getTime();
 
                     if (periodIsActive) {
                         attemptsLeft = Number(
@@ -553,7 +606,7 @@ export default function CreateListingForm({
         if (
             error?.code === "permission-denied" ||
             error?.code ===
-                "firestore/permission-denied"
+            "firestore/permission-denied"
         ) {
             message =
                 "Немає дозволу на створення оголошення. Перевірте правила Firestore.";
@@ -562,7 +615,7 @@ export default function CreateListingForm({
         if (
             error?.code === "unavailable" ||
             error?.code ===
-                "firestore/unavailable"
+            "firestore/unavailable"
         ) {
             message =
                 "Сервіс тимчасово недоступний. Перевірте інтернет-з’єднання та спробуйте ще раз.";
@@ -614,13 +667,13 @@ export default function CreateListingForm({
 
             if (
                 error?.code ===
-                    "GUEST_LIMIT_EXCEEDED" ||
+                "GUEST_LIMIT_EXCEEDED" ||
                 error?.message ===
-                    "GUEST_LIMIT_EXCEEDED"
+                "GUEST_LIMIT_EXCEEDED"
             ) {
                 await showLimitAlert(
                     error.remainingTime ||
-                        "деякий час"
+                    "деякий час"
                 );
 
                 return;
@@ -633,11 +686,10 @@ export default function CreateListingForm({
     };
 
     const inputClass = (fieldName) => {
-        return `w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-4 ${
-            errors[fieldName]
-                ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-        }`;
+        return `w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-4 ${errors[fieldName]
+            ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+            : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+            }`;
     };
 
     return (

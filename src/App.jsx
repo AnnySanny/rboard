@@ -11,9 +11,15 @@ import Contacts from "./pages/Contacts";
 import AdminLogin from "./pages/AdminLogin";
 import AccessDenied from "./pages/AccessDenied";
 import CreateListing from "./pages/CreateListing";
+import Rules from "./pages/Rules";
 // Захист адмінських сторінок
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 
+
+//Сторінки користувача 
+import UserHome from "./pages/user/UserHome";
+import UserListings from "./pages/user/UserListings";
+import UserProfile from "./pages/user/UserProfile";
 // Компоненти адміністративної панелі
 import AdminLayout from "./components/admin/AdminLayout";
 
@@ -46,6 +52,10 @@ const App = () => {
           element={<Contacts />}
         />
         <Route
+          path="/rules"
+          element={<Rules />}
+        />
+        <Route
           path="/create-listing"
           element={<CreateListing />}
         />
@@ -60,6 +70,12 @@ const App = () => {
           element={<AccessDenied />}
         />
 
+        <Route
+          path="/user"
+          element={<UserHome />}
+        />
+        <Route path="/user/listings" element={<UserListings />} />
+        <Route path="/user/profile" element={<UserProfile />} />
         {/* Захищена адміністративна панель */}
         <Route
           path="/dashboard"

@@ -35,11 +35,10 @@ const ListingCard = ({
 
   return (
     <article
-      className={`group relative h-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm outline-none transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg focus-visible:ring-4 focus-visible:ring-blue-100 ${
-        viewMode === "list"
+      className={`group relative h-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm outline-none transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg focus-visible:ring-4 focus-visible:ring-blue-100 ${viewMode === "list"
           ? "min-h-[180px] sm:flex sm:items-center sm:justify-between sm:p-6"
           : "min-h-[230px]"
-      }`}
+        }`}
       onClick={onClick}
       onKeyDown={handleKeyDown}
       role="button"
@@ -71,6 +70,23 @@ const ListingCard = ({
 
             {formatDate(listing.createdAt)}
           </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+
+            {listing.views ?? 0}
+          </span>
         </div>
 
         <h2 className="mt-4 text-xl font-black leading-snug text-slate-950 transition group-hover:text-blue-700">
@@ -78,22 +94,20 @@ const ListingCard = ({
         </h2>
 
         <p
-          className={`mt-2 max-w-2xl text-sm leading-6 text-slate-600 ${
-            viewMode === "grid"
+          className={`mt-2 max-w-2xl text-sm leading-6 text-slate-600 ${viewMode === "grid"
               ? "line-clamp-3"
               : "line-clamp-2"
-          }`}
+            }`}
         >
           {listing.description ||
             "Опис оголошення не вказано."}
         </p>
 
         <div
-          className={`mt-auto flex flex-col gap-3 border-t border-slate-100 pt-5 ${
-            viewMode === "list"
+          className={`mt-auto flex flex-col gap-3 border-t border-slate-100 pt-5 ${viewMode === "list"
               ? "sm:flex-row sm:items-center sm:justify-between"
               : ""
-          }`}
+            }`}
         >
           <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-600">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100">

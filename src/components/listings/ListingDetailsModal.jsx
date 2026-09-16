@@ -1,5 +1,8 @@
 import { useEffect } from "react";
 
+import { registerListingView } from "../../utils/listingViews";
+import Swal from "sweetalert2";
+
 const formatDate = (value) => {
   if (!value) {
     return "Не вказано";
@@ -39,6 +42,54 @@ const ListingDetailsModal = ({
   listing,
   onClose,
 }) => {
+
+const handleCopyContact = async () => {
+  if (!listing?.contact) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(
+      listing.contact
+    );
+
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: "success",
+      title: "Контакт скопійовано в буфер обміну",
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true,
+    });
+  } catch (error) {
+    console.error(
+      "Помилка копіювання контакту:",
+      error
+    );
+  }
+};
+  useEffect(() => {
+    if (!listing?.id) {
+      return;
+    }
+
+    const registerView = async () => {
+      try {
+        await registerListingView(
+          listing.id
+        );
+      } catch (error) {
+        console.error(
+          "Помилка реєстрації перегляду:",
+          error
+        );
+      }
+    };
+
+    registerView();
+  }, [listing?.id]);
+
   useEffect(() => {
     if (!listing) {
       return undefined;
@@ -146,20 +197,45 @@ const ListingDetailsModal = ({
               {listing.title}
             </h2>
 
-            <div className="mt-5 flex items-start gap-2 text-sm font-semibold text-slate-600">
-              <svg
-                className="mt-0.5 h-5 w-5 shrink-0 text-blue-600"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z" />
-              </svg>
+            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm font-semibold text-slate-600">
+              <div className="flex items-start gap-2">
+                <svg
+                  className="mt-0.5 h-5 w-5 shrink-0 text-blue-600"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z" />
+                </svg>
 
-              <span>
-                {listing.location ||
-                  "Місце не вказано"}
-              </span>
+                <span>
+                  {listing.location ||
+                    "Місце не вказано"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-5 w-5 shrink-0 text-blue-600"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+
+                <span>
+                  Кількість переглядів:{" "}
+                  <strong className="text-slate-900">
+                    {listing.views ?? 0}
+                  </strong>
+                </span>
+              </div>
             </div>
           </div>
         </header>
@@ -187,32 +263,54 @@ const ListingDetailsModal = ({
                 value={listing.authorName}
               />
 
-              <InfoItem
-                label="Контакт"
-                value={listing.contact}
-              />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Контакт
+                </p>
+
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="min-w-0 flex-1 break-all text-sm font-semibold text-slate-800">
+                    {listing.contact || "Не вказано"}
+                  </p>
+
+                  {listing.contact && (
+                    <button
+                      type="button"
+                      onClick={handleCopyContact}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-blue-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                      aria-label="Скопіювати контакт"
+                      title="Скопіювати контакт"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <rect
+                          width="14"
+                          height="14"
+                          x="8"
+                          y="8"
+                          rx="2"
+                          ry="2"
+                        />
+                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
 
               <InfoItem
                 label="Місце"
                 value={listing.location}
               />
             </div>
-
-            {listing.contact && (
-              <a
-                href={
-                  listing.contact.includes("@")
-                    ? `mailto:${listing.contact}`
-                    : `tel:${listing.contact.replace(
-                        /[^\d+]/g,
-                        ""
-                      )}`
-                }
-                className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
-              >
-                Зв’язатися
-              </a>
-            )}
           </aside>
         </div>
       </article>

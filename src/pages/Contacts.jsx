@@ -1,7 +1,36 @@
 import { useState } from "react";
+import {
+  collection,
+  doc,
+  runTransaction,
+  serverTimestamp,
+} from "firebase/firestore";
+import Swal from "sweetalert2";
+
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { db } from "../firebase";
+const MAX_FEEDBACK_PER_DAY = 3;
+const FEEDBACK_LIMIT_HOURS = 24;
 
+const getVisitorId = () => {
+  let visitorId =
+    localStorage.getItem(
+      "rboardVisitorId"
+    );
+
+  if (!visitorId) {
+    visitorId =
+      crypto.randomUUID();
+
+    localStorage.setItem(
+      "rboardVisitorId",
+      visitorId
+    );
+  }
+
+  return visitorId;
+};
 const Contacts = () => {
   const [formData, setFormData] = useState({
     contact: "",
@@ -9,7 +38,8 @@ const Contacts = () => {
     type: "Пропозиція",
     comment: "",
   });
-
+  const [submitting, setSubmitting] =
+    useState(false);
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -19,12 +49,223 @@ const Contacts = () => {
     }));
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
+  const handleSubmit = async (event) => {
+  event.preventDefault();
 
-    // Поки що форма працює лише як макет.
-    console.log("Дані форми:", formData);
-  };
+  if (submitting) {
+    return;
+  }
+
+  const contact =
+    formData.contact.trim();
+
+  const name =
+    formData.name.trim();
+
+  const comment =
+    formData.comment.trim();
+
+  if (!contact) {
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    const visitorId =
+      getVisitorId();
+
+    const limitRef = doc(
+      db,
+      "feedbackLimits",
+      visitorId
+    );
+
+    const feedbackRef = doc(
+      collection(db, "feedback")
+    );
+
+
+    await runTransaction(
+        db,
+        async (transaction) => {
+
+          const limitSnapshot =
+            await transaction.get(
+              limitRef
+            );
+
+          const now = new Date();
+
+          const periodMilliseconds =
+            FEEDBACK_LIMIT_HOURS *
+            60 *
+            60 *
+            1000;
+
+          let attemptsLeft =
+            MAX_FEEDBACK_PER_DAY;
+
+          let periodStartedAt = now;
+
+          let periodEndsAt =
+            new Date(
+              now.getTime() +
+                periodMilliseconds
+            );
+
+          if (limitSnapshot.exists()) {
+            const limitData =
+              limitSnapshot.data();
+
+            const savedPeriodEndsAt =
+              limitData.periodEndsAt
+                ?.toDate?.();
+
+            const periodIsActive =
+              savedPeriodEndsAt &&
+              savedPeriodEndsAt.getTime() >
+                now.getTime();
+
+            if (periodIsActive) {
+              attemptsLeft = Number(
+                limitData.attemptsLeft ??
+                  0
+              );
+
+              periodStartedAt =
+                limitData
+                  .periodStartedAt
+                  ?.toDate?.() ||
+                now;
+
+              periodEndsAt =
+                savedPeriodEndsAt;
+            }
+          }
+
+          if (attemptsLeft <= 0) {
+            const limitError =
+              new Error(
+                "FEEDBACK_LIMIT_EXCEEDED"
+              );
+
+            limitError.code =
+              "FEEDBACK_LIMIT_EXCEEDED";
+
+            throw limitError;
+          }
+
+          const newAttemptsLeft =
+            attemptsLeft - 1;
+
+          transaction.set(
+            feedbackRef,
+            {
+              contact,
+              name,
+              type: formData.type,
+              comment,
+
+              status: "new",
+
+              visitorId,
+
+              createdAt:
+                serverTimestamp(),
+            }
+          );
+
+          transaction.set(
+            limitRef,
+            {
+              visitorId,
+
+              attemptsLeft:
+                newAttemptsLeft,
+
+              maximumAttempts:
+                MAX_FEEDBACK_PER_DAY,
+
+              periodStartedAt,
+              periodEndsAt,
+
+              lastSubmissionAt:
+                serverTimestamp(),
+
+              updatedAt:
+                serverTimestamp(),
+            },
+            {
+              merge: true,
+            }
+          );
+
+          return {
+            attemptsLeft:
+              newAttemptsLeft,
+          };
+        }
+      );
+
+    setFormData({
+      contact: "",
+      name: "",
+      type: "Пропозиція",
+      comment: "",
+    });
+
+    await Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: "success",
+      title:
+        "Ваше повідомлення успішно надіслано",
+      showConfirmButton: false,
+      timer: 2500,
+      timerProgressBar: true,
+    });
+  } catch (error) {
+    console.error(
+      "Помилка надсилання звернення:",
+      error
+    );
+
+    if (
+      error?.code ===
+        "FEEDBACK_LIMIT_EXCEEDED" ||
+      error?.message ===
+        "FEEDBACK_LIMIT_EXCEEDED"
+    ) {
+      await Swal.fire({
+        icon: "info",
+        title:
+          "Ліміт звернень вичерпано",
+        text:
+          "Ви вже надіслали 3 звернення протягом 24 годин. Спробуйте пізніше.",
+        confirmButtonText:
+          "Зрозуміло",
+        confirmButtonColor:
+          "#2563eb",
+      });
+
+      return;
+    }
+
+    await Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: "error",
+      title:
+        "Не вдалося надіслати повідомлення",
+      showConfirmButton: false,
+      timer: 3000,
+      timerProgressBar: true,
+    });
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -308,26 +549,26 @@ const Contacts = () => {
 
                 <button
                   type="submit"
-                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-base font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 active:scale-[0.99]"
+                  disabled={submitting}
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-base font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Відправити
+                  {submitting
+                    ? "Надсилання..."
+                    : "Відправити"}
 
-                  <svg
-                    className="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="m22 2-7 20-4-9-9-4Z" />
-                    <path d="M22 2 11 13" />
-                  </svg>
+                  {!submitting && (
+                    <svg
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="m22 2-7 20-4-9-9-4Z" />
+                      <path d="M22 2 11 13" />
+                    </svg>
+                  )}
                 </button>
-
-                <p className="text-center text-sm leading-6 text-slate-400">
-                  Форма поки що є демонстраційним макетом. Надсилання
-                  повідомлень буде реалізовано пізніше.
-                </p>
               </form>
             </div>
           </div>

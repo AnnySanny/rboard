@@ -16,11 +16,67 @@ import Footer from "../components/Footer";
 import SearchFilters from "../components/SearchFilters";
 import ListingsSection from "../components/listings/ListingsSection";
 import AddListingButton from "../components/listings/AddListingButton";
-
 import { db } from "../firebase";
+
+
+const searchPhrases = [
+    "Шукаю козу...",
+    "Загубив телефон...",
+    "Шукаю транспорт...",
+    "Потрібен майстер...",
+    "Шукаю квартиру...",
+    "Продам велосипед...",
+    "Шукаю роботу...",
+    "Віддам кошенят...",
+];
 
 const Home = () => {
     const [search, setSearch] = useState("");
+    const [searchPlaceholder, setSearchPlaceholder] =
+        useState("");
+
+    useEffect(() => {
+        let phraseIndex = 0;
+        let charIndex = 0;
+        let timeoutId;
+
+        const typePhrase = () => {
+            const currentPhrase =
+                searchPhrases[phraseIndex];
+            if (charIndex < currentPhrase.length) {
+                charIndex++;
+
+                setSearchPlaceholder(
+                    currentPhrase.slice(0, charIndex)
+                );
+
+                timeoutId = setTimeout(
+                    typePhrase,
+                    100
+                );
+
+                return;
+            }
+            timeoutId = setTimeout(() => {
+                setSearchPlaceholder("");
+
+                phraseIndex =
+                    (phraseIndex + 1) %
+                    searchPhrases.length;
+
+                charIndex = 0;
+                timeoutId = setTimeout(
+                    typePhrase,
+                    300
+                );
+            }, 2000);
+        };
+        typePhrase();
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    }, []);
 
     const [activeCategory, setActiveCategory] =
         useState("Усі");
@@ -91,7 +147,8 @@ const Home = () => {
 
                             authorName:
                                 data.authorName || "",
-
+                            views:
+                                Number(data.views ?? 0),
                             createdAt:
                                 data.createdAt
                                     ?.toDate?.() ||
@@ -130,7 +187,7 @@ const Home = () => {
                 const matchesCategory =
                     activeCategory === "Усі" ||
                     listing.category ===
-                        activeCategory;
+                    activeCategory;
 
                 const searchableText = [
                     listing.title,
@@ -229,24 +286,13 @@ const Home = () => {
                     <SearchFilters
                         search={search}
                         setSearch={setSearch}
-                        activeCategory={
-                            activeCategory
-                        }
-                        setActiveCategory={
-                            setActiveCategory
-                        }
-                        sortOrder={
-                            sortOrder
-                        }
-                        setSortOrder={
-                            setSortOrder
-                        }
-                        viewMode={
-                            viewMode
-                        }
-                        setViewMode={
-                            setViewMode
-                        }
+                        searchPlaceholder={searchPlaceholder}
+                        activeCategory={activeCategory}
+                        setActiveCategory={setActiveCategory}
+                        sortOrder={sortOrder}
+                        setSortOrder={setSortOrder}
+                        viewMode={viewMode}
+                        setViewMode={setViewMode}
                     />
 
                     {loading && (

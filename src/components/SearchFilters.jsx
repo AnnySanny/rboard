@@ -16,13 +16,14 @@ const categories = [
 
 const SearchFilters = ({
   search,
-  setSearch,
-  activeCategory,
-  setActiveCategory,
-  sortOrder,
-  setSortOrder,
-  viewMode,
-  setViewMode,
+    setSearch,
+    searchPlaceholder,
+    activeCategory,
+    setActiveCategory,
+    sortOrder,
+    setSortOrder,
+    viewMode,
+    setViewMode,
 }) => {
   const hasActiveFilters =
     search.trim() !== "" ||
@@ -59,7 +60,7 @@ const SearchFilters = ({
       type="search"
       value={search}
       onChange={(event) => setSearch(event.target.value)}
-      placeholder="Пошук..."
+      placeholder={searchPlaceholder}
       className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-10 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
     />
 

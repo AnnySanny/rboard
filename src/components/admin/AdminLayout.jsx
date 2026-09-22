@@ -18,6 +18,11 @@ const adminPages = {
         title: "Оголошення",
     },
 
+    expiredListings: {
+        path: "/dashboard/expired-listings",
+        title: "Прострочені оголошення",
+    },
+
     "create-listing": {
         path: "/dashboard/admin-create-listing",
         title: "Додати оголошення",
@@ -36,6 +41,16 @@ const adminPages = {
     news: {
         path: "/dashboard/news",
         title: "Новини",
+    },
+
+    touristPlaces: {
+        path: "/dashboard/tourist-places",
+        title: "Тур-місця",
+    },
+
+    statistics: {
+        path: "/dashboard/statistics",
+        title: "Статистика",
     },
 
     logs: {
@@ -163,7 +178,7 @@ const AdminLayout = () => {
                 const nextTab =
                     newTabs[tabIndex] ||
                     newTabs[
-                        tabIndex - 1
+                    tabIndex - 1
                     ] ||
                     "dashboard";
 
@@ -209,7 +224,7 @@ const AdminLayout = () => {
                             (pageKey) => {
                                 const page =
                                     adminPages[
-                                        pageKey
+                                    pageKey
                                     ];
 
                                 if (!page) {
@@ -222,14 +237,11 @@ const AdminLayout = () => {
 
                                 return (
                                     <div
-                                        key={
-                                            pageKey
-                                        }
-                                        className={`group flex h-10 min-w-[150px] max-w-[220px] shrink-0 items-center border-r border-slate-200 ${
-                                            isActive
+                                        key={pageKey}
+                                        className={`group flex h-10 w-[160px] shrink-0 items-center border-r border-slate-200 ${isActive
                                                 ? "border-t-2 border-t-blue-600 bg-slate-100"
                                                 : "bg-white"
-                                        }`}
+                                            }`}
                                     >
                                         {/* Назва вкладки */}
                                         <button
@@ -239,11 +251,10 @@ const AdminLayout = () => {
                                                     pageKey
                                                 )
                                             }
-                                            className={`flex min-w-0 flex-1 items-center px-4 text-left text-sm font-semibold transition ${
-                                                isActive
+                                            className={`flex min-w-0 flex-1 items-center px-4 text-left text-sm font-semibold transition ${isActive
                                                     ? "text-slate-950"
                                                     : "text-slate-500 hover:text-slate-900"
-                                            }`}
+                                                }`}
                                         >
                                             <span className="truncate">
                                                 {

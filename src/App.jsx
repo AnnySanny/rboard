@@ -31,7 +31,9 @@ import AdminContacts from "./pages/admin/AdminContacts";
 import AdminCreateListing from "./pages/admin/AdminCreateListing";
 import AdminNews from "./pages/admin/AdminNews";
 import AdminLogs from "./pages/admin/AdminLogs";
-
+import AdminExpiredListings from "./pages/admin/AdminExpiredListings";
+import AdminTouristPlaces from "./pages/admin/AdminTouristPlaces";
+import AdminStatistics from "./pages/admin/AdminStatistics";
 const App = () => {
   return (
     <BrowserRouter>
@@ -108,7 +110,20 @@ const App = () => {
             path="logs"
             element={<AdminLogs />}
           />
+          <Route
+            path="expired-listings"
+            element={<AdminExpiredListings />}
+          />
 
+          <Route
+            path="tourist-places"
+            element={<AdminTouristPlaces />}
+          />
+
+          <Route
+            path="statistics"
+            element={<AdminStatistics />}
+          />
           {/* Керування користувачами */}
           <Route
             path="users"

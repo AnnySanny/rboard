@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     NavLink,
     useNavigate,
@@ -68,14 +68,32 @@ const Navbar = () => {
         setShowRegister(true);
     };
 
+    useEffect(() => {
+        const handleOpenRegister = () => {
+            setShowMobileMenu(false);
+            setShowLogin(false);
+            setShowRegister(true);
+        };
 
-const handleLogout = () => {
-    setShowMobileMenu(false);
+        window.addEventListener(
+            "rboard:open-register",
+            handleOpenRegister
+        );
 
-    localStorage.removeItem("rboardUser");
+        return () => {
+            window.removeEventListener(
+                "rboard:open-register",
+                handleOpenRegister
+            );
+        };
+    }, []);
+    const handleLogout = () => {
+        setShowMobileMenu(false);
 
-    navigate("/");
-};
+        localStorage.removeItem("rboardUser");
+
+        navigate("/");
+    };
 
 
     return (
@@ -271,8 +289,8 @@ const handleLogout = () => {
 
                 <div
                     className={`overflow-hidden border-t border-slate-100 bg-white transition-all duration-300 md:hidden ${showMobileMenu
-                            ? "max-h-[600px] opacity-100"
-                            : "max-h-0 border-t-transparent opacity-0"
+                        ? "max-h-[600px] opacity-100"
+                        : "max-h-0 border-t-transparent opacity-0"
                         }`}
                 >
                     <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">

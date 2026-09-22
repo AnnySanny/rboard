@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { registerListingView } from "../../utils/listingViews";
 import Swal from "sweetalert2";
-
+import ListingImageGallery from "./ListingImageGallery";
 const formatDate = (value) => {
   if (!value) {
     return "Не вказано";
@@ -23,7 +23,60 @@ const formatDate = (value) => {
     minute: "2-digit",
   });
 };
+const getRemainingTime = (
+  expiresAt,
+  currentTime
+) => {
+  if (!expiresAt) {
+    return null;
+  }
 
+  const expirationDate =
+    expiresAt instanceof Date
+      ? expiresAt
+      : new Date(expiresAt);
+
+  if (
+    Number.isNaN(
+      expirationDate.getTime()
+    )
+  ) {
+    return null;
+  }
+
+  const difference =
+    expirationDate.getTime() -
+    currentTime;
+
+  if (difference <= 0) {
+    return null;
+  }
+
+  const totalMinutes =
+    Math.floor(
+      difference / (1000 * 60)
+    );
+
+  const days =
+    Math.floor(
+      totalMinutes / (60 * 24)
+    );
+
+  const hours =
+    Math.floor(
+      (totalMinutes % (60 * 24)) /
+      60
+    );
+
+  const minutes =
+    totalMinutes % 60;
+
+  return {
+    days,
+    hours,
+    minutes,
+  };
+};
 const InfoItem = ({ label, value }) => {
   return (
     <div>
@@ -42,33 +95,52 @@ const ListingDetailsModal = ({
   listing,
   onClose,
 }) => {
+  const [currentTime, setCurrentTime] =
+    useState(Date.now());
 
-const handleCopyContact = async () => {
-  if (!listing?.contact) {
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(
-      listing.contact
+  useEffect(() => {
+    const interval = setInterval(
+      () => {
+        setCurrentTime(Date.now());
+      },
+      60 * 1000
     );
 
-    Swal.fire({
-      toast: true,
-      position: "top-end",
-      icon: "success",
-      title: "Контакт скопійовано в буфер обміну",
-      showConfirmButton: false,
-      timer: 2000,
-      timerProgressBar: true,
-    });
-  } catch (error) {
-    console.error(
-      "Помилка копіювання контакту:",
-      error
+    return () =>
+      clearInterval(interval);
+  }, []);
+
+  const remainingTime =
+    getRemainingTime(
+      listing?.expiresAt,
+      currentTime
     );
-  }
-};
+  const handleCopyContact = async () => {
+    if (!listing?.contact) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        listing.contact
+      );
+
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Контакт скопійовано в буфер обміну",
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
+      });
+    } catch (error) {
+      console.error(
+        "Помилка копіювання контакту:",
+        error
+      );
+    }
+  };
   useEffect(() => {
     if (!listing?.id) {
       return;
@@ -231,11 +303,52 @@ const handleCopyContact = async () => {
 
                 <span>
                   Кількість переглядів:{" "}
-                  <strong className="text-slate-900">
+                  <span className="font-bold text-blue-600">
                     {listing.views ?? 0}
-                  </strong>
+                  </span>
                 </span>
               </div>
+              {remainingTime && (
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="h-5 w-5 shrink-0 text-blue-600"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                    />
+
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+
+                  <span>
+                    Оголошення активно ще:{" "}
+
+                    <span className="font-bold text-blue-600">
+                      {remainingTime.days}
+                    </span>
+                    д,{" "}
+
+                    <span className="font-bold text-blue-600">
+                      {remainingTime.hours}
+                    </span>
+                    г,{" "}
+
+                    <span className="font-bold text-blue-600">
+                      {remainingTime.minutes}
+                    </span>
+                    хв.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -250,6 +363,10 @@ const handleCopyContact = async () => {
               {listing.description ||
                 "Детальний опис оголошення не вказано."}
             </p>
+
+            <ListingImageGallery
+              images={listing.images}
+            />
           </section>
 
           <aside className="h-fit rounded-2xl border border-slate-200 bg-slate-50 p-5">

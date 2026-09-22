@@ -29,7 +29,7 @@ const searchPhrases = [
     "Шукаю роботу...",
     "Віддам кошенят...",
 ];
-
+const LISTINGS_PER_PAGE = 24;
 const Home = () => {
     const [search, setSearch] = useState("");
     const [searchPlaceholder, setSearchPlaceholder] =
@@ -95,7 +95,38 @@ const Home = () => {
 
     const [loadError, setLoadError] =
         useState("");
+    const [visibleCount, setVisibleCount] =
+        useState(LISTINGS_PER_PAGE);
 
+    const [showScrollTop, setShowScrollTop] =
+        useState(false);
+    useEffect(() => {
+        const handleScroll = () => {
+            setShowScrollTop(
+                window.scrollY > 600
+            );
+        };
+
+        window.addEventListener(
+            "scroll",
+            handleScroll
+        );
+
+        handleScroll();
+
+        return () => {
+            window.removeEventListener(
+                "scroll",
+                handleScroll
+            );
+        };
+    }, []);
+    const scrollToTop = () => {
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+        });
+    };
     useEffect(() => {
         const approvedListingsQuery = query(
             collection(db, "listings"),
@@ -153,6 +184,14 @@ const Home = () => {
                                 data.createdAt
                                     ?.toDate?.() ||
                                 null,
+                            expiresAt:
+                                data.expiresAt
+                                    ?.toDate?.() ||
+                                null,
+                            images:
+                                Array.isArray(data.images)
+                                    ? data.images
+                                    : [],
                         };
                     });
 
@@ -257,6 +296,18 @@ const Home = () => {
                             "uk"
                         );
 
+                    case "views-desc":
+                        return (
+                            Number(secondListing.views ?? 0) -
+                            Number(firstListing.views ?? 0)
+                        );
+
+                    case "views-asc":
+                        return (
+                            Number(firstListing.views ?? 0) -
+                            Number(secondListing.views ?? 0)
+                        );
+
                     case "newest":
                     default:
                         return (
@@ -274,7 +325,25 @@ const Home = () => {
         activeCategory,
         sortOrder,
     ]);
+    useEffect(() => {
+        setVisibleCount(LISTINGS_PER_PAGE);
+    }, [
+        search,
+        activeCategory,
+        sortOrder,
+    ]);
+    const visibleListings = useMemo(() => {
+        return filteredListings.slice(
+            0,
+            visibleCount
+        );
+    }, [
+        filteredListings,
+        visibleCount,
+    ]);
 
+    const hasMoreListings =
+        visibleCount < filteredListings.length;
     return (
         <div className="flex min-h-screen flex-col bg-slate-100">
             <Navbar />
@@ -307,22 +376,70 @@ const Home = () => {
                             {loadError}
                         </div>
                     )}
-
-                    {!loading &&
-                        !loadError && (
+                    {filteredListings.length > 0 && (
+                        <div className="mt-8 text-center text-sm text-slate-500">
+                            Показано{" "}
+                            <span className="font-semibold text-slate-700">
+                                {visibleListings.length}
+                            </span>{" "}
+                            з{" "}
+                            <span className="font-semibold text-slate-700">
+                                {filteredListings.length}
+                            </span>{" "}
+                            оголошень
+                        </div>
+                    )}
+                    {!loading && !loadError && (
+                        <>
                             <ListingsSection
-                                listings={
-                                    filteredListings
-                                }
-                                viewMode={
-                                    viewMode
-                                }
+                                listings={visibleListings}
+                                viewMode={viewMode}
                             />
-                        )}
+
+                            {hasMoreListings && (
+                                <div className="mt-10 flex justify-center">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setVisibleCount(
+                                                (currentCount) =>
+                                                    currentCount +
+                                                    LISTINGS_PER_PAGE
+                                            )
+                                        }
+                                        className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                                    >
+                                        Завантажити ще
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             </main>
 
             <Footer />
+            {showScrollTop && (
+                <button
+                    type="button"
+                    onClick={scrollToTop}
+                    aria-label="Повернутися наверх"
+                    title="Наверх"
+                    className="fixed bottom-5 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition duration-200 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl sm:bottom-7 sm:right-7 sm:h-14 sm:w-14"
+                >
+                    <svg
+                        className="h-6 w-6"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <path d="m18 15-6-6-6 6" />
+                    </svg>
+                </button>
+            )}
         </div>
     );
 };

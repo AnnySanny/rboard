@@ -8,10 +8,11 @@ import {
     onSnapshot,
     serverTimestamp,
     updateDoc,
+    Timestamp,
 } from "firebase/firestore";
 
 import { db } from "../../firebase";
-
+import ListingImageGallery from "../../components/listings/ListingImageGallery";
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -26,7 +27,37 @@ const LISTING_TYPES = [
     "Оголошення громади",
     "Інше",
 ];
-
+const EXTENSION_OPTIONS = [
+    {
+        value: "7-days",
+        label: "7 днів",
+    },
+    {
+        value: "14-days",
+        label: "14 днів",
+    },
+    {
+        value: "1-month",
+        label: "1 місяць",
+    },
+    {
+        value: "1.5-months",
+        label: "1.5 місяці",
+    },
+    {
+        value: "2-months",
+        label: "2 місяці",
+    },
+    {
+        value: "3-months",
+        label: "3 місяці",
+    },
+    {
+        value: "6-months",
+        label: "Півроку",
+    },
+];
+const LISTING_LIFETIME_DAYS = 7;
 const STATUS_OPTIONS = [
     {
         value: "pending",
@@ -37,12 +68,27 @@ const STATUS_OPTIONS = [
         label: "Опубліковано",
     },
     {
+        value: "expired",
+        label: "Термін закінчився",
+    },
+    {
         value: "cancelled",
         label: "Скасовано",
     },
 ];
 
-const getStatusData = (status) => {
+const getStatusData = (
+    status,
+    expired = false
+) => {
+    if (expired) {
+        return {
+            label: "Термін закінчено",
+            className:
+                "border-slate-300 bg-slate-100 text-slate-700",
+        };
+    }
+
     switch (status) {
         case "approved":
             return {
@@ -83,6 +129,28 @@ const getDateFromFirestore = (value) => {
         ? null
         : parsedDate;
 };
+const isListingExpired = (listing) => {
+    if (
+        listing.status !== "approved" ||
+        !listing.expiresAt
+    ) {
+        return false;
+    }
+
+    const expiresAt =
+        getDateFromFirestore(
+            listing.expiresAt
+        );
+
+    if (!expiresAt) {
+        return false;
+    }
+
+    return (
+        expiresAt.getTime() <=
+        Date.now()
+    );
+};
 
 const formatDate = (value) => {
     const date = getDateFromFirestore(value);
@@ -106,6 +174,108 @@ const normalizeText = (value) => {
         .toLowerCase();
 };
 
+const calculateExtendedDate = (
+    baseDate,
+    extension
+) => {
+    const newDate = new Date(baseDate);
+
+    switch (extension) {
+        case "7-days":
+            newDate.setDate(
+                newDate.getDate() + 7
+            );
+            break;
+
+        case "14-days":
+            newDate.setDate(
+                newDate.getDate() + 14
+            );
+            break;
+
+        case "1-month":
+            newDate.setMonth(
+                newDate.getMonth() + 1
+            );
+            break;
+
+        case "1.5-months":
+            /*
+             * 1.5 місяці трактуємо
+             * як 45 днів.
+             */
+            newDate.setDate(
+                newDate.getDate() + 45
+            );
+            break;
+
+        case "2-months":
+            newDate.setMonth(
+                newDate.getMonth() + 2
+            );
+            break;
+
+        case "3-months":
+            newDate.setMonth(
+                newDate.getMonth() + 3
+            );
+            break;
+
+        case "6-months":
+            newDate.setMonth(
+                newDate.getMonth() + 6
+            );
+            break;
+
+        default:
+            return null;
+    }
+
+    return newDate;
+};
+const getRemainingTime = (expiresAt) => {
+    const expirationDate =
+        getDateFromFirestore(expiresAt);
+
+    if (!expirationDate) {
+        return null;
+    }
+
+    const difference =
+        expirationDate.getTime() -
+        Date.now();
+
+    if (difference <= 0) {
+        return null;
+    }
+
+    const totalMinutes =
+        Math.floor(
+            difference / (1000 * 60)
+        );
+
+    const days =
+        Math.floor(
+            totalMinutes /
+            (60 * 24)
+        );
+
+    const hours =
+        Math.floor(
+            (totalMinutes %
+                (60 * 24)) /
+            60
+        );
+
+    const minutes =
+        totalMinutes % 60;
+
+    return {
+        days,
+        hours,
+        minutes,
+    };
+};
 const AdminListings = () => {
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -128,6 +298,8 @@ const AdminListings = () => {
         useState(null);
 
     const [deletingId, setDeletingId] =
+        useState(null);
+    const [extendingId, setExtendingId] =
         useState(null);
 
     useEffect(() => {
@@ -226,9 +398,20 @@ const AdminListings = () => {
                     typeFilter === "all" ||
                     listing.type === typeFilter;
 
+                const expired =
+                    isListingExpired(listing);
+
                 const matchesStatus =
                     statusFilter === "all" ||
-                    listing.status === statusFilter;
+                    (statusFilter === "expired" &&
+                        expired) ||
+                    (statusFilter === "approved" &&
+                        listing.status === "approved" &&
+                        !expired) ||
+                    (statusFilter !== "expired" &&
+                        statusFilter !== "approved" &&
+                        listing.status ===
+                        statusFilter);
 
                 const matchesAuthorization =
                     authorizationFilter === "all" ||
@@ -242,7 +425,7 @@ const AdminListings = () => {
                 const matchesCity =
                     cityFilter === "all" ||
                     listing.city?.name ===
-                        cityFilter;
+                    cityFilter;
 
                 return (
                     matchesSearch &&
@@ -287,6 +470,18 @@ const AdminListings = () => {
                     return secondTitle.localeCompare(
                         firstTitle,
                         "uk"
+                    );
+
+                case "views-desc":
+                    return (
+                        Number(secondListing.views ?? 0) -
+                        Number(firstListing.views ?? 0)
+                    );
+
+                case "views-asc":
+                    return (
+                        Number(firstListing.views ?? 0) -
+                        Number(secondListing.views ?? 0)
                     );
 
                 case "newest":
@@ -373,8 +568,22 @@ const AdminListings = () => {
             };
 
             if (newStatus === "approved") {
+                const approvedAt = new Date();
+
+                const expiresAt = new Date(
+                    approvedAt.getTime() +
+                    LISTING_LIFETIME_DAYS *
+                    24 *
+                    60 *
+                    60 *
+                    1000
+                );
+
                 updateData.approvedAt =
-                    serverTimestamp();
+                    Timestamp.fromDate(approvedAt);
+
+                updateData.expiresAt =
+                    Timestamp.fromDate(expiresAt);
 
                 updateData[
                     "moderation.rejectionReason"
@@ -383,10 +592,12 @@ const AdminListings = () => {
 
             if (newStatus === "cancelled") {
                 updateData.approvedAt = null;
+                updateData.expiresAt = null;
             }
 
             if (newStatus === "pending") {
                 updateData.approvedAt = null;
+                updateData.expiresAt = null;
 
                 updateData[
                     "moderation.reviewedAt"
@@ -405,10 +616,9 @@ const AdminListings = () => {
             await Swal.fire({
                 icon: "success",
                 title: "Статус змінено",
-                text: `Новий статус: ${
-                    selectedStatus?.label ||
+                text: `Новий статус: ${selectedStatus?.label ||
                     newStatus
-                }.`,
+                    }.`,
                 confirmButtonText: "Добре",
                 confirmButtonColor: "#2563eb",
                 timer: 1800,
@@ -431,7 +641,199 @@ const AdminListings = () => {
             setUpdatingId(null);
         }
     };
+    const handleExtendListing = async (
+        listing,
+        extension
+    ) => {
+        if (!extension) {
+            return;
+        }
 
+        const selectedExtension =
+            EXTENSION_OPTIONS.find(
+                (option) =>
+                    option.value === extension
+            );
+
+        if (!selectedExtension) {
+            return;
+        }
+
+        /*
+         * Продовжувати можна тільки
+         * опубліковані оголошення.
+         */
+        if (listing.status !== "approved") {
+            await Swal.fire({
+                icon: "warning",
+                title:
+                    "Оголошення не опубліковане",
+                text:
+                    "Спочатку змініть статус оголошення на «Опубліковано».",
+                confirmButtonColor:
+                    "#2563eb",
+            });
+
+            return;
+        }
+
+        const oldExpiresAt =
+            getDateFromFirestore(
+                listing.expiresAt
+            );
+
+        const now = new Date();
+
+        /*
+         * Якщо термін ще не завершився —
+         * додаємо час до існуючого expiresAt.
+         *
+         * Якщо вже завершився —
+         * рахуємо новий термін від зараз.
+         */
+        const baseDate =
+            oldExpiresAt &&
+                oldExpiresAt.getTime() >
+                now.getTime()
+                ? oldExpiresAt
+                : now;
+
+        const newExpiresAt =
+            calculateExtendedDate(
+                baseDate,
+                extension
+            );
+
+        if (!newExpiresAt) {
+            return;
+        }
+
+        const confirmation =
+            await Swal.fire({
+                icon: "question",
+
+                title:
+                    "Продовжити термін?",
+
+                html: `
+                <div style="line-height:1.7">
+                    Оголошення
+                    <strong>
+                        «${listing.title || "Без назви"}»
+                    </strong>
+
+                    <br><br>
+
+                    Продовжити на:
+                    <strong>
+                        ${selectedExtension.label}
+                    </strong>
+
+                    <br>
+
+                    Новий термін:
+                    <strong>
+                        ${formatDate(newExpiresAt)}
+                    </strong>
+                </div>
+            `,
+
+                showCancelButton: true,
+
+                confirmButtonText:
+                    "Так, продовжити",
+
+                cancelButtonText:
+                    "Скасувати",
+
+                confirmButtonColor:
+                    "#2563eb",
+
+                cancelButtonColor:
+                    "#64748b",
+
+                reverseButtons: true,
+            });
+
+        if (!confirmation.isConfirmed) {
+            return;
+        }
+
+        setExtendingId(listing.id);
+
+        try {
+            const listingRef = doc(
+                db,
+                "listings",
+                listing.id
+            );
+
+            await updateDoc(
+                listingRef,
+                {
+                    expiresAt:
+                        Timestamp.fromDate(
+                            newExpiresAt
+                        ),
+
+                    updatedAt:
+                        serverTimestamp(),
+                }
+            );
+
+            await Swal.fire({
+                icon: "success",
+
+                title:
+                    "Термін продовжено",
+
+                html: `
+                <div style="line-height:1.7">
+                    Оголошення активне до:
+                    <br>
+                    <strong>
+                        ${formatDate(newExpiresAt)}
+                    </strong>
+                </div>
+            `,
+
+                confirmButtonText:
+                    "Добре",
+
+                confirmButtonColor:
+                    "#2563eb",
+
+                timer: 2000,
+
+                timerProgressBar: true,
+            });
+
+        } catch (error) {
+            console.error(
+                "Помилка продовження терміну:",
+                error
+            );
+
+            await Swal.fire({
+                icon: "error",
+
+                title:
+                    "Не вдалося продовжити термін",
+
+                text:
+                    "Перевірте з’єднання та права доступу Firestore.",
+
+                confirmButtonText:
+                    "Закрити",
+
+                confirmButtonColor:
+                    "#2563eb",
+            });
+
+        } finally {
+            setExtendingId(null);
+        }
+    };
     const handleDeleteListing = async (
         listing
     ) => {
@@ -760,6 +1162,13 @@ const AdminListings = () => {
                                 <option value="alphabetical-desc">
                                     Від Я до А
                                 </option>
+                                <option value="views-desc">
+                                    Найбільше переглядів
+                                </option>
+
+                                <option value="views-asc">
+                                    Найменше переглядів
+                                </option>
                             </select>
                         </div>
 
@@ -825,11 +1234,14 @@ const AdminListings = () => {
                     <div className="mt-6 grid gap-6 xl:grid-cols-2">
                         {filteredListings.map(
                             (listing) => {
+                                const isExpired =
+                                    isListingExpired(listing);
+
                                 const statusData =
                                     getStatusData(
-                                        listing.status
+                                        listing.status,
+                                        isExpired
                                     );
-
                                 const isAuthenticated =
                                     Boolean(
                                         listing.author
@@ -851,7 +1263,13 @@ const AdminListings = () => {
                                 const isDeleting =
                                     deletingId ===
                                     listing.id;
-
+                                const isExtending =
+                                    extendingId ===
+                                    listing.id;
+                                const remainingTime =
+                                    getRemainingTime(
+                                        listing.expiresAt
+                                    );
                                 return (
                                     <article
                                         key={listing.id}
@@ -874,16 +1292,34 @@ const AdminListings = () => {
                                                     </span>
 
                                                     <span
-                                                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
-                                                            isAuthenticated
-                                                                ? "border-violet-200 bg-violet-50 text-violet-700"
-                                                                : "border-slate-200 bg-slate-100 text-slate-600"
-                                                        }`}
+                                                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${isAuthenticated
+                                                            ? "border-violet-200 bg-violet-50 text-violet-700"
+                                                            : "border-slate-200 bg-slate-100 text-slate-600"
+                                                            }`}
                                                     >
                                                         {isAuthenticated
                                                             ? "Авторизований"
                                                             : "Не авторизований"}
                                                     </span>
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">
+                                                        <svg
+                                                            className="h-3.5 w-3.5"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                                                            <circle cx="12" cy="12" r="3" />
+                                                        </svg>
+
+                                                        {Number(listing.views ?? 0)} переглядів
+                                                    </span>
+
+
                                                 </div>
 
                                                 <h2 className="mt-4 break-words text-xl font-black leading-tight text-slate-950">
@@ -930,8 +1366,38 @@ const AdminListings = () => {
                                                 label="Дата створення"
                                                 value={formatDate(
                                                     listing.createdAt
+
                                                 )}
+
                                             />
+                                            {listing.status === "approved" &&
+                                                listing.expiresAt && (
+                                                    <InfoItem
+                                                        label={
+                                                            isExpired ? (
+                                                                "Термін закінчився"
+                                                            ) : (
+                                                                <>
+                                                                    Активне до{" "}
+                                                                    {remainingTime && (
+                                                                        <span>
+                                                                            ({" "}
+                                                                            <span className="text-blue-600">
+                                                                                {remainingTime.days}д,{" "}
+                                                                                {remainingTime.hours}г,{" "}
+                                                                                {remainingTime.minutes}хв.
+                                                                            </span>
+                                                                            )
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            )
+                                                        }
+                                                        value={formatDate(
+                                                            listing.expiresAt
+                                                        )}
+                                                    />
+                                                )}
 
                                             {isAuthenticated && (
                                                 <>
@@ -943,17 +1409,6 @@ const AdminListings = () => {
                                                                 ?.email ||
                                                             "Не вказано"
                                                         }
-                                                    />
-
-                                                    <InfoItem
-                                                        label="UID користувача"
-                                                        value={
-                                                            listing
-                                                                .author
-                                                                ?.uid ||
-                                                            "Не вказано"
-                                                        }
-                                                        breakAll
                                                     />
                                                 </>
                                             )}
@@ -997,7 +1452,9 @@ const AdminListings = () => {
                                                 </p>
                                             </div>
                                         )}
-
+    <ListingImageGallery
+    images={listing.images}
+/>
                                         <div className="mt-auto border-t border-slate-100 pt-5">
                                             <label
                                                 htmlFor={`status-${listing.id}`}
@@ -1029,26 +1486,60 @@ const AdminListings = () => {
                                                     }
                                                     className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                                                 >
-                                                    {STATUS_OPTIONS.map(
-                                                        (
-                                                            status
-                                                        ) => (
+                                                    {STATUS_OPTIONS
+                                                        .filter(
+                                                            (status) =>
+                                                                status.value !== "expired"
+                                                        )
+                                                        .map((status) => (
                                                             <option
-                                                                key={
-                                                                    status.value
-                                                                }
-                                                                value={
-                                                                    status.value
-                                                                }
+                                                                key={status.value}
+                                                                value={status.value}
                                                             >
-                                                                {
-                                                                    status.label
-                                                                }
+                                                                {status.label}
+                                                            </option>
+                                                        ))}
+                                                </select>
+                                                <select
+                                                    value=""
+                                                    disabled={
+                                                        isUpdating ||
+                                                        isDeleting ||
+                                                        isExtending ||
+                                                        listing.status !== "approved"
+                                                    }
+                                                    onChange={(event) => {
+                                                        const value =
+                                                            event.target.value;
+
+                                                        if (!value) {
+                                                            return;
+                                                        }
+
+                                                        handleExtendListing(
+                                                            listing,
+                                                            value
+                                                        );
+                                                    }}
+                                                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    <option value="">
+                                                        {isExtending
+                                                            ? "Продовження..."
+                                                            : "Продовжити термін"}
+                                                    </option>
+
+                                                    {EXTENSION_OPTIONS.map(
+                                                        (option) => (
+                                                            <option
+                                                                key={option.value}
+                                                                value={option.value}
+                                                            >
+                                                                {option.label}
                                                             </option>
                                                         )
                                                     )}
                                                 </select>
-
                                                 <button
                                                     type="button"
                                                     disabled={
@@ -1121,11 +1612,10 @@ const InfoItem = ({
             </p>
 
             <p
-                className={`mt-2 text-sm font-semibold leading-6 text-slate-800 ${
-                    breakAll
-                        ? "break-all"
-                        : "break-words"
-                }`}
+                className={`mt-2 text-sm font-semibold leading-6 text-slate-800 ${breakAll
+                    ? "break-all"
+                    : "break-words"
+                    }`}
             >
                 {value}
             </p>

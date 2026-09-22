@@ -11,10 +11,50 @@ import {
 
 import { db } from "../../firebase";
 import CityAutocomplete from "./CityAutocomplete";
-
+import ListingImageUploader from "./ListingImageUploader";
 const MAX_GUEST_LISTINGS = 3;
 const LIMIT_PERIOD_DAYS = 7;
+const CLOUDINARY_CLOUD_NAME =
+    "djjhf64uc";
 
+const CLOUDINARY_UPLOAD_PRESET =
+    "user_photos";
+const uploadToCloudinary = async (file) => {
+    const formData = new FormData();
+
+    formData.append("file", file);
+    formData.append(
+        "upload_preset",
+        CLOUDINARY_UPLOAD_PRESET
+    );
+
+    const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+            method: "POST",
+            body: formData,
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        console.error(
+            "Помилка Cloudinary:",
+            data
+        );
+
+        throw new Error(
+            data.error?.message ||
+            "Не вдалося завантажити фотографію"
+        );
+    }
+
+    return {
+        imageUrl: data.secure_url,
+        imagePublicId: data.public_id,
+    };
+};
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -133,7 +173,7 @@ export default function CreateListingForm({
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
-
+    const [images, setImages] = useState([]);
     const savedUser = localStorage.getItem("rboardUser");
 
     let currentUser = null;
@@ -150,43 +190,43 @@ export default function CreateListingForm({
 
 
     useEffect(() => {
-    if (!isAuthenticated || !currentUser?.id) {
-        return;
-    }
-
-    const loadUserData = async () => {
-        try {
-            const userRef = doc(
-                db,
-                "users",
-                currentUser.id
-            );
-
-            const userSnapshot = await getDoc(userRef);
-
-            if (!userSnapshot.exists()) {
-                return;
-            }
-
-            const userData = userSnapshot.data();
-
-            setForm((previousForm) => ({
-                ...previousForm,
-                authorName:
-                    userData.login || "",
-                contact:
-                    userData.phone || "",
-            }));
-        } catch (error) {
-            console.error(
-                "Помилка завантаження даних користувача:",
-                error
-            );
+        if (!isAuthenticated || !currentUser?.id) {
+            return;
         }
-    };
 
-    loadUserData();
-}, [isAuthenticated, currentUser?.id]);
+        const loadUserData = async () => {
+            try {
+                const userRef = doc(
+                    db,
+                    "users",
+                    currentUser.id
+                );
+
+                const userSnapshot = await getDoc(userRef);
+
+                if (!userSnapshot.exists()) {
+                    return;
+                }
+
+                const userData = userSnapshot.data();
+
+                setForm((previousForm) => ({
+                    ...previousForm,
+                    authorName:
+                        userData.login || "",
+                    contact:
+                        userData.phone || "",
+                }));
+            } catch (error) {
+                console.error(
+                    "Помилка завантаження даних користувача:",
+                    error
+                );
+            }
+        };
+
+        loadUserData();
+    }, [isAuthenticated, currentUser?.id]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -285,32 +325,60 @@ export default function CreateListingForm({
         return Object.keys(newErrors).length === 0;
     };
 
-    const createListingData = () => {
+    const createListingData = (
+        uploadedImages = []
+    ) => {
         return {
-            authorName: form.authorName.trim(),
+            authorName:
+                form.authorName.trim(),
 
-            normalizedAuthorName: normalizeName(
-                form.authorName
-            ),
+            normalizedAuthorName:
+                normalizeName(
+                    form.authorName
+                ),
 
-            contact: normalizeContact(form.contact),
-            contactOriginal: form.contact.trim(),
+            contact:
+                normalizeContact(
+                    form.contact
+                ),
 
-            title: form.title.trim(),
-            type: form.type,
+            contactOriginal:
+                form.contact.trim(),
 
-            city: getCleanCity(form.city),
+            title:
+                form.title.trim(),
 
-            street: form.street.trim(),
-            comment: form.comment.trim(),
+            type:
+                form.type,
+
+            city:
+                getCleanCity(
+                    form.city
+                ),
+
+            street:
+                form.street.trim(),
+
+            comment:
+                form.comment.trim(),
+
+            images: uploadedImages,
 
             status: "pending",
+
             views: 0,
+
             author: {
                 isAuthenticated,
-                uid: currentUser?.id || null,
-                login: currentUser?.login || null,
-                phone: currentUser?.phone || null,
+                uid:
+                    currentUser?.id ||
+                    null,
+                login:
+                    currentUser?.login ||
+                    null,
+                phone:
+                    currentUser?.phone ||
+                    null,
                 label: isAuthenticated
                     ? "Авторизований користувач"
                     : "Не авторизований",
@@ -322,29 +390,38 @@ export default function CreateListingForm({
                 rejectionReason: null,
             },
 
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
+            createdAt:
+                serverTimestamp(),
+
+            updatedAt:
+                serverTimestamp(),
+
             approvedAt: null,
+
+            expiresAt: null,
         };
     };
 
-    const createAuthenticatedListing = async () => {
-        const listingRef = doc(
-            collection(db, "listings")
-        );
-
-        await runTransaction(db, async (transaction) => {
-            transaction.set(
-                listingRef,
-                createListingData()
+    const createAuthenticatedListing =
+        async (uploadedImages) => {
+            const listingRef = doc(
+                collection(db, "listings")
             );
-        });
 
-        return {
-            listingId: listingRef.id,
-            attemptsLeft: null,
+            await runTransaction(db, async (transaction) => {
+                transaction.set(
+                    listingRef,
+                    createListingData(
+                        uploadedImages
+                    )
+                );
+            });
+
+            return {
+                listingId: listingRef.id,
+                attemptsLeft: null,
+            };
         };
-    };
 
     const createGuestListing = async () => {
         const guestLimitId = createGuestLimitId(
@@ -507,11 +584,41 @@ export default function CreateListingForm({
     };
 
     const saveListing = async () => {
-        if (isAuthenticated) {
-            return createAuthenticatedListing();
+        /*
+         * Гість не може додавати фотографії.
+         * Тому одразу створюємо гостьове оголошення
+         * без звернення до Cloudinary.
+         */
+        if (!isAuthenticated) {
+            return createGuestListing();
         }
 
-        return createGuestListing();
+        /*
+         * Для авторизованого користувача
+         * завантажуємо вибрані фотографії
+         * тільки зараз — після натискання
+         * "Надіслати на перевірку".
+         */
+        let uploadedImages = [];
+
+        if (images.length > 0) {
+            uploadedImages =
+                await Promise.all(
+                    images.map((image) =>
+                        uploadToCloudinary(
+                            image.file
+                        )
+                    )
+                );
+        }
+
+        /*
+         * У Firestore передаємо вже не File,
+         * а тільки imageUrl та imagePublicId.
+         */
+        return createAuthenticatedListing(
+            uploadedImages
+        );
     };
 
     const showValidationAlert = async () => {
@@ -650,13 +757,25 @@ export default function CreateListingForm({
         try {
             const result = await saveListing();
 
+            images.forEach((image) => {
+                if (image.previewUrl) {
+                    URL.revokeObjectURL(
+                        image.previewUrl
+                    );
+                }
+            });
+
             setForm(initialForm);
+            setImages([]);
 
             await showSuccessAlert(
                 result.attemptsLeft
             );
 
-            if (typeof onSuccess === "function") {
+            if (
+                typeof onSuccess ===
+                "function"
+            ) {
                 onSuccess();
             }
         } catch (error) {
@@ -882,7 +1001,13 @@ export default function CreateListingForm({
                     </p>
                 )}
             </div>
-
+            {isAuthenticated && (
+                <ListingImageUploader
+                    images={images}
+                    onChange={setImages}
+                    disabled={submitting}
+                />
+            )}
             <div>
                 <div className="mb-2 flex items-center justify-between gap-4">
                     <label
@@ -962,19 +1087,26 @@ export default function CreateListingForm({
                     "Надіслати на перевірку"
                 )}
             </button>
-
             {!isAuthenticated && (
                 <div className="rounded-2xl bg-slate-50 px-5 py-5 text-center">
                     <p className="text-sm leading-6 text-slate-600">
                         Зареєструйтеся, щоб переглядати
                         власні оголошення, відстежувати
-                        їхній статус і керувати ними
-                        зі свого профілю.
+                        їхній статус, редагувати їх,
+                        додавати фотографії та зручно
+                        керувати оголошеннями зі свого
+                        профілю.
                     </p>
 
                     <button
                         type="button"
-                        onClick={onOpenRegister}
+                        onClick={() => {
+                            window.dispatchEvent(
+                                new CustomEvent(
+                                    "rboard:open-register"
+                                )
+                            );
+                        }}
                         className="mt-2 text-sm font-bold text-blue-600 transition hover:text-blue-700 hover:underline"
                     >
                         Створити обліковий запис

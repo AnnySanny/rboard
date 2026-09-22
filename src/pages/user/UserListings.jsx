@@ -18,7 +18,7 @@ import UserListingsStatistics from "../../components/listings/UserListingsStatis
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { db } from "../../firebase";
-
+import ListingImageGallery from "../../components/listings/ListingImageGallery";
 const LISTING_TYPES = [
     "Усі типи",
     "Продаж",
@@ -216,6 +216,12 @@ const UserListings = () => {
 
                                 createdAt:
                                     data.createdAt || null,
+                                expiresAt:
+                                    data.expiresAt || null,
+                                images:
+                                    Array.isArray(data.images)
+                                        ? data.images
+                                        : [],
                             };
                         }
                     );
@@ -317,29 +323,32 @@ const UserListings = () => {
                             ?.toDate?.()
                             ?.getTime?.() || 0;
 
-                    if (
-                        sortOrder === "oldest"
-                    ) {
-                        return (
-                            firstDate -
-                            secondDate
-                        );
+                    if (sortOrder === "oldest") {
+                        return firstDate - secondDate;
                     }
 
-                    if (
-                        sortOrder ===
-                        "alphabetical"
-                    ) {
+                    if (sortOrder === "alphabetical") {
                         return firstListing.title.localeCompare(
                             secondListing.title,
                             "uk"
                         );
                     }
 
-                    return (
-                        secondDate -
-                        firstDate
-                    );
+                    if (sortOrder === "views-desc") {
+                        return (
+                            Number(secondListing.views ?? 0) -
+                            Number(firstListing.views ?? 0)
+                        );
+                    }
+
+                    if (sortOrder === "views-asc") {
+                        return (
+                            Number(firstListing.views ?? 0) -
+                            Number(secondListing.views ?? 0)
+                        );
+                    }
+
+                    return secondDate - firstDate;
                 }
             );
 
@@ -669,6 +678,14 @@ const UserListings = () => {
                                         <option value="alphabetical">
                                             За назвою
                                         </option>
+
+                                        <option value="views-desc">
+                                            Найбільше переглядів
+                                        </option>
+
+                                        <option value="views-asc">
+                                            Найменше переглядів
+                                        </option>
                                     </select>
 
                                     <SelectArrow />
@@ -756,34 +773,67 @@ const UserListings = () => {
                                                         <div className="min-w-0 flex-1">
                                                             {/* Верх картки */}
                                                             <div className="flex flex-wrap items-center gap-2">
+                                                                {/* Тип оголошення */}
                                                                 <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                                                                    {
-                                                                        listing.type
-                                                                    }
+                                                                    {listing.type}
                                                                 </span>
 
+                                                                {/* Статус */}
                                                                 <span
                                                                     className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${status.className}`}
                                                                 >
-                                                                    {
-                                                                        status.label
-                                                                    }
+                                                                    {status.label}
                                                                 </span>
 
+                                                                {/* Дата публікації */}
                                                                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400">
                                                                     <ClockIcon />
 
-                                                                    {formatDate(
-                                                                        listing.createdAt
-                                                                    )}
+                                                                    <span>
+                                                                        {formatDate(
+                                                                            listing.createdAt
+                                                                        )}
+                                                                    </span>
                                                                 </span>
 
+                                                                {/* Активне до */}
+                                                                {listing.status === "approved" &&
+                                                                    listing.expiresAt && (
+                                                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs">
+                                                                            <svg
+                                                                                className="h-3.5 w-3.5 shrink-0 text-emerald-600"
+                                                                                viewBox="0 0 24 24"
+                                                                                fill="none"
+                                                                                stroke="currentColor"
+                                                                                strokeWidth="2"
+                                                                                strokeLinecap="round"
+                                                                                strokeLinejoin="round"
+                                                                            >
+                                                                                <circle
+                                                                                    cx="12"
+                                                                                    cy="12"
+                                                                                    r="9"
+                                                                                />
+                                                                                <path d="M12 7v5l3 2" />
+                                                                            </svg>
+
+                                                                            <span className="font-medium text-slate-500">
+                                                                                Активне до:
+                                                                            </span>
+
+                                                                            <span className="font-bold text-emerald-700">
+                                                                                {formatDate(
+                                                                                    listing.expiresAt
+                                                                                )}
+                                                                            </span>
+                                                                        </span>
+                                                                    )}
+
+                                                                {/* Перегляди */}
                                                                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600">
                                                                     <EyeIcon />
 
-                                                                    {
-                                                                        listing.views
-                                                                    }
+                                                                    {listing.views}
                                                                 </span>
                                                             </div>
 
@@ -831,8 +881,11 @@ const UserListings = () => {
                                                                         "Опис не вказано"}
                                                                 </p>
                                                             </div>
+                                                              <ListingImageGallery
+                                                            images={listing.images}
+                                                        />
                                                         </div>
-
+                                                      
                                                         {/* Видалити */}
                                                         <button
                                                             type="button"

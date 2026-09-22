@@ -13,6 +13,9 @@ import {
     LogOut,
     Menu,
     X,
+    Clock3,
+    MapPinned,
+    ChartNoAxesCombined,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
@@ -31,6 +34,12 @@ const menuItems = [
         to: "/dashboard/listings",
         title: "Оголошення",
         icon: List,
+    },
+    {
+        key: "expiredListings",
+        to: "/dashboard/expired-listings",
+        title: "Прострочені оголошення",
+        icon: Clock3,
     },
     {
         key: "create-listing",
@@ -55,6 +64,18 @@ const menuItems = [
         to: "/dashboard/news",
         title: "Новини",
         icon: Newspaper,
+    },
+    {
+        key: "touristPlaces",
+        to: "/dashboard/tourist-places",
+        title: "Тур-місця",
+        icon: MapPinned,
+    },
+    {
+        key: "statistics",
+        to: "/dashboard/statistics",
+        title: "Статистика",
+        icon: ChartNoAxesCombined,
     },
     {
         key: "logs",

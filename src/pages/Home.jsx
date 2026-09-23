@@ -30,6 +30,26 @@ const searchPhrases = [
     "Віддам кошенят...",
 ];
 const LISTINGS_PER_PAGE = 24;
+
+const getCurrentUser = () => {
+    try {
+        const savedUser =
+            localStorage.getItem(
+                "rboardUser"
+            );
+
+        if (!savedUser) {
+            return null;
+        }
+
+        return JSON.parse(
+            savedUser
+        );
+    } catch {
+        return null;
+    }
+};
+
 const Home = () => {
     const [search, setSearch] = useState("");
     const [searchPlaceholder, setSearchPlaceholder] =
@@ -192,6 +212,12 @@ const Home = () => {
                                 Array.isArray(data.images)
                                     ? data.images
                                     : [],
+                            favoriteUserIds:
+                                Array.isArray(
+                                    data.favoriteUserIds
+                                )
+                                    ? data.favoriteUserIds
+                                    : [],
                         };
                     });
 
@@ -215,7 +241,8 @@ const Home = () => {
 
         return unsubscribe;
     }, []);
-
+    const currentUserId =
+        getCurrentUser()?.id || null;
     const filteredListings = useMemo(() => {
         const normalizedSearch = search
             .trim()
@@ -224,9 +251,17 @@ const Home = () => {
         const result = listings.filter(
             (listing) => {
                 const matchesCategory =
-                    activeCategory === "Усі" ||
-                    listing.category ===
-                    activeCategory;
+                    activeCategory === "Усі"
+                        ? true
+                        : activeCategory === "Обрані"
+                            ? Boolean(
+                                currentUserId &&
+                                listing.favoriteUserIds.includes(
+                                    currentUserId
+                                )
+                            )
+                            : listing.category ===
+                            activeCategory;
 
                 const searchableText = [
                     listing.title,
@@ -324,6 +359,7 @@ const Home = () => {
         search,
         activeCategory,
         sortOrder,
+        currentUserId,
     ]);
     useEffect(() => {
         setVisibleCount(LISTINGS_PER_PAGE);

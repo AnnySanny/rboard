@@ -20,6 +20,8 @@ import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import UserHome from "./pages/user/UserHome";
 import UserListings from "./pages/user/UserListings";
 import UserProfile from "./pages/user/UserProfile";
+import EditListing from "./pages/user/EditListing";
+import UserNotifications from "./pages/user/UserNotifications";
 // Компоненти адміністративної панелі
 import AdminLayout from "./components/admin/AdminLayout";
 
@@ -31,9 +33,10 @@ import AdminContacts from "./pages/admin/AdminContacts";
 import AdminCreateListing from "./pages/admin/AdminCreateListing";
 import AdminNews from "./pages/admin/AdminNews";
 import AdminLogs from "./pages/admin/AdminLogs";
-import AdminExpiredListings from "./pages/admin/AdminExpiredListings";
+import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminTouristPlaces from "./pages/admin/AdminTouristPlaces";
 import AdminStatistics from "./pages/admin/AdminStatistics";
+import AdminEditListing from "./pages/admin/AdminEditListing";
 const App = () => {
   return (
     <BrowserRouter>
@@ -61,6 +64,7 @@ const App = () => {
           path="/create-listing"
           element={<CreateListing />}
         />
+
         <Route
           path="/admin-login"
           element={<AdminLogin />}
@@ -78,6 +82,14 @@ const App = () => {
         />
         <Route path="/user/listings" element={<UserListings />} />
         <Route path="/user/profile" element={<UserProfile />} />
+        <Route
+          path="/user/listings/:listingId/edit"
+          element={<EditListing />}
+        />
+        <Route
+          path="/user/notifications"
+          element={<UserNotifications />}
+        />
         {/* Захищена адміністративна панель */}
         <Route
           path="/dashboard"
@@ -99,6 +111,10 @@ const App = () => {
             element={<AdminListings />}
           />
           <Route
+            path="listings/:listingId/edit"
+            element={<AdminEditListing />}
+          />
+          <Route
             path="admin-create-listing"
             element={<AdminCreateListing />}
           />
@@ -111,8 +127,8 @@ const App = () => {
             element={<AdminLogs />}
           />
           <Route
-            path="expired-listings"
-            element={<AdminExpiredListings />}
+            path="notifications"
+            element={<AdminNotifications />}
           />
 
           <Route
@@ -136,13 +152,13 @@ const App = () => {
             element={<AdminContacts />}
           />
         </Route>
-
         {/* Невідома адреса */}
         <Route
           path="*"
           element={<Home />}
         />
       </Routes>
+
     </BrowserRouter>
   );
 };

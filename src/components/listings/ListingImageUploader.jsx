@@ -104,23 +104,26 @@ export default function ListingImageUploader({
         ]);
     };
 
-    const handleRemoveImage = (index) => {
-        const imageToRemove =
-            images[index];
+const handleRemoveImage = (index) => {
+    const imageToRemove =
+        images[index];
 
-        if (imageToRemove?.previewUrl) {
-            URL.revokeObjectURL(
-                imageToRemove.previewUrl
-            );
-        }
-
-        onChange(
-            images.filter(
-                (_, imageIndex) =>
-                    imageIndex !== index
-            )
+    if (
+        !imageToRemove?.isExisting &&
+        imageToRemove?.previewUrl
+    ) {
+        URL.revokeObjectURL(
+            imageToRemove.previewUrl
         );
-    };
+    }
+
+    onChange(
+        images.filter(
+            (_, imageIndex) =>
+                imageIndex !== index
+        )
+    );
+};
 
     return (
         <div>

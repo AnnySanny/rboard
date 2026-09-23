@@ -12,7 +12,7 @@ import {
     query,
     where,
 } from "firebase/firestore";
-
+import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import UserListingsStatistics from "../../components/listings/UserListingsStatistics";
 import Navbar from "../../components/Navbar";
@@ -120,6 +120,8 @@ const getCurrentUser = () => {
 };
 
 const UserListings = () => {
+
+    const navigate = useNavigate();
     const [listings, setListings] =
         useState([]);
 
@@ -881,34 +883,48 @@ const UserListings = () => {
                                                                         "Опис не вказано"}
                                                                 </p>
                                                             </div>
-                                                              <ListingImageGallery
-                                                            images={listing.images}
-                                                        />
+                                                            <ListingImageGallery
+                                                                images={listing.images}
+                                                            />
                                                         </div>
-                                                      
-                                                        {/* Видалити */}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleDelete(
-                                                                    listing
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                deletingId ===
-                                                                listing.id
-                                                            }
-                                                            className="flex h-10 w-10 shrink-0 items-center justify-center self-end rounded-xl border border-red-100 bg-red-50 text-red-500 transition hover:border-red-200 hover:bg-red-100 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 lg:self-start"
-                                                            aria-label="Видалити оголошення"
-                                                            title="Видалити оголошення"
-                                                        >
-                                                            {deletingId ===
-                                                                listing.id ? (
-                                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
-                                                            ) : (
-                                                                <TrashIcon />
-                                                            )}
-                                                        </button>
+
+                                                        {/* Дії */}
+                                                        <div className="flex shrink-0 items-center gap-2 self-end lg:self-start">
+                                                            {/* Редагувати */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    navigate(
+                                                                        `/user/listings/${listing.id}/edit`
+                                                                    )
+                                                                }
+                                                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 transition hover:border-blue-200 hover:bg-blue-100 hover:text-blue-700"
+                                                                aria-label="Редагувати оголошення"
+                                                                title="Редагувати оголошення"
+                                                            >
+                                                                <EditIcon />
+                                                            </button>
+
+                                                            {/* Видалити */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handleDelete(listing)
+                                                                }
+                                                                disabled={
+                                                                    deletingId === listing.id
+                                                                }
+                                                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-500 transition hover:border-red-200 hover:bg-red-100 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                aria-label="Видалити оголошення"
+                                                                title="Видалити оголошення"
+                                                            >
+                                                                {deletingId === listing.id ? (
+                                                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
+                                                                ) : (
+                                                                    <TrashIcon />
+                                                                )}
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </article>
                                             );
@@ -1013,5 +1029,18 @@ const TrashIcon = () => (
         <path d="M14 11v5" />
     </svg>
 );
-
+const EditIcon = () => (
+    <svg
+        className="h-5 w-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+    >
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+);
 export default UserListings;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
-
+import { useNavigate } from "react-router-dom";
 import {
     collection,
     deleteDoc,
@@ -277,6 +277,7 @@ const getRemainingTime = (expiresAt) => {
     };
 };
 const AdminListings = () => {
+    const navigate = useNavigate();
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
@@ -1452,9 +1453,9 @@ const AdminListings = () => {
                                                 </p>
                                             </div>
                                         )}
-    <ListingImageGallery
-    images={listing.images}
-/>
+                                        <ListingImageGallery
+                                            images={listing.images}
+                                        />
                                         <div className="mt-auto border-t border-slate-100 pt-5">
                                             <label
                                                 htmlFor={`status-${listing.id}`}
@@ -1540,26 +1541,59 @@ const AdminListings = () => {
                                                         )
                                                     )}
                                                 </select>
-                                                <button
-                                                    type="button"
-                                                    disabled={
-                                                        isUpdating ||
-                                                        isDeleting
-                                                    }
-                                                    onClick={() =>
-                                                        handleDeleteListing(
-                                                            listing
-                                                        )
-                                                    }
-                                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-bold text-red-700 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    {isDeleting ? (
-                                                        <>
+                                                <div className="flex shrink-0 items-center gap-2">
+                                                    {/* Редагувати */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/dashboard/listings/${listing.id}/edit`
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            isUpdating ||
+                                                            isDeleting ||
+                                                            isExtending
+                                                        }
+                                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 transition hover:border-blue-300 hover:bg-blue-100 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        title="Редагувати оголошення"
+                                                        aria-label="Редагувати оголошення"
+                                                    >
+                                                        <svg
+                                                            className="h-4 w-4"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M12 20h9" />
+                                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                                        </svg>
+                                                    </button>
+
+                                                    {/* Видалити */}
+                                                    <button
+                                                        type="button"
+                                                        disabled={
+                                                            isUpdating ||
+                                                            isDeleting ||
+                                                            isExtending
+                                                        }
+                                                        onClick={() =>
+                                                            handleDeleteListing(
+                                                                listing
+                                                            )
+                                                        }
+                                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        title="Видалити оголошення"
+                                                        aria-label="Видалити оголошення"
+                                                    >
+                                                        {isDeleting ? (
                                                             <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-700" />
-                                                            Видалення...
-                                                        </>
-                                                    ) : (
-                                                        <>
+                                                        ) : (
                                                             <svg
                                                                 className="h-4 w-4"
                                                                 viewBox="0 0 24 24"
@@ -1576,11 +1610,9 @@ const AdminListings = () => {
                                                                 <path d="M10 11v5" />
                                                                 <path d="M14 11v5" />
                                                             </svg>
-
-                                                            Видалити
-                                                        </>
-                                                    )}
-                                                </button>
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             {isUpdating && (

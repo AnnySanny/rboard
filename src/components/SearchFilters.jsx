@@ -13,7 +13,24 @@ const categories = [
   "Оголошення громади",
   "Інше",
 ];
+const getCurrentUser = () => {
+    try {
+        const savedUser =
+            localStorage.getItem(
+                "rboardUser"
+            );
 
+        if (!savedUser) {
+            return null;
+        }
+
+        return JSON.parse(
+            savedUser
+        );
+    } catch {
+        return null;
+    }
+};
 const SearchFilters = ({
   search,
   setSearch,
@@ -25,6 +42,16 @@ const SearchFilters = ({
   viewMode,
   setViewMode,
 }) => {
+  const currentUser =
+    getCurrentUser();
+
+const visibleCategories =
+    currentUser?.id
+        ? [
+              ...categories,
+              "Обрані",
+          ]
+        : categories;
   const hasActiveFilters =
     search.trim() !== "" ||
     activeCategory !== "Усі" ||
@@ -147,7 +174,7 @@ const SearchFilters = ({
           }
           className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-4 pr-10 text-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
         >
-          {categories.map((category) => (
+          {visibleCategories.map((category) => (
             <option
               key={category}
               value={category}
@@ -170,7 +197,7 @@ const SearchFilters = ({
 
       {/* Категорії на ПК */}
       <div className="mt-4 hidden flex-wrap justify-center gap-2 sm:flex">
-        {categories.map((category) => {
+        {visibleCategories.map((category) => {
           const isActive =
             activeCategory === category;
 

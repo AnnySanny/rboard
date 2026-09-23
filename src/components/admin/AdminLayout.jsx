@@ -18,9 +18,9 @@ const adminPages = {
         title: "Оголошення",
     },
 
-    expiredListings: {
-        path: "/dashboard/expired-listings",
-        title: "Прострочені оголошення",
+    notifications: {
+        path: "/dashboard/notifications",
+        title: "Повідомлення",
     },
 
     "create-listing": {
@@ -67,22 +67,31 @@ const AdminLayout = () => {
         "dashboard",
     ]);
 
+const activePageKey = useMemo(() => {
     /*
-     * Визначаємо, яка сторінка зараз відкрита
+     * Сторінка редагування оголошення
+     * належить до вкладки "Оголошення".
      */
-    const activePageKey = useMemo(() => {
-        const currentPage = Object.entries(
-            adminPages
-        ).find(
-            ([, page]) =>
-                page.path === location.pathname
-        );
+    if (
+        location.pathname.startsWith(
+            "/dashboard/listings/"
+        )
+    ) {
+        return "listings";
+    }
 
-        return (
-            currentPage?.[0] ||
-            "dashboard"
-        );
-    }, [location.pathname]);
+    const currentPage = Object.entries(
+        adminPages
+    ).find(
+        ([, page]) =>
+            page.path === location.pathname
+    );
+
+    return (
+        currentPage?.[0] ||
+        "dashboard"
+    );
+}, [location.pathname]);
 
     /*
      * Якщо користувач потрапив на сторінку

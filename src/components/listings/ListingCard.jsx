@@ -1,3 +1,5 @@
+
+import FavoriteButton from "./FavoriteButton";
 const formatDate = (date) => {
   if (!date) {
     return "Дата не вказана";
@@ -145,6 +147,9 @@ const ListingCard = ({
             </svg>
           </span>
         </div>
+              <FavoriteButton
+    listing={listing}
+/>
       </div>
     </article>
   );

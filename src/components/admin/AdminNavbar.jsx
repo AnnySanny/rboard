@@ -13,7 +13,7 @@ import {
     LogOut,
     Menu,
     X,
-    Clock3,
+    Mail,
     MapPinned,
     ChartNoAxesCombined,
 } from "lucide-react";
@@ -36,10 +36,10 @@ const menuItems = [
         icon: List,
     },
     {
-        key: "expiredListings",
-        to: "/dashboard/expired-listings",
-        title: "Прострочені оголошення",
-        icon: Clock3,
+        key: "notifications",
+        to: "/dashboard/notifications",
+        title: "Повідомлення",
+         icon: Mail,
     },
     {
         key: "create-listing",

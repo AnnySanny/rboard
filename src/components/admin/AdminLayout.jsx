@@ -17,12 +17,6 @@ const adminPages = {
         path: "/dashboard/listings",
         title: "Оголошення",
     },
-
-    notifications: {
-        path: "/dashboard/notifications",
-        title: "Повідомлення",
-    },
-
     "create-listing": {
         path: "/dashboard/admin-create-listing",
         title: "Додати оголошення",

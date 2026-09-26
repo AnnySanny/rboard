@@ -233,6 +233,104 @@ const calculateExtendedDate = (
 
     return newDate;
 };
+const getListingContacts = (listing) => {
+    const contacts = [];
+
+    const mainContact =
+        listing.contactOriginal ||
+        listing.contact;
+
+    if (mainContact) {
+        contacts.push({
+            key: "main",
+            label: "Основний",
+            value: mainContact.trim(),
+            type: "contact",
+        });
+    }
+
+    const additionalContacts =
+        listing.additionalContacts || {};
+
+    const contactConfig = {
+        instagram: {
+            label: "Instagram",
+            type: "link",
+        },
+        telegram: {
+            label: "Telegram",
+            type: "contact",
+        },
+        viber: {
+            label: "Viber",
+            type: "contact",
+        },
+        whatsapp: {
+            label: "WhatsApp",
+            type: "contact",
+        },
+        facebook: {
+            label: "Facebook",
+            type: "link",
+        },
+    };
+
+    Object.entries(contactConfig).forEach(
+        ([key, config]) => {
+            const value =
+                additionalContacts[key];
+
+            if (
+                typeof value !== "string" ||
+                !value.trim()
+            ) {
+                return;
+            }
+
+            contacts.push({
+                key,
+                label: config.label,
+                value: value.trim(),
+                type: config.type,
+            });
+        }
+    );
+
+    const groupedContacts = [];
+
+    contacts.forEach((contact) => {
+        const normalizedValue =
+            contact.type === "contact"
+                ? contact.value.replace(/\D/g, "")
+                : contact.value
+                    .toLowerCase()
+                    .replace(/\/+$/, "");
+
+        const existingGroup =
+            groupedContacts.find(
+                (group) =>
+                    group.normalizedValue ===
+                    normalizedValue
+            );
+
+        if (existingGroup) {
+            existingGroup.labels.push(
+                contact.label
+            );
+            return;
+        }
+
+        groupedContacts.push({
+            key: contact.key,
+            labels: [contact.label],
+            value: contact.value,
+            type: contact.type,
+            normalizedValue,
+        });
+    });
+
+    return groupedContacts;
+};
 const getRemainingTime = (expiresAt) => {
     const expirationDate =
         getDateFromFirestore(expiresAt);
@@ -1271,6 +1369,8 @@ const AdminListings = () => {
                                     getRemainingTime(
                                         listing.expiresAt
                                     );
+                                const listingContacts =
+                                    getListingContacts(listing);
                                 return (
                                     <article
                                         key={listing.id}
@@ -1345,15 +1445,59 @@ const AdminListings = () => {
                                                     "Не вказано"
                                                 }
                                             />
+                                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                    Контакти
+                                                </p>
 
-                                            <InfoItem
-                                                label="Контакт"
-                                                value={
-                                                    listing.contactOriginal ||
-                                                    listing.contact ||
-                                                    "Не вказано"
-                                                }
-                                            />
+                                                {listingContacts.length > 0 ? (
+                                                    <div className="mt-2 divide-y divide-slate-200">
+                                                        {listingContacts.map(
+                                                            (contact) => (
+                                                                <div
+                                                                    key={contact.key}
+                                                                    className="py-2 first:pt-0 last:pb-0"
+                                                                >
+                                                                    <p className="text-xs font-bold text-slate-500">
+                                                                        {contact.labels.join(
+                                                                            ", "
+                                                                        )}
+                                                                    </p>
+
+                                                                    {contact.type ===
+                                                                        "link" ? (
+                                                                        <a
+                                                                            href={
+                                                                                contact.value.startsWith(
+                                                                                    "http://"
+                                                                                ) ||
+                                                                                    contact.value.startsWith(
+                                                                                        "https://"
+                                                                                    )
+                                                                                    ? contact.value
+                                                                                    : `https://${contact.value}`
+                                                                            }
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="mt-0.5 block break-all text-sm font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
+                                                                        >
+                                                                            {contact.value}
+                                                                        </a>
+                                                                    ) : (
+                                                                        <p className="mt-0.5 break-all text-sm font-semibold text-slate-800">
+                                                                            {contact.value}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <p className="mt-2 text-sm font-medium text-slate-400">
+                                                        Не вказано
+                                                    </p>
+                                                )}
+                                            </div>
 
                                             <InfoItem
                                                 label="Місто та адреса"

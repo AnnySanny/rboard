@@ -119,6 +119,137 @@ const getCurrentUser = () => {
     }
 };
 
+
+
+
+const getListingContacts = (listing) => {
+    const contacts = [];
+
+    const mainContact =
+        listing.contactOriginal ||
+        listing.contact;
+
+    if (mainContact) {
+        contacts.push({
+            key: "main",
+            label: "Основний",
+            value: String(mainContact).trim(),
+            type: "phone",
+        });
+    }
+
+    const additional =
+        listing.additionalContacts || {};
+
+    const phoneContacts = [
+        {
+            key: "telegram",
+            label: "Telegram",
+        },
+        {
+            key: "viber",
+            label: "Viber",
+        },
+        {
+            key: "whatsapp",
+            label: "WhatsApp",
+        },
+    ];
+
+    phoneContacts.forEach(
+        ({ key, label }) => {
+            const value = additional[key];
+
+            if (
+                typeof value === "string" &&
+                value.trim()
+            ) {
+                contacts.push({
+                    key,
+                    label,
+                    value: value.trim(),
+                    type: "phone",
+                });
+            }
+        }
+    );
+
+    const groupedContacts = [];
+
+    contacts.forEach((contact) => {
+        const normalizedValue =
+            contact.value.replace(/\D/g, "");
+
+        if (!normalizedValue) {
+            return;
+        }
+
+        const existing =
+            groupedContacts.find(
+                (item) =>
+                    item.normalizedValue ===
+                    normalizedValue
+            );
+
+        if (existing) {
+            existing.labels.push(
+                contact.label
+            );
+            return;
+        }
+
+        groupedContacts.push({
+            key: contact.key,
+            labels: [contact.label],
+            value: contact.value,
+            normalizedValue,
+        });
+    });
+
+    const socialLinks = [];
+
+    if (
+        typeof additional.instagram ===
+        "string" &&
+        additional.instagram.trim()
+    ) {
+        socialLinks.push({
+            key: "instagram",
+            label: "Instagram",
+            value: additional.instagram.trim(),
+        });
+    }
+
+    if (
+        typeof additional.facebook ===
+        "string" &&
+        additional.facebook.trim()
+    ) {
+        socialLinks.push({
+            key: "facebook",
+            label: "Facebook",
+            value: additional.facebook.trim(),
+        });
+    }
+
+    return {
+        groupedContacts,
+        socialLinks,
+    };
+};
+
+const getSafeUrl = (value) => {
+    const url = String(value || "").trim();
+
+    if (
+        url.startsWith("https://") ||
+        url.startsWith("http://")
+    ) {
+        return url;
+    }
+
+    return `https://${url}`;
+};
 const UserListings = () => {
 
     const navigate = useNavigate();
@@ -200,7 +331,14 @@ const UserListings = () => {
                                     data.contactOriginal ||
                                     data.contact ||
                                     "",
+                                contactOriginal:
+                                    data.contactOriginal || "",
 
+                                additionalContacts:
+                                    data.additionalContacts &&
+                                        typeof data.additionalContacts === "object"
+                                        ? data.additionalContacts
+                                        : {},
                                 city:
                                     data.city || null,
 
@@ -764,6 +902,11 @@ const UserListings = () => {
                                                     listing.status
                                                 );
 
+                                            const {
+                                                groupedContacts,
+                                                socialLinks,
+                                            } = getListingContacts(listing);
+
                                             return (
                                                 <article
                                                     key={
@@ -855,14 +998,61 @@ const UserListings = () => {
                                                                     }
                                                                 />
 
-                                                                <InfoItem
-                                                                    label="Контакт"
-                                                                    value={
-                                                                        listing.contact ||
-                                                                        "Не вказано"
-                                                                    }
-                                                                    blue
-                                                                />
+                                                                <div>
+                                                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                                        Контакти
+                                                                    </p>
+
+                                                                    {groupedContacts.length === 0 &&
+                                                                        socialLinks.length === 0 ? (
+                                                                        <p className="mt-1 text-sm font-semibold text-slate-500">
+                                                                            Не вказано
+                                                                        </p>
+                                                                    ) : (
+                                                                        <div className="mt-2 space-y-2">
+                                                                            {groupedContacts.map(
+                                                                                (contact) => (
+                                                                                    <div
+                                                                                        key={
+                                                                                            contact.normalizedValue
+                                                                                        }
+                                                                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5"
+                                                                                    >
+                                                                                        <p className="text-[11px] font-bold text-slate-400">
+                                                                                            {contact.labels.join(
+                                                                                                ", "
+                                                                                            )}
+                                                                                        </p>
+
+                                                                                        <p className="mt-0.5 break-all text-sm font-bold text-slate-800">
+                                                                                            {contact.value}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                )
+                                                                            )}
+
+                                                                            {socialLinks.length > 0 && (
+                                                                                <div className="flex flex-wrap gap-2">
+                                                                                    {socialLinks.map(
+                                                                                        (contact) => (
+                                                                                            <a
+                                                                                                key={contact.key}
+                                                                                                href={getSafeUrl(
+                                                                                                    contact.value
+                                                                                                )}
+                                                                                                target="_blank"
+                                                                                                rel="noopener noreferrer"
+                                                                                                className="inline-flex items-center rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-600 transition hover:border-blue-200 hover:bg-blue-100 hover:text-blue-700"
+                                                                                            >
+                                                                                                {contact.label}
+                                                                                            </a>
+                                                                                        )
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
 
                                                                 <InfoItem
                                                                     label="Місце"

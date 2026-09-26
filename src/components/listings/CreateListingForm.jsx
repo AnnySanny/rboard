@@ -12,6 +12,7 @@ import {
 import { db } from "../../firebase";
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
+import ListingContacts from "./ListingContacts";
 const MAX_GUEST_LISTINGS = 3;
 const LIMIT_PERIOD_DAYS = 7;
 const CLOUDINARY_CLOUD_NAME =
@@ -69,7 +70,28 @@ const LISTING_TYPES = [
     "Оголошення громади",
     "Інше",
 ];
-
+const initialAdditionalContacts = {
+    instagram: {
+        enabled: false,
+        value: "",
+    },
+    telegram: {
+        enabled: false,
+        value: "",
+    },
+    viber: {
+        enabled: false,
+        value: "",
+    },
+    whatsapp: {
+        enabled: false,
+        value: "",
+    },
+    facebook: {
+        enabled: false,
+        value: "",
+    },
+};
 const initialForm = {
     authorName: "",
     contact: "",
@@ -78,6 +100,7 @@ const initialForm = {
     city: null,
     street: "",
     comment: "",
+    additionalContacts: initialAdditionalContacts,
 };
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -242,7 +265,20 @@ export default function CreateListingForm({
             form: "",
         }));
     };
+    const handleAdditionalContactsChange = (
+        additionalContacts
+    ) => {
+        setForm((previousForm) => ({
+            ...previousForm,
+            additionalContacts,
+        }));
 
+        setErrors((previousErrors) => ({
+            ...previousErrors,
+            additionalContacts: "",
+            form: "",
+        }));
+    };
     const handleCityChange = (city) => {
         setForm((previousForm) => ({
             ...previousForm,
@@ -319,16 +355,69 @@ export default function CreateListingForm({
             newErrors.comment =
                 "Коментар не може перевищувати 1500 символів.";
         }
+        if (isAuthenticated) {
+            const enabledAdditionalContacts =
+                Object.values(
+                    form.additionalContacts
+                ).filter(
+                    (contact) =>
+                        contact.enabled
+                );
 
+            const hasEmptyAdditionalContact =
+                enabledAdditionalContacts.some(
+                    (contact) =>
+                        !contact.value.trim()
+                );
+
+            if (hasEmptyAdditionalContact) {
+                newErrors.additionalContacts =
+                    "Заповніть усі вибрані способи зв’язку або вимкніть їх.";
+            }
+        }
         setErrors(newErrors);
 
         return Object.keys(newErrors).length === 0;
     };
+    const getCleanAdditionalContacts = () => {
+        if (!isAuthenticated) {
+            return {};
+        }
 
+        const phoneContacts = [
+            "telegram",
+            "viber",
+            "whatsapp",
+        ];
+
+        return Object.entries(
+            form.additionalContacts
+        ).reduce(
+            (result, [key, contact]) => {
+                const value =
+                    contact.value.trim();
+
+                if (
+                    !contact.enabled ||
+                    !value
+                ) {
+                    return result;
+                }
+
+                result[key] =
+                    phoneContacts.includes(key)
+                        ? normalizeContact(value)
+                        : value;
+
+                return result;
+            },
+            {}
+        );
+    };
     const createListingData = (
         uploadedImages = []
     ) => {
-        return {
+        const listingData = {
             authorName:
                 form.authorName.trim(),
 
@@ -400,8 +489,20 @@ export default function CreateListingForm({
 
             expiresAt: null,
         };
-    };
 
+        const additionalContacts =
+            getCleanAdditionalContacts();
+
+        if (
+            Object.keys(additionalContacts)
+                .length > 0
+        ) {
+            listingData.additionalContacts =
+                additionalContacts;
+        }
+
+        return listingData;
+    };
     const createAuthenticatedListing =
         async (uploadedImages) => {
             const listingRef = doc(
@@ -1001,6 +1102,28 @@ export default function CreateListingForm({
                     </p>
                 )}
             </div>
+            {isAuthenticated && (
+                <>
+                    <ListingContacts
+                        value={
+                            form.additionalContacts
+                        }
+                        onChange={
+                            handleAdditionalContactsChange
+                        }
+                        disabled={submitting}
+                    />
+
+                    {errors.additionalContacts && (
+                        <p className="-mt-4 text-sm font-medium text-red-600">
+                            {
+                                errors.additionalContacts
+                            }
+                        </p>
+                    )}
+                </>
+            )}
+
             {isAuthenticated && (
                 <ListingImageUploader
                     images={images}

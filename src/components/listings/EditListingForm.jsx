@@ -2,6 +2,7 @@ import { useState } from "react";
 import Swal from "sweetalert2";
 
 import {
+    deleteField,
     doc,
     serverTimestamp,
     updateDoc,
@@ -10,7 +11,7 @@ import {
 import { db } from "../../firebase";
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
-
+import ListingContacts from "./ListingContacts";
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -60,7 +61,7 @@ const uploadToCloudinary = async (file) => {
     if (!response.ok) {
         throw new Error(
             data.error?.message ||
-                "Не вдалося завантажити фотографію"
+            "Не вдалося завантажити фотографію"
         );
     }
 
@@ -110,7 +111,39 @@ const getCleanCity = (city) => {
         longitude: city?.longitude ?? null,
     };
 };
+const createInitialAdditionalContacts = (
+    additionalContacts = {}
+) => {
+    const getContact = (key) => {
+        const value =
+            typeof additionalContacts[key] ===
+                "string"
+                ? additionalContacts[key]
+                : "";
 
+        return {
+            enabled: Boolean(value.trim()),
+            value,
+        };
+    };
+
+    return {
+        instagram:
+            getContact("instagram"),
+
+        telegram:
+            getContact("telegram"),
+
+        viber:
+            getContact("viber"),
+
+        whatsapp:
+            getContact("whatsapp"),
+
+        facebook:
+            getContact("facebook"),
+    };
+};
 export default function EditListingForm({
     listing,
     onSuccess,
@@ -138,6 +171,10 @@ export default function EditListingForm({
 
         comment:
             listing.comment || "",
+        additionalContacts:
+            createInitialAdditionalContacts(
+                listing.additionalContacts
+            ),
     });
 
     /*
@@ -149,19 +186,19 @@ export default function EditListingForm({
     const [images, setImages] = useState(
         Array.isArray(listing.images)
             ? listing.images.map(
-                  (image, index) => ({
-                      ...image,
+                (image, index) => ({
+                    ...image,
 
-                      id:
-                          image.imagePublicId ||
-                          `existing-${index}`,
+                    id:
+                        image.imagePublicId ||
+                        `existing-${index}`,
 
-                      previewUrl:
-                          image.imageUrl,
+                    previewUrl:
+                        image.imageUrl,
 
-                      isExisting: true,
-                  })
-              )
+                    isExisting: true,
+                })
+            )
             : []
     );
 
@@ -199,7 +236,51 @@ export default function EditListingForm({
             form: "",
         }));
     };
+    const handleAdditionalContactsChange = (
+        additionalContacts
+    ) => {
+        setForm((previousForm) => ({
+            ...previousForm,
+            additionalContacts,
+        }));
 
+        setErrors((previousErrors) => ({
+            ...previousErrors,
+            additionalContacts: "",
+            form: "",
+        }));
+    };
+    const getCleanAdditionalContacts = () => {
+        const phoneContacts = [
+            "telegram",
+            "viber",
+            "whatsapp",
+        ];
+
+        return Object.entries(
+            form.additionalContacts
+        ).reduce(
+            (result, [key, contact]) => {
+                const value =
+                    contact.value.trim();
+
+                if (
+                    !contact.enabled ||
+                    !value
+                ) {
+                    return result;
+                }
+
+                result[key] =
+                    phoneContacts.includes(key)
+                        ? normalizeContact(value)
+                        : value;
+
+                return result;
+            },
+            {}
+        );
+    };
     const validateForm = () => {
         const newErrors = {};
 
@@ -283,7 +364,23 @@ export default function EditListingForm({
             newErrors.comment =
                 "Коментар не може перевищувати 1500 символів.";
         }
+                const enabledAdditionalContacts =
+            Object.values(
+                form.additionalContacts
+            ).filter(
+                (contact) => contact.enabled
+            );
 
+        const hasEmptyAdditionalContact =
+            enabledAdditionalContacts.some(
+                (contact) =>
+                    !contact.value.trim()
+            );
+
+        if (hasEmptyAdditionalContact) {
+            newErrors.additionalContacts =
+                "Заповніть вибрані способи зв’язку або вимкніть їх.";
+        }
         setErrors(newErrors);
 
         return (
@@ -373,7 +470,8 @@ export default function EditListingForm({
                 "listings",
                 listing.id
             );
-
+            const additionalContacts =
+                getCleanAdditionalContacts();
             await updateDoc(
                 listingRef,
                 {
@@ -389,6 +487,12 @@ export default function EditListingForm({
                         normalizeContact(
                             form.contact
                         ),
+                    additionalContacts:
+                        Object.keys(
+                            additionalContacts
+                        ).length > 0
+                            ? additionalContacts
+                            : deleteField(),
 
                     contactOriginal:
                         form.contact.trim(),
@@ -501,11 +605,10 @@ export default function EditListingForm({
     const inputClass = (
         fieldName
     ) => {
-        return `w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-4 ${
-            errors[fieldName]
-                ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-        }`;
+        return `w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-4 ${errors[fieldName]
+            ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+            : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+            }`;
     };
 
     return (
@@ -721,6 +824,22 @@ export default function EditListingForm({
                     </p>
                 )}
             </div>
+            {/* Додаткові контакти */}
+            <ListingContacts
+                value={
+                    form.additionalContacts
+                }
+                onChange={
+                    handleAdditionalContactsChange
+                }
+                disabled={submitting}
+            />
+
+            {errors.additionalContacts && (
+                <p className="-mt-4 text-sm font-medium text-red-600">
+                    {errors.additionalContacts}
+                </p>
+            )}
 
             {/* Фото */}
             <ListingImageUploader
@@ -728,7 +847,6 @@ export default function EditListingForm({
                 onChange={setImages}
                 disabled={submitting}
             />
-
             {/* Коментар */}
             <div>
                 <div className="mb-2 flex items-center justify-between gap-4">

@@ -38,8 +38,8 @@ const ListingCard = ({
   return (
     <article
       className={`group relative h-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm outline-none transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg focus-visible:ring-4 focus-visible:ring-blue-100 ${viewMode === "list"
-          ? "min-h-[180px] sm:flex sm:items-center sm:justify-between sm:p-6"
-          : "min-h-[230px]"
+        ? "min-h-[180px] sm:flex sm:items-center sm:justify-between sm:p-6"
+        : "min-h-[230px]"
         }`}
       onClick={onClick}
       onKeyDown={handleKeyDown}
@@ -91,14 +91,28 @@ const ListingCard = ({
           </span>
         </div>
 
-        <h2 className="mt-4 text-xl font-black leading-snug text-slate-950 transition group-hover:text-blue-700">
+        <h2
+          className="
+        mt-4
+        max-w-full
+        overflow-hidden
+        break-words
+        text-xl
+        font-black
+        leading-snug
+        text-slate-950
+        transition
+        group-hover:text-blue-700
+        line-clamp-2
+    "
+        >
           {listing.title}
         </h2>
 
         <p
           className={`mt-2 max-w-2xl text-sm leading-6 text-slate-600 ${viewMode === "grid"
-              ? "line-clamp-3"
-              : "line-clamp-2"
+            ? "line-clamp-3"
+            : "line-clamp-2"
             }`}
         >
           {listing.description ||
@@ -107,8 +121,8 @@ const ListingCard = ({
 
         <div
           className={`mt-auto flex flex-col gap-3 border-t border-slate-100 pt-5 ${viewMode === "list"
-              ? "sm:flex-row sm:items-center sm:justify-between"
-              : ""
+            ? "sm:flex-row sm:items-center sm:justify-between"
+            : ""
             }`}
         >
           <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-600">
@@ -147,9 +161,9 @@ const ListingCard = ({
             </svg>
           </span>
         </div>
-              <FavoriteButton
-    listing={listing}
-/>
+        <FavoriteButton
+          listing={listing}
+        />
       </div>
     </article>
   );

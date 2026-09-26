@@ -195,7 +195,11 @@ const Home = () => {
                                 data.contactOriginal ||
                                 data.contact ||
                                 "",
-
+                            additionalContacts:
+                                data.additionalContacts &&
+                                    typeof data.additionalContacts === "object"
+                                    ? data.additionalContacts
+                                    : {},
                             authorName:
                                 data.authorName || "",
                             views:

@@ -13,7 +13,6 @@ import {
     LogOut,
     Menu,
     X,
-    Mail,
     MapPinned,
     ChartNoAxesCombined,
 } from "lucide-react";
@@ -34,12 +33,6 @@ const menuItems = [
         to: "/dashboard/listings",
         title: "Оголошення",
         icon: List,
-    },
-    {
-        key: "notifications",
-        to: "/dashboard/notifications",
-        title: "Повідомлення",
-         icon: Mail,
     },
     {
         key: "create-listing",

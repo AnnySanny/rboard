@@ -21,7 +21,6 @@ import UserHome from "./pages/user/UserHome";
 import UserListings from "./pages/user/UserListings";
 import UserProfile from "./pages/user/UserProfile";
 import EditListing from "./pages/user/EditListing";
-import UserNotifications from "./pages/user/UserNotifications";
 // Компоненти адміністративної панелі
 import AdminLayout from "./components/admin/AdminLayout";
 
@@ -33,7 +32,6 @@ import AdminContacts from "./pages/admin/AdminContacts";
 import AdminCreateListing from "./pages/admin/AdminCreateListing";
 import AdminNews from "./pages/admin/AdminNews";
 import AdminLogs from "./pages/admin/AdminLogs";
-import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminTouristPlaces from "./pages/admin/AdminTouristPlaces";
 import AdminStatistics from "./pages/admin/AdminStatistics";
 import AdminEditListing from "./pages/admin/AdminEditListing";
@@ -86,10 +84,7 @@ const App = () => {
           path="/user/listings/:listingId/edit"
           element={<EditListing />}
         />
-        <Route
-          path="/user/notifications"
-          element={<UserNotifications />}
-        />
+
         {/* Захищена адміністративна панель */}
         <Route
           path="/dashboard"
@@ -126,11 +121,6 @@ const App = () => {
             path="logs"
             element={<AdminLogs />}
           />
-          <Route
-            path="notifications"
-            element={<AdminNotifications />}
-          />
-
           <Route
             path="tourist-places"
             element={<AdminTouristPlaces />}

@@ -153,12 +153,6 @@ const Navbar = () => {
                                 >
                                     Мої оголошення
                                 </NavLink>
-                                <NavLink
-                                    to="/user/notifications"
-                                    className={navLinkClass}
-                                >
-                                    Повідомлення
-                                </NavLink>
                             </>
                         ) : (
                             <>
@@ -332,13 +326,6 @@ const Navbar = () => {
                                         className={mobileNavLinkClass}
                                     >
                                         Мої оголошення
-                                    </NavLink>
-                                    <NavLink
-                                        to="/user/notifications"
-                                        onClick={closeMobileMenu}
-                                        className={mobileNavLinkClass}
-                                    >
-                                        Повідомлення
                                     </NavLink>
 
                                     <NavLink

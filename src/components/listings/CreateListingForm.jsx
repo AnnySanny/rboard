@@ -7,7 +7,6 @@ import {
     runTransaction,
     serverTimestamp,
     getDoc,
-    updateDoc,
 } from "firebase/firestore";
 import {
     onAuthStateChanged,
@@ -16,6 +15,10 @@ import {
     auth,
     db,
 } from "../../firebase";
+import {
+    isValidGuestContact,
+    normalizeContactValue,
+} from "../../utils/contactUtils";
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
 import ListingContacts from "./ListingContacts";
@@ -143,7 +146,8 @@ const normalizeContact = (contact) => {
 
 const createGuestLimitId = (name, contact) => {
     const normalizedName = normalizeName(name);
-    const normalizedContact = normalizeContact(contact);
+    const normalizedContact =
+        normalizeContactValue(contact);
 
     const rawValue = `${normalizedName}_${normalizedContact}`;
 
@@ -212,15 +216,8 @@ export default function CreateListingForm({
 
     const [authLoading, setAuthLoading] =
         useState(true);
-    const [
-        hidePhoneInListings,
-        setHidePhoneInListings,
-    ] = useState(false);
+    const [hidePhone, setHidePhone] = useState(false);
 
-    const [
-        savingPhoneVisibility,
-        setSavingPhoneVisibility,
-    ] = useState(false);
     const isAuthenticated =
         Boolean(currentUser);
 
@@ -288,9 +285,6 @@ export default function CreateListingForm({
 
                         const userData =
                             userSnapshot.data();
-                        setHidePhoneInListings(
-                            userData.hidePhoneInListings === true
-                        );
                         const profile = {
                             uid:
                                 firebaseUser.uid,
@@ -348,79 +342,7 @@ export default function CreateListingForm({
             unsubscribe();
         };
     }, []);
-    const handlePhoneVisibilityChange =
-        async (event) => {
-            const checked =
-                event.target.checked;
 
-            if (!currentUser?.uid) {
-                return;
-            }
-
-            const previousValue =
-                hidePhoneInListings;
-
-            setHidePhoneInListings(
-                checked
-            );
-
-            setSavingPhoneVisibility(
-                true
-            );
-
-            try {
-                await updateDoc(
-                    doc(
-                        db,
-                        "users",
-                        currentUser.uid
-                    ),
-                    {
-                        hidePhoneInListings:
-                            checked,
-                    }
-                );
-            } catch (error) {
-                console.error(
-                    "Помилка збереження видимості номера:",
-                    error
-                );
-
-                setHidePhoneInListings(
-                    previousValue
-                );
-
-                await Swal.fire({
-                    icon: "error",
-                    title:
-                        "Не вдалося зберегти налаштування",
-                    text:
-                        "Спробуйте ще раз.",
-                    confirmButtonText:
-                        "Закрити",
-                    confirmButtonColor:
-                        "#2563eb",
-                });
-            } finally {
-                setSavingPhoneVisibility(
-                    false
-                );
-            }
-        };
-    const handleChange = (event) => {
-        const { name, value } = event.target;
-
-        setForm((previousForm) => ({
-            ...previousForm,
-            [name]: value,
-        }));
-
-        setErrors((previousErrors) => ({
-            ...previousErrors,
-            [name]: "",
-            form: "",
-        }));
-    };
     const handleAdditionalContactsChange = (
         additionalContacts
     ) => {
@@ -469,13 +391,24 @@ export default function CreateListingForm({
 
         if (!contact) {
             newErrors.contact =
-                "Вкажіть електронну пошту або номер телефону.";
-        } else if (
-            !emailRegex.test(contact) &&
-            !phoneRegex.test(contact)
-        ) {
-            newErrors.contact =
-                "Введіть коректну пошту або номер телефону.";
+                "Вкажіть спосіб зв’язку.";
+        } else if (isAuthenticated) {
+            if (
+                !emailRegex.test(contact) &&
+                !phoneRegex.test(contact)
+            ) {
+                newErrors.contact =
+                    "Введіть коректну пошту або номер телефону.";
+            }
+        } else {
+            if (
+                !isValidGuestContact(
+                    contact
+                )
+            ) {
+                newErrors.contact =
+                    "Вкажіть коректний номер телефону, електрону пошту або посилання на соцмережу.";
+            }
         }
 
         if (!title) {
@@ -535,83 +468,98 @@ export default function CreateListingForm({
 
         return Object.keys(newErrors).length === 0;
     };
-   const getCleanAdditionalContacts = () => {
-    if (!isAuthenticated) {
-        return {};
-    }
+        const handleChange = (event) => {
+        const { name, value } = event.target;
 
-    return Object.entries(
-        form.additionalContacts
-    ).reduce(
-        (result, [key, contact]) => {
-            const value =
-                contact.value.trim();
+        setForm((previousForm) => ({
+            ...previousForm,
+            [name]: value,
+        }));
 
-            if (
-                !contact.enabled ||
-                !value
-            ) {
-                return result;
-            }
+        setErrors((previousErrors) => ({
+            ...previousErrors,
+            [name]: "",
+            form: "",
+        }));
+    };
+    const getCleanAdditionalContacts = () => {
+        if (!isAuthenticated) {
+            return {};
+        }
 
-            if (
-                key === "viber" ||
-                key === "whatsapp"
-            ) {
-                result[key] =
-                    normalizeContact(value);
+        return Object.entries(
+            form.additionalContacts
+        ).reduce(
+            (result, [key, contact]) => {
+                const value =
+                    contact.value.trim();
 
-                return result;
-            }
-
-            if (key === "telegram") {
                 if (
-                    value.startsWith("@")
+                    !contact.enabled ||
+                    !value
                 ) {
-                    result[key] = value;
-
                     return result;
                 }
 
                 if (
-                    /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
-                        value
-                    )
+                    key === "viber" ||
+                    key === "whatsapp"
                 ) {
-                    result[key] = value;
+                    result[key] =
+                        normalizeContact(value);
 
                     return result;
                 }
 
-                result[key] =
-                    normalizeContact(value);
+                if (key === "telegram") {
+                    if (
+                        value.startsWith("@")
+                    ) {
+                        result[key] = value;
+
+                        return result;
+                    }
+
+                    if (
+                        /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
+                            value
+                        )
+                    ) {
+                        result[key] = value;
+
+                        return result;
+                    }
+
+                    result[key] =
+                        normalizeContact(value);
+
+                    return result;
+                }
+
+                result[key] = value;
 
                 return result;
-            }
-
-            result[key] = value;
-
-            return result;
-        },
-        {}
-    );
-};
+            },
+            {}
+        );
+    };
     const createListingData = (
         uploadedImages = []
     ) => {
         const listingData = {
             authorName:
                 form.authorName.trim(),
-
+            hidePhone: isAuthenticated ? hidePhone : false,
             normalizedAuthorName:
                 normalizeName(
                     form.authorName
                 ),
 
             contact:
-                normalizeContact(
+                normalizeContactValue(
                     form.contact
                 ),
+
 
             contactOriginal:
                 form.contact.trim(),
@@ -840,9 +788,10 @@ export default function CreateListingForm({
                                 form.authorName
                             ),
 
-                        contact: normalizeContact(
-                            form.contact
-                        ),
+                        contact:
+                            normalizeContactValue(
+                                form.contact
+                            ),
 
                         contactOriginal:
                             form.contact.trim(),
@@ -1062,7 +1011,7 @@ export default function CreateListingForm({
 
             setForm(initialForm);
             setImages([]);
-
+            setHidePhone(false);
             await showSuccessAlert(
                 result.attemptsLeft
             );
@@ -1333,20 +1282,11 @@ export default function CreateListingForm({
             {isAuthenticated && (
                 <>
                     <ListingContacts
-                        value={
-                            form.additionalContacts
-                        }
-                        onChange={
-                            handleAdditionalContactsChange
-                        }
-                        hidePhoneInListings={
-                            hidePhoneInListings
-                        }
-                        onHidePhoneChange={
-                            handlePhoneVisibilityChange
-                        }
-                        savingPhoneVisibility={
-                            savingPhoneVisibility
+                        value={form.additionalContacts}
+                        onChange={handleAdditionalContactsChange}
+                        hidePhone={hidePhone}
+                        onHidePhoneChange={(event) =>
+                            setHidePhone(event.target.checked)
                         }
                         disabled={submitting}
                     />

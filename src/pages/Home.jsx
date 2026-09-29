@@ -366,6 +366,9 @@ const Home = () => {
                                     data.contact ||
                                     "",
 
+                                hidePhone:
+                                    data.hidePhone === true,
+
                                 additionalContacts:
                                     data.additionalContacts &&
                                         typeof data.additionalContacts === "object"

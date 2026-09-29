@@ -1,5 +1,4 @@
 import {
-    useEffect,
     useState,
 } from "react";
 import Swal from "sweetalert2";
@@ -7,12 +6,12 @@ import Swal from "sweetalert2";
 import {
     deleteField,
     doc,
-    getDoc,
     serverTimestamp,
     updateDoc,
 } from "firebase/firestore";
 
-import { auth, db } from "../../firebase";
+
+import { db } from "../../firebase";
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
 import ListingContacts from "./ListingContacts";
@@ -211,66 +210,10 @@ export default function EditListingForm({
 
     const [submitting, setSubmitting] =
         useState(false);
-const [
-    hidePhoneInListings,
-    setHidePhoneInListings,
-] = useState(false);
 
-const [
-    savingPhoneVisibility,
-    setSavingPhoneVisibility,
-] = useState(false);
-useEffect(() => {
-    let isActive = true;
-
-    const loadPhoneVisibility =
-        async () => {
-            const currentUser =
-                auth.currentUser;
-
-            if (!currentUser?.uid) {
-                return;
-            }
-
-            try {
-                const userSnapshot =
-                    await getDoc(
-                        doc(
-                            db,
-                            "users",
-                            currentUser.uid
-                        )
-                    );
-
-                if (
-                    !isActive ||
-                    !userSnapshot.exists()
-                ) {
-                    return;
-                }
-
-                const userData =
-                    userSnapshot.data();
-
-                setHidePhoneInListings(
-                    userData
-                        .hidePhoneInListings ===
-                        true
-                );
-            } catch (error) {
-                console.error(
-                    "Помилка завантаження налаштування видимості номера:",
-                    error
-                );
-            }
-        };
-
-    loadPhoneVisibility();
-
-    return () => {
-        isActive = false;
-    };
-}, []);
+const [hidePhone, setHidePhone] = useState(
+    listing.hidePhone === true
+);
     const handleChange = (event) => {
         const { name, value } =
             event.target;
@@ -576,6 +519,7 @@ const getCleanAdditionalContacts = () => {
                         normalizeContact(
                             form.contact
                         ),
+                          hidePhone,
                     additionalContacts:
                         Object.keys(
                             additionalContacts
@@ -699,68 +643,7 @@ const getCleanAdditionalContacts = () => {
             : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
             }`;
     };
-const handlePhoneVisibilityChange =
-    async (event) => {
-        const checked =
-            event.target.checked;
 
-        const currentUser =
-            auth.currentUser;
-
-        if (!currentUser?.uid) {
-            return;
-        }
-
-        const previousValue =
-            hidePhoneInListings;
-
-        setHidePhoneInListings(
-            checked
-        );
-
-        setSavingPhoneVisibility(
-            true
-        );
-
-        try {
-            await updateDoc(
-                doc(
-                    db,
-                    "users",
-                    currentUser.uid
-                ),
-                {
-                    hidePhoneInListings:
-                        checked,
-                }
-            );
-        } catch (error) {
-            console.error(
-                "Помилка збереження видимості номера:",
-                error
-            );
-
-            setHidePhoneInListings(
-                previousValue
-            );
-
-            await Swal.fire({
-                icon: "error",
-                title:
-                    "Не вдалося зберегти налаштування",
-                text:
-                    "Спробуйте ще раз.",
-                confirmButtonText:
-                    "Закрити",
-                confirmButtonColor:
-                    "#2563eb",
-            });
-        } finally {
-            setSavingPhoneVisibility(
-                false
-            );
-        }
-    };
     return (
         <form
             onSubmit={handleSubmit}
@@ -976,20 +859,11 @@ const handlePhoneVisibilityChange =
             </div>
             {/* Додаткові контакти */}
 <ListingContacts
-    value={
-        form.additionalContacts
-    }
-    onChange={
-        handleAdditionalContactsChange
-    }
-    hidePhoneInListings={
-        hidePhoneInListings
-    }
-    onHidePhoneChange={
-        handlePhoneVisibilityChange
-    }
-    savingPhoneVisibility={
-        savingPhoneVisibility
+    value={form.additionalContacts}
+    onChange={handleAdditionalContactsChange}
+    hidePhone={hidePhone}
+    onHidePhoneChange={(event) =>
+        setHidePhone(event.target.checked)
     }
     disabled={submitting}
 />

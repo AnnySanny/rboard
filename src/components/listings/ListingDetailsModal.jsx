@@ -4,13 +4,15 @@ import {
   Instagram,
   Facebook,
   Copy,
+  Mail,
 } from "lucide-react";
-import {
-  doc,
-  getDoc,
-} from "firebase/firestore";
 
-import { db } from "../../firebase";
+
+import {
+  CONTACT_TYPES,
+  detectContactType,
+  getContactHref,
+} from "../../utils/contactUtils";
 import {
   FaTelegramPlane,
   FaViber,
@@ -38,6 +40,334 @@ const formatDate = (value) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+
+const InfoItem = ({ label, value }) => {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 break-words text-sm font-semibold text-slate-800">
+        {value || "Не вказано"}
+      </p>
+    </div>
+  );
+};
+
+
+const getAdditionalContactValue = (
+  additional,
+  key
+) => {
+  const item = additional?.[key];
+
+  // Старий формат Firestore:
+  // telegram: "@username"
+  if (typeof item === "string") {
+    return item.trim();
+  }
+
+  // Новий/формовий формат:
+  // telegram: {
+  //     enabled: true,
+  //     value: "@username"
+  // }
+  if (
+    item &&
+    typeof item === "object" &&
+    item.enabled === true &&
+    typeof item.value === "string"
+  ) {
+    return item.value.trim();
+  }
+
+  return "";
+};
+
+const getContactRows = (
+  listing,
+  hideMainPhone = false
+) => {
+  if (!listing) {
+    return {
+      phoneRows: [],
+      links: [],
+    };
+  }
+
+  const phoneRows = [];
+  const links = [];
+
+  const addPhone = (
+    key,
+    value,
+    service = "main"
+  ) => {
+    const trimmed = String(
+      value || ""
+    ).trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    const normalized =
+      trimmed.replace(/\D/g, "");
+
+    if (!normalized) {
+      return;
+    }
+
+    const existingRow =
+      phoneRows.find(
+        (row) =>
+          row.normalized ===
+          normalized
+      );
+
+    if (existingRow) {
+      if (
+        !existingRow.services.includes(
+          service
+        )
+      ) {
+        existingRow.services.push(
+          service
+        );
+      }
+
+      return;
+    }
+
+    phoneRows.push({
+      key,
+      normalized,
+      value: trimmed,
+      services: [service],
+    });
+  };
+
+  const addLink = (
+    key,
+    value,
+    service,
+    type = "link"
+  ) => {
+    const trimmed = String(
+      value || ""
+    ).trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    links.push({
+      key,
+      service,
+      type,
+      value: trimmed,
+      href:
+        getContactHref(
+          trimmed
+        ),
+    });
+  };
+
+  /*
+   * ОСНОВНИЙ КОНТАКТ
+   *
+   * Для гостя це тепер може бути:
+   * телефон
+   * email
+   * Telegram
+   * Instagram
+   * Facebook
+   * WhatsApp
+   * Viber
+   */
+  const mainContact =
+    listing.contactOriginal ||
+    listing.contact ||
+    "";
+
+  if (mainContact && !hideMainPhone) {
+    const mainType =
+      detectContactType(
+        mainContact
+      );
+
+    switch (mainType) {
+      case CONTACT_TYPES.PHONE:
+        addPhone(
+          "main",
+          mainContact,
+          "main"
+        );
+        break;
+
+      case CONTACT_TYPES.EMAIL:
+        addLink(
+          "main-email",
+          mainContact,
+          "email",
+          "email"
+        );
+        break;
+
+      case CONTACT_TYPES.TELEGRAM:
+        addLink(
+          "main-telegram",
+          mainContact,
+          "telegram"
+        );
+        break;
+
+      case CONTACT_TYPES.INSTAGRAM:
+        addLink(
+          "main-instagram",
+          mainContact,
+          "instagram"
+        );
+        break;
+
+      case CONTACT_TYPES.FACEBOOK:
+        addLink(
+          "main-facebook",
+          mainContact,
+          "facebook"
+        );
+        break;
+
+      case CONTACT_TYPES.WHATSAPP:
+        addLink(
+          "main-whatsapp",
+          mainContact,
+          "whatsapp"
+        );
+        break;
+
+      case CONTACT_TYPES.VIBER:
+        addLink(
+          "main-viber",
+          mainContact,
+          "viber"
+        );
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  /*
+   * ДОДАТКОВІ КОНТАКТИ
+   * авторизованого користувача.
+   */
+  const additional =
+    listing.additionalContacts || {};
+
+  const telegram =
+    getAdditionalContactValue(
+      additional,
+      "telegram"
+    );
+
+  const viber =
+    getAdditionalContactValue(
+      additional,
+      "viber"
+    );
+
+  const whatsapp =
+    getAdditionalContactValue(
+      additional,
+      "whatsapp"
+    );
+
+  const instagram =
+    getAdditionalContactValue(
+      additional,
+      "instagram"
+    );
+
+  const facebook =
+    getAdditionalContactValue(
+      additional,
+      "facebook"
+    );
+
+  /*
+   * Telegram може бути як номером,
+   * так і @username / t.me.
+   */
+  if (telegram) {
+    const telegramType =
+      detectContactType(
+        telegram
+      );
+
+    if (
+      telegramType ===
+      CONTACT_TYPES.PHONE
+    ) {
+      addPhone(
+        "telegram",
+        telegram,
+        "telegram"
+      );
+    } else {
+      addLink(
+        "telegram",
+        telegram,
+        "telegram"
+      );
+    }
+  }
+
+  /*
+   * Viber та WhatsApp у додаткових
+   * контактах зараз зберігаються
+   * переважно як номери.
+   */
+  if (viber) {
+    addPhone(
+      "viber",
+      viber,
+      "viber"
+    );
+  }
+
+  if (whatsapp) {
+    addPhone(
+      "whatsapp",
+      whatsapp,
+      "whatsapp"
+    );
+  }
+
+  if (instagram) {
+    addLink(
+      "instagram",
+      instagram,
+      "instagram"
+    );
+  }
+
+  if (facebook) {
+    addLink(
+      "facebook",
+      facebook,
+      "facebook"
+    );
+  }
+
+  return {
+    phoneRows,
+    links,
+  };
 };
 
 const getRemainingTime = (
@@ -94,224 +424,6 @@ const getRemainingTime = (
     minutes,
   };
 };
-const InfoItem = ({ label, value }) => {
-  return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-1 break-words text-sm font-semibold text-slate-800">
-        {value || "Не вказано"}
-      </p>
-    </div>
-  );
-};
-const normalizePhoneForCompare = (value) => {
-  return String(value || "").replace(/\D/g, "");
-};
-
-const getContactRows = (
-  listing,
-  hideMainPhone = false
-) => {
-  if (!listing) {
-    return {
-      phoneRows: [],
-      links: [],
-    };
-  }
-
-  const contacts = [];
-  const links = [];
-
-  const mainContact =
-    listing.contactOriginal ||
-    listing.contact;
-
-  if (
-    mainContact &&
-    !hideMainPhone
-  ) {
-    contacts.push({
-      key: "main",
-      type: "phone",
-      service: "main",
-      value: mainContact,
-    });
-  }
-
-  const additional =
-    listing.additionalContacts || {};
-
-  const telegramData =
-    additional.telegram;
-
-  const telegramValue =
-    typeof telegramData === "string"
-      ? telegramData.trim()
-      : telegramData?.enabled &&
-        typeof telegramData?.value === "string"
-        ? telegramData.value.trim()
-        : "";
-
-  if (telegramValue) {
-    const normalizedTelegram =
-      telegramValue.toLowerCase();
-
-    const isTelegramUsername =
-      telegramValue.startsWith("@");
-
-    const isTelegramLink =
-      normalizedTelegram.startsWith(
-        "https://t.me/"
-      ) ||
-      normalizedTelegram.startsWith(
-        "http://t.me/"
-      ) ||
-      normalizedTelegram.startsWith(
-        "t.me/"
-      ) ||
-      normalizedTelegram.startsWith(
-        "https://telegram.me/"
-      ) ||
-      normalizedTelegram.startsWith(
-        "http://telegram.me/"
-      ) ||
-      normalizedTelegram.startsWith(
-        "telegram.me/"
-      );
-
-    if (
-      isTelegramUsername ||
-      isTelegramLink
-    ) {
-      let telegramUrl =
-        telegramValue;
-
-      if (isTelegramUsername) {
-        telegramUrl =
-          `https://t.me/${telegramValue.slice(
-            1
-          )}`;
-      } else if (
-        !/^https?:\/\//i.test(
-          telegramValue
-        )
-      ) {
-        telegramUrl =
-          `https://${telegramValue}`;
-      }
-
-      links.push({
-        key: "telegram",
-        service: "telegram",
-        value: telegramUrl,
-      });
-    } else {
-      contacts.push({
-        key: "telegram",
-        type: "phone",
-        service: "telegram",
-        value: telegramValue,
-      });
-    }
-  }
-
-  ["viber", "whatsapp"].forEach(
-    (service) => {
-      const value =
-        additional[service];
-
-      if (
-        typeof value ===
-        "string" &&
-        value.trim()
-      ) {
-        contacts.push({
-          key: service,
-          type: "phone",
-          service,
-          value: value.trim(),
-        });
-      }
-    }
-  );
-
-  const phoneRows = [];
-
-  contacts.forEach((contact) => {
-    const normalized =
-      normalizePhoneForCompare(
-        contact.value
-      );
-
-    if (!normalized) {
-      return;
-    }
-
-    const existingRow =
-      phoneRows.find(
-        (row) =>
-          row.normalized ===
-          normalized
-      );
-
-    if (existingRow) {
-      if (
-        !existingRow.services.includes(
-          contact.service
-        )
-      ) {
-        existingRow.services.push(
-          contact.service
-        );
-      }
-
-      return;
-    }
-
-    phoneRows.push({
-      key: contact.key,
-      normalized,
-      value: contact.value,
-      services: [
-        contact.service,
-      ],
-    });
-  });
-
-  if (
-    typeof additional.instagram ===
-    "string" &&
-    additional.instagram.trim()
-  ) {
-    links.push({
-      key: "instagram",
-      service: "instagram",
-      value:
-        additional.instagram.trim(),
-    });
-  }
-
-  if (
-    typeof additional.facebook ===
-    "string" &&
-    additional.facebook.trim()
-  ) {
-    links.push({
-      key: "facebook",
-      service: "facebook",
-      value:
-        additional.facebook.trim(),
-    });
-  }
-
-  return {
-    phoneRows,
-    links,
-  };
-};
 
 const getSafeUrl = (value) => {
   const trimmed = String(value || "").trim();
@@ -331,102 +443,9 @@ const ListingDetailsModal = ({
 }) => {
   const [currentTime, setCurrentTime] =
     useState(Date.now());
-  const [
-    hideMainPhone,
-    setHideMainPhone,
-  ] = useState(false);
 
-  const [
-    phoneVisibilityLoading,
-    setPhoneVisibilityLoading,
-  ] = useState(true);
 
-  useEffect(() => {
-    let isActive = true;
 
-    const loadPhoneVisibility =
-      async () => {
-        /*
-         * Поки перевіряємо налаштування,
-         * основний номер не показуємо.
-         *
-         * Це важливо, щоб прихований номер
-         * не мигнув на екрані на мить.
-         */
-        setPhoneVisibilityLoading(true);
-        setHideMainPhone(true);
-
-        const authorUid =
-          listing?.author?.uid;
-
-        /*
-         * Якщо UID немає — це, наприклад,
-         * гостьове оголошення.
-         *
-         * Для нього працює стара поведінка:
-         * основний контакт показуємо.
-         */
-        if (!authorUid) {
-          if (isActive) {
-            setHideMainPhone(false);
-            setPhoneVisibilityLoading(false);
-          }
-
-          return;
-        }
-
-        try {
-          const userSnapshot =
-            await getDoc(
-              doc(
-                db,
-                "users",
-                authorUid
-              )
-            );
-
-          if (!isActive) {
-            return;
-          }
-
-          if (!userSnapshot.exists()) {
-            setHideMainPhone(false);
-            return;
-          }
-
-          setHideMainPhone(
-            userSnapshot.data()
-              .hidePhoneInListings === true
-          );
-        } catch (error) {
-          console.error(
-            "Помилка завантаження налаштувань контактів:",
-            error
-          );
-
-          /*
-           * При помилці безпечніше
-           * не показувати основний номер.
-           */
-          if (isActive) {
-            setHideMainPhone(true);
-          }
-        } finally {
-          if (isActive) {
-            setPhoneVisibilityLoading(false);
-          }
-        }
-      };
-
-    loadPhoneVisibility();
-
-    return () => {
-      isActive = false;
-    };
-  }, [
-    listing?.id,
-    listing?.author?.uid,
-  ]);
   useEffect(() => {
     const interval = setInterval(
       () => {
@@ -444,6 +463,11 @@ const ListingDetailsModal = ({
       listing?.expiresAt,
       currentTime
     );
+
+
+  const hideMainPhone =
+    listing?.hidePhone === true;
+
   const {
     phoneRows,
     links: socialLinks,
@@ -548,7 +572,13 @@ const ListingDetailsModal = ({
             size={size}
           />
         );
-
+      case "email":
+        return (
+          <Mail
+            size={size}
+            strokeWidth={2.2}
+          />
+        );
       case "viber":
         return (
           <FaViber
@@ -772,11 +802,7 @@ const ListingDetailsModal = ({
               />
 
               <div>
-                {phoneVisibilityLoading ? (
-                  <p className="mt-1.5 text-xs font-semibold text-slate-400">
-                    Завантаження...
-                  </p>
-                ) : phoneRows.length === 0 &&
+                {phoneRows.length === 0 &&
                   socialLinks.length === 0 ? (
                   <p className="mt-1.5 text-xs font-semibold text-slate-800">
                     Не вказано
@@ -854,17 +880,17 @@ const ListingDetailsModal = ({
                     {socialLinks.length > 0 && (
                       <div className="border-t border-slate-200 pt-2.5">
                         <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                          Соціальні мережі та посилання
+                          Інші способи зв’язку
                         </p>
 
                         <div className="flex flex-wrap gap-1.5">
                           {socialLinks.map(
                             (contact) => {
                               const serviceData = {
-                                instagram: {
-                                  label: "Instagram",
+                                email: {
+                                  label: "Email",
                                   title:
-                                    "Відкрити Instagram",
+                                    "Написати на Email",
                                 },
 
                                 telegram: {
@@ -873,10 +899,28 @@ const ListingDetailsModal = ({
                                     "Відкрити Telegram",
                                 },
 
+                                instagram: {
+                                  label: "Instagram",
+                                  title:
+                                    "Відкрити Instagram",
+                                },
+
                                 facebook: {
                                   label: "Facebook",
                                   title:
                                     "Відкрити Facebook",
+                                },
+
+                                whatsapp: {
+                                  label: "WhatsApp",
+                                  title:
+                                    "Відкрити WhatsApp",
+                                },
+
+                                viber: {
+                                  label: "Viber",
+                                  title:
+                                    "Відкрити Viber",
                                 },
                               };
 
@@ -885,18 +929,35 @@ const ListingDetailsModal = ({
                                 contact.service
                                 ];
 
-                              if (!currentService) {
+                              if (
+                                !currentService
+                              ) {
                                 return null;
                               }
 
                               return (
                                 <a
-                                  key={contact.key}
-                                  href={getSafeUrl(
-                                    contact.value
-                                  )}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                  key={
+                                    contact.key
+                                  }
+                                  href={
+                                    contact.href ||
+                                    getSafeUrl(
+                                      contact.value
+                                    )
+                                  }
+                                  target={
+                                    contact.service ===
+                                      "email"
+                                      ? undefined
+                                      : "_blank"
+                                  }
+                                  rel={
+                                    contact.service ===
+                                      "email"
+                                      ? undefined
+                                      : "noopener noreferrer"
+                                  }
                                   title={
                                     currentService.title
                                   }

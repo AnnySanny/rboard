@@ -2094,6 +2094,12 @@ const AdminListings = () => {
                                                             ) : (
                                                                 <p className="mt-0.5 break-all text-sm font-semibold text-slate-800">
                                                                     {mainContact.value}
+
+                                                                    {listing.hidePhone === true && (
+                                                                        <span className="ml-1 font-medium text-blue-600">
+                                                                            (приховано)
+                                                                        </span>
+                                                                    )}
                                                                 </p>
                                                             )}
                                                         </div>

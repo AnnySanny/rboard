@@ -21,17 +21,17 @@ const CONTACT_TYPES = [
         inputMode: "url",
         hint: "Вкажіть посилання на профіль Instagram",
     },
-{
-    key: "telegram",
-    label: "Telegram",
-    placeholder:
-        "+380 XX XXX XX XX або https://t.me/username",
-    icon: FaTelegramPlane,
-    type: "text",
-    inputMode: "text",
-    hint:
-        "Вкажіть номер телефону або посилання на профіль Telegram",
-},
+    {
+        key: "telegram",
+        label: "Telegram",
+        placeholder:
+            "+380 XX XXX XX XX або https://t.me/username",
+        icon: FaTelegramPlane,
+        type: "text",
+        inputMode: "text",
+        hint:
+            "Вкажіть номер телефону або посилання на профіль Telegram",
+    },
     {
         key: "viber",
         label: "Viber",
@@ -65,11 +65,8 @@ const CONTACT_TYPES = [
 export default function ListingContacts({
     value,
     onChange,
-
-    hidePhoneInListings = false,
+    hidePhone = false,
     onHidePhoneChange,
-    savingPhoneVisibility = false,
-
     disabled = false,
 }) {
     const handleToggle = (key) => {
@@ -95,9 +92,7 @@ export default function ListingContacts({
         });
     };
 
-    const phoneVisibilityDisabled =
-        disabled ||
-        savingPhoneVisibility;
+
 
     return (
         <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6">
@@ -121,7 +116,7 @@ export default function ListingContacts({
                     border
                     bg-white
                     transition
-                    ${hidePhoneInListings
+                    ${hidePhone
                         ? "border-blue-200 shadow-sm"
                         : "border-slate-200"
                     }
@@ -133,7 +128,7 @@ export default function ListingContacts({
                         items-center
                         gap-3
                         p-4
-                        ${phoneVisibilityDisabled
+                        ${hidePhone
                             ? "cursor-not-allowed opacity-60"
                             : "cursor-pointer"
                         }
@@ -141,15 +136,13 @@ export default function ListingContacts({
                 >
                     <input
                         type="checkbox"
-                        checked={hidePhoneInListings === true}
+                        checked={hidePhone}
                         onChange={(event) => {
                             if (typeof onHidePhoneChange === "function") {
                                 onHidePhoneChange(event);
                             }
                         }}
-                        disabled={
-                            phoneVisibilityDisabled
-                        }
+                        disabled={disabled}
                         className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-blue-600"
                     />
 
@@ -163,7 +156,7 @@ export default function ListingContacts({
                             justify-center
                             rounded-xl
                             transition
-                            ${hidePhoneInListings
+                            ${hidePhone
                                 ? "bg-blue-50 text-blue-600"
                                 : "bg-slate-100 text-slate-500"
                             }
@@ -179,19 +172,14 @@ export default function ListingContacts({
                         <span className="block text-sm font-bold text-slate-700">
                             Не показувати номер телефону
                         </span>
-
                         <span className="mt-0.5 block text-xs leading-5 text-slate-400">
                             Приховати основний номер
-                            телефону у ваших оголошеннях
+                            телефону в цьому оголошенні
                         </span>
                     </div>
-
-                    {savingPhoneVisibility && (
-                        <span className="ml-auto h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
-                    )}
                 </label>
 
-                {hidePhoneInListings && (
+                {hidePhone && (
                     <div className="border-t border-blue-100 px-4 py-3">
                         <p className="text-xs leading-5 text-blue-700">
                             Рекомендуємо додати хоча б
@@ -221,14 +209,14 @@ export default function ListingContacts({
                                     contact.key
                                 }
                                 className={`rounded-2xl border bg-white transition ${contactState.enabled
-                                        ? "border-blue-200 shadow-sm"
-                                        : "border-slate-200"
+                                    ? "border-blue-200 shadow-sm"
+                                    : "border-slate-200"
                                     }`}
                             >
                                 <label
                                     className={`flex items-center gap-3 p-4 ${disabled
-                                            ? "cursor-not-allowed opacity-60"
-                                            : "cursor-pointer"
+                                        ? "cursor-not-allowed opacity-60"
+                                        : "cursor-pointer"
                                         }`}
                                 >
                                     <input
@@ -249,8 +237,8 @@ export default function ListingContacts({
 
                                     <span
                                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${contactState.enabled
-                                                ? "bg-blue-50 text-blue-600"
-                                                : "bg-slate-100 text-slate-500"
+                                            ? "bg-blue-50 text-blue-600"
+                                            : "bg-slate-100 text-slate-500"
                                             }`}
                                     >
                                         <Icon

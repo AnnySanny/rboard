@@ -178,7 +178,8 @@ const AdminEditListingForm = ({
                 listing.additionalContacts
             ),
     });
-
+    const [hidePhone, setHidePhone] =
+        useState(listing.hidePhone === true);
     /*
      * Старі фотографії перетворюємо
      * у формат, який розуміє
@@ -603,7 +604,7 @@ const AdminEditListingForm = ({
                         normalizeContact(
                             form.contact
                         ),
-
+                    hidePhone,
                     contactOriginal:
                         form.contact.trim(),
 
@@ -932,11 +933,11 @@ const AdminEditListingForm = ({
             {/* Додаткові контакти */}
             <div>
                 <ListingContacts
-                    value={
-                        form.additionalContacts
-                    }
-                    onChange={
-                        handleAdditionalContactsChange
+                    value={form.additionalContacts}
+                    onChange={handleAdditionalContactsChange}
+                    hidePhone={hidePhone}
+                    onHidePhoneChange={(event) =>
+                        setHidePhone(event.target.checked)
                     }
                     disabled={submitting}
                 />

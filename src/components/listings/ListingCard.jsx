@@ -154,9 +154,16 @@ const ListingCard = ({
             </svg>
           </span>
         </div>
-        <FavoriteButton
-          listing={listing}
-        />
+<div
+  className={
+    viewMode === "list"
+      ? "absolute right-[-20px] top-[55px] z-20 origin-center scale-150"
+      : ""
+  }
+  onClick={(event) => event.stopPropagation()}
+>
+  <FavoriteButton listing={listing} />
+</div>
       </div>
     </article>
   );

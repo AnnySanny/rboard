@@ -13,6 +13,39 @@
     <loc>https://rboard.netlify.app/contacts</loc>
   </url>
   <url>
-    <loc>https://rboard.netlify.app/listing/PbS8RINbwE3VVjbbknye</loc>
+    <loc>https://rboard.netlify.app/category/sale</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/buy</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/rent</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/services</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/jobs</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/questions</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/exchange</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/free</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/lost-found</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/events</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/community</loc>
+  </url>
+  <url>
+    <loc>https://rboard.netlify.app/category/other</loc>
   </url>
 </urlset>

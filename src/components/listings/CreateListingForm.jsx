@@ -7,6 +7,7 @@ import {
     runTransaction,
     serverTimestamp,
     getDoc,
+    updateDoc,
 } from "firebase/firestore";
 import {
     onAuthStateChanged,
@@ -18,6 +19,7 @@ import {
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
 import ListingContacts from "./ListingContacts";
+import GuestContactInput from "./GuestContactInput";
 const MAX_GUEST_LISTINGS = 3;
 const LIMIT_PERIOD_DAYS = 7;
 const CLOUDINARY_CLOUD_NAME =
@@ -210,7 +212,15 @@ export default function CreateListingForm({
 
     const [authLoading, setAuthLoading] =
         useState(true);
+    const [
+        hidePhoneInListings,
+        setHidePhoneInListings,
+    ] = useState(false);
 
+    const [
+        savingPhoneVisibility,
+        setSavingPhoneVisibility,
+    ] = useState(false);
     const isAuthenticated =
         Boolean(currentUser);
 
@@ -278,7 +288,9 @@ export default function CreateListingForm({
 
                         const userData =
                             userSnapshot.data();
-
+                        setHidePhoneInListings(
+                            userData.hidePhoneInListings === true
+                        );
                         const profile = {
                             uid:
                                 firebaseUser.uid,
@@ -336,7 +348,65 @@ export default function CreateListingForm({
             unsubscribe();
         };
     }, []);
+    const handlePhoneVisibilityChange =
+        async (event) => {
+            const checked =
+                event.target.checked;
 
+            if (!currentUser?.uid) {
+                return;
+            }
+
+            const previousValue =
+                hidePhoneInListings;
+
+            setHidePhoneInListings(
+                checked
+            );
+
+            setSavingPhoneVisibility(
+                true
+            );
+
+            try {
+                await updateDoc(
+                    doc(
+                        db,
+                        "users",
+                        currentUser.uid
+                    ),
+                    {
+                        hidePhoneInListings:
+                            checked,
+                    }
+                );
+            } catch (error) {
+                console.error(
+                    "Помилка збереження видимості номера:",
+                    error
+                );
+
+                setHidePhoneInListings(
+                    previousValue
+                );
+
+                await Swal.fire({
+                    icon: "error",
+                    title:
+                        "Не вдалося зберегти налаштування",
+                    text:
+                        "Спробуйте ще раз.",
+                    confirmButtonText:
+                        "Закрити",
+                    confirmButtonColor:
+                        "#2563eb",
+                });
+            } finally {
+                setSavingPhoneVisibility(
+                    false
+                );
+            }
+        };
     const handleChange = (event) => {
         const { name, value } = event.target;
 
@@ -465,41 +535,67 @@ export default function CreateListingForm({
 
         return Object.keys(newErrors).length === 0;
     };
-    const getCleanAdditionalContacts = () => {
-        if (!isAuthenticated) {
-            return {};
-        }
+   const getCleanAdditionalContacts = () => {
+    if (!isAuthenticated) {
+        return {};
+    }
 
-        const phoneContacts = [
-            "telegram",
-            "viber",
-            "whatsapp",
-        ];
+    return Object.entries(
+        form.additionalContacts
+    ).reduce(
+        (result, [key, contact]) => {
+            const value =
+                contact.value.trim();
 
-        return Object.entries(
-            form.additionalContacts
-        ).reduce(
-            (result, [key, contact]) => {
-                const value =
-                    contact.value.trim();
+            if (
+                !contact.enabled ||
+                !value
+            ) {
+                return result;
+            }
+
+            if (
+                key === "viber" ||
+                key === "whatsapp"
+            ) {
+                result[key] =
+                    normalizeContact(value);
+
+                return result;
+            }
+
+            if (key === "telegram") {
+                if (
+                    value.startsWith("@")
+                ) {
+                    result[key] = value;
+
+                    return result;
+                }
 
                 if (
-                    !contact.enabled ||
-                    !value
+                    /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
+                        value
+                    )
                 ) {
+                    result[key] = value;
+
                     return result;
                 }
 
                 result[key] =
-                    phoneContacts.includes(key)
-                        ? normalizeContact(value)
-                        : value;
+                    normalizeContact(value);
 
                 return result;
-            },
-            {}
-        );
-    };
+            }
+
+            result[key] = value;
+
+            return result;
+        },
+        {}
+    );
+};
     const createListingData = (
         uploadedImages = []
     ) => {
@@ -1009,17 +1105,17 @@ export default function CreateListingForm({
             : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
             }`;
     };
-if (authLoading) {
-    return (
-        <div className="flex min-h-40 items-center justify-center">
-            <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+    if (authLoading) {
+        return (
+            <div className="flex min-h-40 items-center justify-center">
+                <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
 
-                Завантаження...
+                    Завантаження...
+                </div>
             </div>
-        </div>
-    );
-}
+        );
+    }
     return (
         <form
             onSubmit={handleSubmit}
@@ -1065,38 +1161,62 @@ if (authLoading) {
                     )}
                 </div>
 
-                <div>
-                    <label
-                        htmlFor="contact"
-                        className="mb-2 block text-sm font-semibold text-slate-700"
-                    >
-                        Зв’язок із вами{" "}
-                        <span className="text-red-500">
-                            *
-                        </span>
-                    </label>
+                {isAuthenticated ? (
+                    <div>
+                        <label
+                            htmlFor="contact"
+                            className="mb-2 block text-sm font-semibold text-slate-700"
+                        >
+                            Зв’язок із вами{" "}
+                            <span className="text-red-500">
+                                *
+                            </span>
+                        </label>
 
-                    <input
-                        id="contact"
-                        name="contact"
-                        type="text"
-                        value={form.contact}
-                        onChange={handleChange}
-                        placeholder="+380... або email@example.com"
-                        autoComplete="email"
-                        inputMode="text"
-                        maxLength={120}
-                        className={inputClass(
-                            "contact"
+                        <input
+                            id="contact"
+                            name="contact"
+                            type="text"
+                            value={form.contact}
+                            onChange={handleChange}
+                            placeholder="+380... або email@example.com"
+                            autoComplete="email"
+                            inputMode="text"
+                            maxLength={120}
+                            className={inputClass(
+                                "contact"
+                            )}
+                        />
+
+                        {errors.contact && (
+                            <p className="mt-1.5 text-sm text-red-600">
+                                {errors.contact}
+                            </p>
                         )}
-                    />
+                    </div>
+                ) : (
+                    <GuestContactInput
+                        value={form.contact}
+                        onChange={(value) => {
+                            setForm(
+                                (previousForm) => ({
+                                    ...previousForm,
+                                    contact: value,
+                                })
+                            );
 
-                    {errors.contact && (
-                        <p className="mt-1.5 text-sm text-red-600">
-                            {errors.contact}
-                        </p>
-                    )}
-                </div>
+                            setErrors(
+                                (previousErrors) => ({
+                                    ...previousErrors,
+                                    contact: "",
+                                    form: "",
+                                })
+                            );
+                        }}
+                        error={errors.contact}
+                        disabled={submitting}
+                    />
+                )}
             </div>
 
             <div>
@@ -1218,6 +1338,15 @@ if (authLoading) {
                         }
                         onChange={
                             handleAdditionalContactsChange
+                        }
+                        hidePhoneInListings={
+                            hidePhoneInListings
+                        }
+                        onHidePhoneChange={
+                            handlePhoneVisibilityChange
+                        }
+                        savingPhoneVisibility={
+                            savingPhoneVisibility
                         }
                         disabled={submitting}
                     />

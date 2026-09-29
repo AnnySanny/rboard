@@ -50,6 +50,10 @@ const App = () => {
           element={<Home />}
         />
         <Route
+          path="/category/:categorySlug"
+          element={<Home />}
+        />
+        <Route
           path="/about"
           element={<About />}
         />

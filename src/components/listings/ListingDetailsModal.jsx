@@ -5,7 +5,12 @@ import {
   Facebook,
   Copy,
 } from "lucide-react";
+import {
+  doc,
+  getDoc,
+} from "firebase/firestore";
 
+import { db } from "../../firebase";
 import {
   FaTelegramPlane,
   FaViber,
@@ -34,6 +39,7 @@ const formatDate = (value) => {
     minute: "2-digit",
   });
 };
+
 const getRemainingTime = (
   expiresAt,
   currentTime
@@ -105,7 +111,10 @@ const normalizePhoneForCompare = (value) => {
   return String(value || "").replace(/\D/g, "");
 };
 
-const getContactRows = (listing) => {
+const getContactRows = (
+  listing,
+  hideMainPhone = false
+) => {
   if (!listing) {
     return {
       phoneRows: [],
@@ -114,12 +123,16 @@ const getContactRows = (listing) => {
   }
 
   const contacts = [];
+  const links = [];
 
   const mainContact =
     listing.contactOriginal ||
     listing.contact;
 
-  if (mainContact) {
+  if (
+    mainContact &&
+    !hideMainPhone
+  ) {
     contacts.push({
       key: "main",
       type: "phone",
@@ -131,12 +144,88 @@ const getContactRows = (listing) => {
   const additional =
     listing.additionalContacts || {};
 
-  ["telegram", "viber", "whatsapp"].forEach(
+  const telegramData =
+    additional.telegram;
+
+  const telegramValue =
+    typeof telegramData === "string"
+      ? telegramData.trim()
+      : telegramData?.enabled &&
+        typeof telegramData?.value === "string"
+        ? telegramData.value.trim()
+        : "";
+
+  if (telegramValue) {
+    const normalizedTelegram =
+      telegramValue.toLowerCase();
+
+    const isTelegramUsername =
+      telegramValue.startsWith("@");
+
+    const isTelegramLink =
+      normalizedTelegram.startsWith(
+        "https://t.me/"
+      ) ||
+      normalizedTelegram.startsWith(
+        "http://t.me/"
+      ) ||
+      normalizedTelegram.startsWith(
+        "t.me/"
+      ) ||
+      normalizedTelegram.startsWith(
+        "https://telegram.me/"
+      ) ||
+      normalizedTelegram.startsWith(
+        "http://telegram.me/"
+      ) ||
+      normalizedTelegram.startsWith(
+        "telegram.me/"
+      );
+
+    if (
+      isTelegramUsername ||
+      isTelegramLink
+    ) {
+      let telegramUrl =
+        telegramValue;
+
+      if (isTelegramUsername) {
+        telegramUrl =
+          `https://t.me/${telegramValue.slice(
+            1
+          )}`;
+      } else if (
+        !/^https?:\/\//i.test(
+          telegramValue
+        )
+      ) {
+        telegramUrl =
+          `https://${telegramValue}`;
+      }
+
+      links.push({
+        key: "telegram",
+        service: "telegram",
+        value: telegramUrl,
+      });
+    } else {
+      contacts.push({
+        key: "telegram",
+        type: "phone",
+        service: "telegram",
+        value: telegramValue,
+      });
+    }
+  }
+
+  ["viber", "whatsapp"].forEach(
     (service) => {
-      const value = additional[service];
+      const value =
+        additional[service];
 
       if (
-        typeof value === "string" &&
+        typeof value ===
+        "string" &&
         value.trim()
       ) {
         contacts.push({
@@ -164,7 +253,8 @@ const getContactRows = (listing) => {
     const existingRow =
       phoneRows.find(
         (row) =>
-          row.normalized === normalized
+          row.normalized ===
+          normalized
       );
 
     if (existingRow) {
@@ -185,25 +275,35 @@ const getContactRows = (listing) => {
       key: contact.key,
       normalized,
       value: contact.value,
-      services: [contact.service],
+      services: [
+        contact.service,
+      ],
     });
   });
 
-  const links = [];
-
-  if (additional.instagram?.trim()) {
+  if (
+    typeof additional.instagram ===
+    "string" &&
+    additional.instagram.trim()
+  ) {
     links.push({
       key: "instagram",
       service: "instagram",
-      value: additional.instagram.trim(),
+      value:
+        additional.instagram.trim(),
     });
   }
 
-  if (additional.facebook?.trim()) {
+  if (
+    typeof additional.facebook ===
+    "string" &&
+    additional.facebook.trim()
+  ) {
     links.push({
       key: "facebook",
       service: "facebook",
-      value: additional.facebook.trim(),
+      value:
+        additional.facebook.trim(),
     });
   }
 
@@ -231,7 +331,102 @@ const ListingDetailsModal = ({
 }) => {
   const [currentTime, setCurrentTime] =
     useState(Date.now());
+  const [
+    hideMainPhone,
+    setHideMainPhone,
+  ] = useState(false);
 
+  const [
+    phoneVisibilityLoading,
+    setPhoneVisibilityLoading,
+  ] = useState(true);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadPhoneVisibility =
+      async () => {
+        /*
+         * Поки перевіряємо налаштування,
+         * основний номер не показуємо.
+         *
+         * Це важливо, щоб прихований номер
+         * не мигнув на екрані на мить.
+         */
+        setPhoneVisibilityLoading(true);
+        setHideMainPhone(true);
+
+        const authorUid =
+          listing?.author?.uid;
+
+        /*
+         * Якщо UID немає — це, наприклад,
+         * гостьове оголошення.
+         *
+         * Для нього працює стара поведінка:
+         * основний контакт показуємо.
+         */
+        if (!authorUid) {
+          if (isActive) {
+            setHideMainPhone(false);
+            setPhoneVisibilityLoading(false);
+          }
+
+          return;
+        }
+
+        try {
+          const userSnapshot =
+            await getDoc(
+              doc(
+                db,
+                "users",
+                authorUid
+              )
+            );
+
+          if (!isActive) {
+            return;
+          }
+
+          if (!userSnapshot.exists()) {
+            setHideMainPhone(false);
+            return;
+          }
+
+          setHideMainPhone(
+            userSnapshot.data()
+              .hidePhoneInListings === true
+          );
+        } catch (error) {
+          console.error(
+            "Помилка завантаження налаштувань контактів:",
+            error
+          );
+
+          /*
+           * При помилці безпечніше
+           * не показувати основний номер.
+           */
+          if (isActive) {
+            setHideMainPhone(true);
+          }
+        } finally {
+          if (isActive) {
+            setPhoneVisibilityLoading(false);
+          }
+        }
+      };
+
+    loadPhoneVisibility();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    listing?.id,
+    listing?.author?.uid,
+  ]);
   useEffect(() => {
     const interval = setInterval(
       () => {
@@ -252,7 +447,10 @@ const ListingDetailsModal = ({
   const {
     phoneRows,
     links: socialLinks,
-  } = getContactRows(listing);
+  } = getContactRows(
+    listing,
+    hideMainPhone
+  );
 
 
   const handleCopyContact = async (
@@ -574,131 +772,158 @@ const ListingDetailsModal = ({
               />
 
               <div>
-    {phoneRows.length === 0 &&
-    socialLinks.length === 0 ? (
-        <p className="mt-1.5 text-xs font-semibold text-slate-800">
-            Не вказано
-        </p>
-    ) : (
-        <div className="mt-2 space-y-3">
-            {phoneRows.length > 0 && (
-                <div>
-                    <p className="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-slate-400">
-                        Телефон та месенджери
-                    </p>
+                {phoneVisibilityLoading ? (
+                  <p className="mt-1.5 text-xs font-semibold text-slate-400">
+                    Завантаження...
+                  </p>
+                ) : phoneRows.length === 0 &&
+                  socialLinks.length === 0 ? (
+                  <p className="mt-1.5 text-xs font-semibold text-slate-800">
+                    Не вказано
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-3">
+                    {phoneRows.length > 0 && (
+                      <div>
+                        <p className="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-slate-400">
+                          Телефон та месенджери
+                        </p>
 
-                    <div className="space-y-1.5">
-                        {phoneRows.map((row) => (
+                        <div className="space-y-1.5">
+                          {phoneRows.map((row) => (
                             <div
-                                key={row.normalized}
-                                className="rounded-xl border border-slate-200 bg-white p-2.5"
+                              key={row.normalized}
+                              className="rounded-xl border border-slate-200 bg-white p-2.5"
                             >
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    {row.services.map((service) => {
-                                        const serviceLabel =
-                                            service === "main"
-                                                ? "Телефон"
-                                                : service === "telegram"
-                                                  ? "Telegram"
-                                                  : service === "viber"
-                                                    ? "Viber"
-                                                    : "WhatsApp";
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {row.services.map((service) => {
+                                  const serviceLabel =
+                                    service === "main"
+                                      ? "Телефон"
+                                      : service === "telegram"
+                                        ? "Telegram"
+                                        : service === "viber"
+                                          ? "Viber"
+                                          : "WhatsApp";
 
-                                        return (
-                                            <span
-                                                key={service}
-                                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-700"
-                                            >
-                                                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600">
-                                                    {getServiceIcon(
-                                                        service,
-                                                        15
-                                                    )}
-                                                </span>
-
-                                                <span>
-                                                    {serviceLabel}
-                                                </span>
-                                            </span>
-                                        );
-                                    })}
-                                </div>
-
-                                <div className="mt-2 flex min-w-0 items-center gap-2 border-t border-slate-100 pt-2">
-                                    <span className="min-w-0 flex-1 break-all text-sm font-bold text-slate-900">
-                                        {row.value}
-                                    </span>
-
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            handleCopyContact(
-                                                row.value
-                                            )
-                                        }
-                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-blue-600 transition hover:border-blue-300 hover:bg-blue-50"
-                                        title="Скопіювати номер"
-                                        aria-label="Скопіювати номер"
+                                  return (
+                                    <span
+                                      key={service}
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-700"
                                     >
-                                        <Copy size={15} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {socialLinks.length > 0 && (
-                <div className="border-t border-slate-200 pt-2.5">
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                        Соціальні мережі
-                    </p>
-
-                    <div className="flex flex-wrap gap-1.5">
-                        {socialLinks.map(
-                            (contact) => {
-                                const isInstagram =
-                                    contact.service ===
-                                    "instagram";
-
-                                return (
-                                    <a
-                                        key={contact.key}
-                                        href={getSafeUrl(
-                                            contact.value
+                                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+                                        {getServiceIcon(
+                                          service,
+                                          15
                                         )}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title={
-                                            isInstagram
-                                                ? "Відкрити Instagram"
-                                                : "Відкрити Facebook"
-                                        }
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                                    >
-                                        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600">
-                                            {getServiceIcon(
-                                                contact.service,
-                                                15
-                                            )}
-                                        </span>
+                                      </span>
 
-                                        <span>
-                                            {isInstagram
-                                                ? "Instagram"
-                                                : "Facebook"}
-                                        </span>
-                                    </a>
-                                );
+                                      <span>
+                                        {serviceLabel}
+                                      </span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+
+                              <div className="mt-2 flex min-w-0 items-center gap-2 border-t border-slate-100 pt-2">
+                                <span className="min-w-0 flex-1 break-all text-sm font-bold text-slate-900">
+                                  {row.value}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCopyContact(
+                                      row.value
+                                    )
+                                  }
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-blue-600 transition hover:border-blue-300 hover:bg-blue-50"
+                                  title="Скопіювати номер"
+                                  aria-label="Скопіювати номер"
+                                >
+                                  <Copy size={15} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {socialLinks.length > 0 && (
+                      <div className="border-t border-slate-200 pt-2.5">
+                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Соціальні мережі та посилання
+                        </p>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {socialLinks.map(
+                            (contact) => {
+                              const serviceData = {
+                                instagram: {
+                                  label: "Instagram",
+                                  title:
+                                    "Відкрити Instagram",
+                                },
+
+                                telegram: {
+                                  label: "Telegram",
+                                  title:
+                                    "Відкрити Telegram",
+                                },
+
+                                facebook: {
+                                  label: "Facebook",
+                                  title:
+                                    "Відкрити Facebook",
+                                },
+                              };
+
+                              const currentService =
+                                serviceData[
+                                contact.service
+                                ];
+
+                              if (!currentService) {
+                                return null;
+                              }
+
+                              return (
+                                <a
+                                  key={contact.key}
+                                  href={getSafeUrl(
+                                    contact.value
+                                  )}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={
+                                    currentService.title
+                                  }
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                                >
+                                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+                                    {getServiceIcon(
+                                      contact.service,
+                                      15
+                                    )}
+                                  </span>
+
+                                  <span>
+                                    {
+                                      currentService.label
+                                    }
+                                  </span>
+                                </a>
+                              );
                             }
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    )}
-</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </aside>
         </div>

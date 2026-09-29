@@ -39,6 +39,101 @@ const searchPhrases = [
     "Шукаю роботу...",
     "Віддам кошенят...",
 ];
+const categoryRoutes = {
+    sale: "Продаж",
+    buy: "Купівля",
+    rent: "Оренда",
+    services: "Послуга",
+    jobs: "Робота",
+    questions: "Питання",
+    exchange: "Обмін",
+    free: "Віддам безкоштовно",
+    "lost-found": "Загублено / знайдено",
+    events: "Подія",
+    community: "Оголошення громади",
+    other: "Інше",
+};
+const categorySeo = {
+    sale: {
+        title: "Продаж у Рахові — оголошення про продаж | RBoard",
+        description:
+            "Оголошення про продаж у Рахові та Рахівському районі. Товари, техніка, речі та інші пропозиції від місцевих жителів на RBoard.",
+    },
+
+    buy: {
+        title: "Купівля у Рахові — оголошення про купівлю | RBoard",
+        description:
+            "Оголошення про купівлю в Рахові та Рахівському районі. Знайдіть актуальні пропозиції від місцевих жителів на RBoard.",
+    },
+
+    rent: {
+        title: "Оренда в Рахові — житло та інші оголошення | RBoard",
+        description:
+            "Актуальні оголошення про оренду в Рахові та Рахівському районі. Житло, приміщення та інші пропозиції на RBoard.",
+    },
+
+    services: {
+        title: "Послуги в Рахові — місцеві майстри та спеціалісти | RBoard",
+        description:
+            "Послуги в Рахові та Рахівському районі. Знайдіть майстрів, спеціалістів та актуальні пропозиції послуг на RBoard.",
+    },
+
+    jobs: {
+        title: "Робота в Рахові — вакансії та оголошення | RBoard",
+        description:
+            "Робота та вакансії в Рахові й Рахівському районі. Актуальні оголошення роботодавців і пошук роботи на RBoard.",
+    },
+
+    questions: {
+        title: "Питання та пошук допомоги в Рахові | RBoard",
+        description:
+            "Питання від жителів Рахова та Рахівського району. Пошук інформації, рекомендацій і допомоги на локальній дошці RBoard.",
+    },
+
+    exchange: {
+        title: "Обмін у Рахові — оголошення | RBoard",
+        description:
+            "Оголошення про обмін у Рахові та Рахівському районі. Переглядайте актуальні пропозиції обміну на RBoard.",
+    },
+
+    free: {
+        title: "Віддам безкоштовно в Рахові | RBoard",
+        description:
+            "Безкоштовні оголошення в Рахові та Рахівському районі. Речі та інші пропозиції, які місцеві жителі віддають безкоштовно.",
+    },
+
+    "lost-found": {
+        title: "Загублено та знайдено в Рахові | RBoard",
+        description:
+            "Загублені та знайдені речі в Рахові й Рахівському районі. Переглядайте та публікуйте оголошення на RBoard.",
+    },
+
+    events: {
+        title: "Події в Рахові — місцеві оголошення | RBoard",
+        description:
+            "Події та заходи в Рахові й Рахівському районі. Актуальні місцеві оголошення про події на RBoard.",
+    },
+
+    community: {
+        title: "Оголошення громади Рахова | RBoard",
+        description:
+            "Оголошення громади Рахова та Рахівського району. Важлива місцева інформація та актуальні повідомлення на RBoard.",
+    },
+
+    other: {
+        title: "Інші оголошення в Рахові | RBoard",
+        description:
+            "Інші актуальні оголошення Рахова та Рахівського району, які не належать до основних категорій RBoard.",
+    },
+};
+const categorySlugs = Object.fromEntries(
+    Object.entries(categoryRoutes).map(
+        ([slug, category]) => [
+            category,
+            slug,
+        ]
+    )
+);
 const LISTINGS_PER_PAGE = 24;
 const isListingActive = (expiresAt) => {
     if (!expiresAt) {
@@ -67,7 +162,10 @@ const isListingActive = (expiresAt) => {
 
 const Home = () => {
     const navigate = useNavigate();
-     const { listingId } = useParams();
+    const {
+        listingId,
+        categorySlug,
+    } = useParams();
     const [currentUser, setCurrentUser] =
         useState(null);
     const [search, setSearch] = useState("");
@@ -129,6 +227,39 @@ const Home = () => {
 
     const [activeCategory, setActiveCategory] =
         useState("Усі");
+    useEffect(() => {
+        if (!categorySlug) {
+            return;
+        }
+
+        const category =
+            categoryRoutes[categorySlug];
+
+        if (category) {
+            setActiveCategory(category);
+        }
+    }, [categorySlug]);
+
+
+    const handleCategoryChange = (category) => {
+        setActiveCategory(category);
+
+        if (category === "Усі") {
+            navigate("/");
+            return;
+        }
+        if (category === "Обрані") {
+            navigate("/");
+            return;
+        }
+
+        const slug =
+            categorySlugs[category];
+
+        if (slug) {
+            navigate(`/category/${slug}`);
+        }
+    };
 
     const [sortOrder, setSortOrder] =
         useState("newest");
@@ -234,13 +365,21 @@ const Home = () => {
                                     data.contactOriginal ||
                                     data.contact ||
                                     "",
+
                                 additionalContacts:
                                     data.additionalContacts &&
                                         typeof data.additionalContacts === "object"
                                         ? data.additionalContacts
                                         : {},
+
                                 authorName:
                                     data.authorName || "",
+
+                                author:
+                                    data.author &&
+                                        typeof data.author === "object"
+                                        ? data.author
+                                        : null,
                                 views:
                                     Number(data.views ?? 0),
                                 createdAt:
@@ -301,110 +440,248 @@ const Home = () => {
 
 
     useEffect(() => {
-    const defaultTitle =
-        "RBoard — оголошення Рахів | Купівля, продаж, робота та послуги";
+        const defaultTitle =
+            "RBoard — оголошення Рахів | Купівля, продаж, робота та послуги";
 
-    const defaultDescription =
-        "RBoard — локальна дошка оголошень Рахова. Купівля та продаж товарів, робота, оренда, послуги, події та оголошення громади.";
+        const defaultDescription =
+            "RBoard — локальна дошка оголошень Рахова. Купівля та продаж товарів, робота, оренда, послуги, події та оголошення громади.";
 
-    const descriptionMeta = document.querySelector(
-        'meta[name="description"]'
-    );
+        const descriptionMeta = document.querySelector(
+            'meta[name="description"]'
+        );
 
-    const canonicalLink = document.querySelector(
-        'link[rel="canonical"]'
-    );
+        const canonicalLink = document.querySelector(
+            'link[rel="canonical"]'
+        );
 
-    const ogTitle = document.querySelector(
-        'meta[property="og:title"]'
-    );
+        const ogTitle = document.querySelector(
+            'meta[property="og:title"]'
+        );
 
-    const ogDescription = document.querySelector(
-        'meta[property="og:description"]'
-    );
+        const ogDescription = document.querySelector(
+            'meta[property="og:description"]'
+        );
 
-    const ogUrl = document.querySelector(
-        'meta[property="og:url"]'
-    );
+        const ogUrl = document.querySelector(
+            'meta[property="og:url"]'
+        );
 
-    if (selectedListing) {
+        if (selectedListing) {
+            const location =
+                selectedListing.city ||
+                selectedListing.location ||
+                "Рахів";
+
+            const listingTitle =
+                `${selectedListing.title} — ${location} | RBoard`;
+
+            const rawDescription =
+                selectedListing.description?.trim() ||
+                `${selectedListing.category || "Оголошення"} у ${location}. Переглянути детальну інформацію на RBoard.`;
+
+            const listingDescription =
+                rawDescription.length > 160
+                    ? `${rawDescription.slice(0, 157)}...`
+                    : rawDescription;
+
+            const listingUrl =
+                `https://rboard.netlify.app/listing/${selectedListing.id}`;
+
+            document.title = listingTitle;
+
+            descriptionMeta?.setAttribute(
+                "content",
+                listingDescription
+            );
+
+            canonicalLink?.setAttribute(
+                "href",
+                listingUrl
+            );
+
+            ogTitle?.setAttribute(
+                "content",
+                listingTitle
+            );
+
+            ogDescription?.setAttribute(
+                "content",
+                listingDescription
+            );
+
+            ogUrl?.setAttribute(
+                "content",
+                listingUrl
+            );
+
+            return;
+        }
+        const currentCategorySeo =
+            categorySlug
+                ? categorySeo[categorySlug]
+                : null;
+
+        if (currentCategorySeo) {
+            const categoryUrl =
+                `https://rboard.netlify.app/category/${categorySlug}`;
+
+            document.title =
+                currentCategorySeo.title;
+
+            descriptionMeta?.setAttribute(
+                "content",
+                currentCategorySeo.description
+            );
+
+            canonicalLink?.setAttribute(
+                "href",
+                categoryUrl
+            );
+
+            ogTitle?.setAttribute(
+                "content",
+                currentCategorySeo.title
+            );
+
+            ogDescription?.setAttribute(
+                "content",
+                currentCategorySeo.description
+            );
+
+            ogUrl?.setAttribute(
+                "content",
+                categoryUrl
+            );
+
+            return;
+        }
+        document.title = defaultTitle;
+
+        descriptionMeta?.setAttribute(
+            "content",
+            defaultDescription
+        );
+
+        canonicalLink?.setAttribute(
+            "href",
+            "https://rboard.netlify.app/"
+        );
+
+        ogTitle?.setAttribute(
+            "content",
+            "RBoard — оголошення Рахів"
+        );
+
+        ogDescription?.setAttribute(
+            "content",
+            "Локальна дошка оголошень Рахова. Купуйте, продавайте, знаходьте роботу, житло та послуги поруч."
+        );
+
+        ogUrl?.setAttribute(
+            "content",
+            "https://rboard.netlify.app/"
+        );
+    }, [selectedListing, categorySlug]);
+
+    useEffect(() => {
+        const scriptId = "listing-structured-data";
+
+        const oldScript =
+            document.getElementById(scriptId);
+
+        if (oldScript) {
+            oldScript.remove();
+        }
+
+        if (!selectedListing) {
+            return;
+        }
+
+        const listingUrl =
+            `https://rboard.netlify.app/listing/${selectedListing.id}`;
+
         const location =
             selectedListing.city ||
             selectedListing.location ||
             "Рахів";
 
-        const listingTitle =
-            `${selectedListing.title} — ${location} | RBoard`;
+        const description =
+            selectedListing.description ||
+            `${selectedListing.category || "Оголошення"} у ${location}`;
 
-        const rawDescription =
-            selectedListing.description?.trim() ||
-            `${selectedListing.category || "Оголошення"} у ${location}. Переглянути детальну інформацію на RBoard.`;
+        const structuredData = {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
 
-        const listingDescription =
-            rawDescription.length > 160
-                ? `${rawDescription.slice(0, 157)}...`
-                : rawDescription;
+            "@id": listingUrl,
+            url: listingUrl,
 
-        const listingUrl =
-            `https://rboard.netlify.app/listing/${selectedListing.id}`;
+            name: selectedListing.title,
+            description,
 
-        document.title = listingTitle;
+            inLanguage: "uk",
 
-        descriptionMeta?.setAttribute(
-            "content",
-            listingDescription
-        );
+            mainEntity: {
+                "@type": "CreativeWork",
 
-        canonicalLink?.setAttribute(
-            "href",
-            listingUrl
-        );
+                name: selectedListing.title,
+                description,
 
-        ogTitle?.setAttribute(
-            "content",
-            listingTitle
-        );
+                url: listingUrl,
 
-        ogDescription?.setAttribute(
-            "content",
-            listingDescription
-        );
+                ...(selectedListing.images?.length > 0 && {
+                    image: selectedListing.images,
+                }),
 
-        ogUrl?.setAttribute(
-            "content",
-            listingUrl
-        );
+                ...(selectedListing.createdAt instanceof Date && {
+                    datePublished:
+                        selectedListing.createdAt.toISOString(),
+                }),
 
-        return;
-    }
+                contentLocation: {
+                    "@type": "Place",
 
-    document.title = defaultTitle;
+                    name: location,
 
-    descriptionMeta?.setAttribute(
-        "content",
-        defaultDescription
-    );
+                    address: {
+                        "@type": "PostalAddress",
 
-    canonicalLink?.setAttribute(
-        "href",
-        "https://rboard.netlify.app/"
-    );
+                        addressLocality:
+                            selectedListing.city ||
+                            location,
 
-    ogTitle?.setAttribute(
-        "content",
-        "RBoard — оголошення Рахів"
-    );
+                        ...(selectedListing.region && {
+                            addressRegion:
+                                selectedListing.region,
+                        }),
 
-    ogDescription?.setAttribute(
-        "content",
-        "Локальна дошка оголошень Рахова. Купуйте, продавайте, знаходьте роботу, житло та послуги поруч."
-    );
+                        addressCountry: "UA",
+                    },
+                },
+            },
+        };
 
-    ogUrl?.setAttribute(
-        "content",
-        "https://rboard.netlify.app/"
-    );
-}, [selectedListing]);
+        const script =
+            document.createElement("script");
+
+        script.id = scriptId;
+        script.type = "application/ld+json";
+
+        script.textContent =
+            JSON.stringify(structuredData);
+
+        document.head.appendChild(script);
+
+        return () => {
+            const currentScript =
+                document.getElementById(scriptId);
+
+            if (currentScript) {
+                currentScript.remove();
+            }
+        };
+    }, [selectedListing]);
+
     const openListing = (listing) => {
         navigate(
             `/listing/${listing.id}`,
@@ -572,7 +849,7 @@ const Home = () => {
                         setSearch={setSearch}
                         searchPlaceholder={searchPlaceholder}
                         activeCategory={activeCategory}
-                        setActiveCategory={setActiveCategory}
+                        setActiveCategory={handleCategoryChange}
                         sortOrder={sortOrder}
                         setSortOrder={setSortOrder}
                         viewMode={viewMode}

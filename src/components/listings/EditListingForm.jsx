@@ -1,14 +1,18 @@
-import { useState } from "react";
+import {
+    useEffect,
+    useState,
+} from "react";
 import Swal from "sweetalert2";
 
 import {
     deleteField,
     doc,
+    getDoc,
     serverTimestamp,
     updateDoc,
 } from "firebase/firestore";
 
-import { db } from "../../firebase";
+import { auth, db } from "../../firebase";
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
 import ListingContacts from "./ListingContacts";
@@ -207,7 +211,66 @@ export default function EditListingForm({
 
     const [submitting, setSubmitting] =
         useState(false);
+const [
+    hidePhoneInListings,
+    setHidePhoneInListings,
+] = useState(false);
 
+const [
+    savingPhoneVisibility,
+    setSavingPhoneVisibility,
+] = useState(false);
+useEffect(() => {
+    let isActive = true;
+
+    const loadPhoneVisibility =
+        async () => {
+            const currentUser =
+                auth.currentUser;
+
+            if (!currentUser?.uid) {
+                return;
+            }
+
+            try {
+                const userSnapshot =
+                    await getDoc(
+                        doc(
+                            db,
+                            "users",
+                            currentUser.uid
+                        )
+                    );
+
+                if (
+                    !isActive ||
+                    !userSnapshot.exists()
+                ) {
+                    return;
+                }
+
+                const userData =
+                    userSnapshot.data();
+
+                setHidePhoneInListings(
+                    userData
+                        .hidePhoneInListings ===
+                        true
+                );
+            } catch (error) {
+                console.error(
+                    "Помилка завантаження налаштування видимості номера:",
+                    error
+                );
+            }
+        };
+
+    loadPhoneVisibility();
+
+    return () => {
+        isActive = false;
+    };
+}, []);
     const handleChange = (event) => {
         const { name, value } =
             event.target;
@@ -250,37 +313,63 @@ export default function EditListingForm({
             form: "",
         }));
     };
-    const getCleanAdditionalContacts = () => {
-        const phoneContacts = [
-            "telegram",
-            "viber",
-            "whatsapp",
-        ];
+const getCleanAdditionalContacts = () => {
+    return Object.entries(
+        form.additionalContacts
+    ).reduce(
+        (result, [key, contact]) => {
+            const value =
+                contact.value.trim();
 
-        return Object.entries(
-            form.additionalContacts
-        ).reduce(
-            (result, [key, contact]) => {
-                const value =
-                    contact.value.trim();
+            if (
+                !contact.enabled ||
+                !value
+            ) {
+                return result;
+            }
+
+            if (
+                key === "viber" ||
+                key === "whatsapp"
+            ) {
+                result[key] =
+                    normalizeContact(value);
+
+                return result;
+            }
+
+            if (key === "telegram") {
+                if (
+                    value.startsWith("@")
+                ) {
+                    result[key] = value;
+
+                    return result;
+                }
 
                 if (
-                    !contact.enabled ||
-                    !value
+                    /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
+                        value
+                    )
                 ) {
+                    result[key] = value;
+
                     return result;
                 }
 
                 result[key] =
-                    phoneContacts.includes(key)
-                        ? normalizeContact(value)
-                        : value;
+                    normalizeContact(value);
 
                 return result;
-            },
-            {}
-        );
-    };
+            }
+
+            result[key] = value;
+
+            return result;
+        },
+        {}
+    );
+};
     const validateForm = () => {
         const newErrors = {};
 
@@ -610,7 +699,68 @@ export default function EditListingForm({
             : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
             }`;
     };
+const handlePhoneVisibilityChange =
+    async (event) => {
+        const checked =
+            event.target.checked;
 
+        const currentUser =
+            auth.currentUser;
+
+        if (!currentUser?.uid) {
+            return;
+        }
+
+        const previousValue =
+            hidePhoneInListings;
+
+        setHidePhoneInListings(
+            checked
+        );
+
+        setSavingPhoneVisibility(
+            true
+        );
+
+        try {
+            await updateDoc(
+                doc(
+                    db,
+                    "users",
+                    currentUser.uid
+                ),
+                {
+                    hidePhoneInListings:
+                        checked,
+                }
+            );
+        } catch (error) {
+            console.error(
+                "Помилка збереження видимості номера:",
+                error
+            );
+
+            setHidePhoneInListings(
+                previousValue
+            );
+
+            await Swal.fire({
+                icon: "error",
+                title:
+                    "Не вдалося зберегти налаштування",
+                text:
+                    "Спробуйте ще раз.",
+                confirmButtonText:
+                    "Закрити",
+                confirmButtonColor:
+                    "#2563eb",
+            });
+        } finally {
+            setSavingPhoneVisibility(
+                false
+            );
+        }
+    };
     return (
         <form
             onSubmit={handleSubmit}
@@ -825,15 +975,24 @@ export default function EditListingForm({
                 )}
             </div>
             {/* Додаткові контакти */}
-            <ListingContacts
-                value={
-                    form.additionalContacts
-                }
-                onChange={
-                    handleAdditionalContactsChange
-                }
-                disabled={submitting}
-            />
+<ListingContacts
+    value={
+        form.additionalContacts
+    }
+    onChange={
+        handleAdditionalContactsChange
+    }
+    hidePhoneInListings={
+        hidePhoneInListings
+    }
+    onHidePhoneChange={
+        handlePhoneVisibilityChange
+    }
+    savingPhoneVisibility={
+        savingPhoneVisibility
+    }
+    disabled={submitting}
+/>
 
             {errors.additionalContacts && (
                 <p className="-mt-4 text-sm font-medium text-red-600">

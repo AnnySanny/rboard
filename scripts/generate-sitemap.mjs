@@ -56,22 +56,43 @@ const generateSitemap = async () => {
         `Активних оголошень для sitemap: ${listings.length}`
     );
 
-    const staticUrls = [
-        `${SITE_URL}/`,
-        `${SITE_URL}/about`,
-        `${SITE_URL}/rules`,
-        `${SITE_URL}/contacts`,
-    ];
+const staticUrls = [
+    `${SITE_URL}/`,
+    `${SITE_URL}/about`,
+    `${SITE_URL}/rules`,
+    `${SITE_URL}/contacts`,
+];
 
-    const listingUrls = listings.map(
-        (document) =>
-            `${SITE_URL}/listing/${document.id}`
-    );
+const categorySlugs = [
+    "sale",
+    "buy",
+    "rent",
+    "services",
+    "jobs",
+    "questions",
+    "exchange",
+    "free",
+    "lost-found",
+    "events",
+    "community",
+    "other",
+];
 
-    const urls = [
-        ...staticUrls,
-        ...listingUrls,
-    ];
+const categoryUrls = categorySlugs.map(
+    (slug) =>
+        `${SITE_URL}/category/${slug}`
+);
+
+const listingUrls = listings.map(
+    (document) =>
+        `${SITE_URL}/listing/${document.id}`
+);
+
+const urls = [
+    ...staticUrls,
+    ...categoryUrls,
+    ...listingUrls,
+];
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

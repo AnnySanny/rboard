@@ -40,10 +40,10 @@ const Footer = () => {
     </Link>
 
     <a
-      href="mailto:rboard@example.com"
+      href="mailto:rakhivboardinfo@gmail.com"
       className="transition hover:text-blue-600"
     >
-      rboard@example.com
+      rakhivboardinfo@gmail.com
     </a>
   </div>
 </div>

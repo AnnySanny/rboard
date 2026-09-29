@@ -327,7 +327,7 @@ const Contacts = () => {
                   href="mailto:rboard@example.com"
                   className="mt-5 inline-flex items-center gap-2 text-lg font-bold text-blue-600 transition hover:text-blue-700"
                 >
-                  rboard@example.com
+                  rakhivboardinfo@gmail.com
 
                   <svg
                     className="h-5 w-5"

@@ -4,132 +4,157 @@ import { useNavigate, Link } from "react-router-dom";
 import {
     Phone,
     Lock,
+    Eye,
+    EyeOff,
 } from "lucide-react";
 
 import {
-    collection,
-    query,
-    where,
-    getDocs,
+    doc,
+    getDoc,
 } from "firebase/firestore";
 
-import { db } from "../../firebase";
+import {
+    signInWithEmailAndPassword,
+    signOut,
+} from "firebase/auth";
 
+import {
+    auth,
+    db,
+} from "../../firebase";
+const createAuthEmail = (phone) => {
+    const normalizedPhone =
+        phone.replace(/\D/g, "");
+
+    return `${normalizedPhone}@rboard.local`;
+};
 export default function LoginModal() {
     const navigate = useNavigate();
 
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
-
+    const [showPassword, setShowPassword] =
+        useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+    e.preventDefault();
 
-        setError("");
+    setError("");
 
-        const normalizedPhone = phone.trim();
-        const normalizedPassword = password.trim();
+    const normalizedPhone =
+        phone.trim();
 
-        /*
-         * Перевірка заповнення полів
-         */
-        if (!normalizedPhone && !normalizedPassword) {
-            setError("Введіть номер телефону та пароль");
+    const normalizedPassword =
+        password.trim();
+
+    if (
+        !normalizedPhone &&
+        !normalizedPassword
+    ) {
+        setError(
+            "Введіть номер телефону та пароль"
+        );
+        return;
+    }
+
+    if (!normalizedPhone) {
+        setError(
+            "Введіть номер телефону"
+        );
+        return;
+    }
+
+    if (!normalizedPassword) {
+        setError("Введіть пароль");
+        return;
+    }
+
+    try {
+        setLoading(true);
+
+        const authEmail =
+            createAuthEmail(
+                normalizedPhone
+            );
+
+        const userCredential =
+            await signInWithEmailAndPassword(
+                auth,
+                authEmail,
+                normalizedPassword
+            );
+
+        const firebaseUser =
+            userCredential.user;
+
+        const userReference = doc(
+            db,
+            "users",
+            firebaseUser.uid
+        );
+
+        const userSnapshot =
+            await getDoc(userReference);
+
+        if (!userSnapshot.exists()) {
+            await signOut(auth);
+
+            setError(
+                "Дані користувача не знайдено"
+            );
+
             return;
         }
 
-        if (!normalizedPhone) {
-            setError("Введіть номер телефону");
+        const userData =
+            userSnapshot.data();
+
+        if (userData.blocked === true) {
+            await signOut(auth);
+
+            setError("blocked");
+
             return;
         }
+        setPhone("");
+        setPassword("");
 
-        if (!normalizedPassword) {
-            setError("Введіть пароль");
-            return;
-        }
+        navigate("/user");
+    } catch (err) {
+        console.error(
+            "Помилка входу:",
+            err
+        );
 
-        try {
-            setLoading(true);
-
-            /*
-             * Шукаємо користувача за номером телефону
-             */
-            const userQuery = query(
-                collection(db, "users"),
-                where("phone", "==", normalizedPhone)
+        if (
+            err.code ===
+                "auth/invalid-credential" ||
+            err.code ===
+                "auth/wrong-password" ||
+            err.code ===
+                "auth/user-not-found"
+        ) {
+            setError(
+                "Неправильний номер телефону або пароль"
             );
-
-            const userSnapshot = await getDocs(userQuery);
-
-            /*
-             * Такого номера немає в базі
-             */
-            if (userSnapshot.empty) {
-                setError(
-                    "Користувача з таким номером телефону не знайдено"
-                );
-                return;
-            }
-
-            /*
-             * Спочатку отримуємо документ
-             * та його дані.
-             */
-            const userDocument = userSnapshot.docs[0];
-            const userData = userDocument.data();
-
-            /*
-             * Перевіряємо пароль
-             */
-            if (userData.password !== password) {
-                setError("Неправильний пароль");
-                return;
-            }
-
-            /*
-             * Перевіряємо блокування.
-             *
-             * blocked === true  -> не пускаємо
-             * blocked === false -> пускаємо
-             * blocked немає     -> пускаємо
-             */
-            if (userData.blocked === true) {
-                setError("blocked");
-                return;
-            }
-
-            /*
-             * Успішний вхід
-             */
-            localStorage.setItem(
-                "rboardUser",
-                JSON.stringify({
-                    id: userDocument.id,
-                    login: userData.login,
-                    phone: userData.phone,
-                })
+        } else if (
+            err.code ===
+            "auth/too-many-requests"
+        ) {
+            setError(
+                "Забагато спроб входу. Спробуйте пізніше."
             );
-
-            setPhone("");
-            setPassword("");
-
-            navigate("/user");
-        } catch (err) {
-            console.error(
-                "Помилка входу:",
-                err
-            );
-
+        } else {
             setError(
                 "Не вдалося увійти. Спробуйте ще раз."
             );
-        } finally {
-            setLoading(false);
         }
-    };
-
+    } finally {
+        setLoading(false);
+    }
+};
     return (
         <div className="w-full">
 
@@ -204,31 +229,68 @@ export default function LoginModal() {
                         Пароль
                     </label>
 
-                    <input
-                        id="login-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) =>
-                            setPassword(e.target.value)
-                        }
-                        placeholder="Введіть пароль"
-                        autoComplete="current-password"
-                        className="
-                            w-full rounded-xl
-                            border border-slate-200
-                            bg-slate-50
-                            px-4 py-3.5
-                            text-sm text-slate-900
-                            outline-none
-                            transition
-                            placeholder:text-slate-400
-                            hover:border-slate-300
-                            focus:border-blue-500
-                            focus:bg-white
-                            focus:ring-4
-                            focus:ring-blue-100
-                        "
-                    />
+                    <div className="relative">
+                        <input
+                            id="login-password"
+                            type={
+                                showPassword
+                                    ? "text"
+                                    : "password"
+                            }
+                            value={password}
+                            onChange={(e) =>
+                                setPassword(e.target.value)
+                            }
+                            placeholder="Введіть пароль"
+                            autoComplete="current-password"
+                            className="
+            w-full rounded-xl
+            border border-slate-200
+            bg-slate-50
+            py-3.5 pl-4 pr-12
+            text-sm text-slate-900
+            outline-none
+            transition
+            placeholder:text-slate-400
+            hover:border-slate-300
+            focus:border-blue-500
+            focus:bg-white
+            focus:ring-4
+            focus:ring-blue-100
+        "
+                        />
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setShowPassword(
+                                    (previous) => !previous
+                                )
+                            }
+                            className="
+            absolute right-3 top-1/2
+            flex h-8 w-8
+            -translate-y-1/2
+            items-center justify-center
+            rounded-lg
+            text-slate-400
+            transition
+            hover:bg-blue-50
+            hover:text-blue-600
+        "
+                            aria-label={
+                                showPassword
+                                    ? "Приховати пароль"
+                                    : "Показати пароль"
+                            }
+                        >
+                            {showPassword ? (
+                                <EyeOff size={19} />
+                            ) : (
+                                <Eye size={19} />
+                            )}
+                        </button>
+                    </div>
                 </div>
                 {error && (
                     <>

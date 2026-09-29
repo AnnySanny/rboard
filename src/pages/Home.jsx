@@ -10,13 +10,19 @@ import {
     query,
     where,
 } from "firebase/firestore";
+import {
+    onAuthStateChanged,
+} from "firebase/auth";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import SearchFilters from "../components/SearchFilters";
 import ListingsSection from "../components/listings/ListingsSection";
 import AddListingButton from "../components/listings/AddListingButton";
-import { db } from "../firebase";
+import {
+    auth,
+    db,
+} from "../firebase";
 
 
 const searchPhrases = [
@@ -30,31 +36,48 @@ const searchPhrases = [
     "Віддам кошенят...",
 ];
 const LISTINGS_PER_PAGE = 24;
-
-const getCurrentUser = () => {
-    try {
-        const savedUser =
-            localStorage.getItem(
-                "rboardUser"
-            );
-
-        if (!savedUser) {
-            return null;
-        }
-
-        return JSON.parse(
-            savedUser
-        );
-    } catch {
-        return null;
+const isListingActive = (expiresAt) => {
+    if (!expiresAt) {
+        return false;
     }
+
+    const expirationDate =
+        expiresAt?.toDate?.() ||
+        (expiresAt instanceof Date
+            ? expiresAt
+            : new Date(expiresAt));
+
+    if (
+        Number.isNaN(
+            expirationDate.getTime()
+        )
+    ) {
+        return false;
+    }
+
+    return (
+        expirationDate.getTime() >
+        Date.now()
+    );
 };
 
 const Home = () => {
+    const [currentUser, setCurrentUser] =
+    useState(null);
     const [search, setSearch] = useState("");
     const [searchPlaceholder, setSearchPlaceholder] =
         useState("");
+useEffect(() => {
+    const unsubscribe =
+        onAuthStateChanged(
+            auth,
+            (user) => {
+                setCurrentUser(user);
+            }
+        );
 
+    return unsubscribe;
+}, []);
     useEffect(() => {
         let phraseIndex = 0;
         let charIndex = 0;
@@ -157,73 +180,83 @@ const Home = () => {
             approvedListingsQuery,
             (snapshot) => {
                 const receivedListings =
-                    snapshot.docs.map((document) => {
-                        const data = document.data();
+                    snapshot.docs
+                        .filter((document) => {
+                            const data =
+                                document.data();
 
-                        return {
-                            id: document.id,
-
-                            title:
-                                data.title || "",
-
-                            description:
-                                data.comment || "",
-
-                            category:
-                                data.type || "Інше",
-
-                            city:
-                                data.city?.name || "",
-
-                            region:
-                                data.city?.region || "",
-
-                            district:
-                                data.city?.district || "",
-
-                            street:
-                                data.street || "",
-
-                            location: [
-                                data.city?.name,
-                                data.street,
-                            ]
-                                .filter(Boolean)
-                                .join(", "),
-
-                            contact:
-                                data.contactOriginal ||
-                                data.contact ||
-                                "",
-                            additionalContacts:
-                                data.additionalContacts &&
-                                    typeof data.additionalContacts === "object"
-                                    ? data.additionalContacts
-                                    : {},
-                            authorName:
-                                data.authorName || "",
-                            views:
-                                Number(data.views ?? 0),
-                            createdAt:
-                                data.createdAt
-                                    ?.toDate?.() ||
-                                null,
-                            expiresAt:
+                            return isListingActive(
                                 data.expiresAt
-                                    ?.toDate?.() ||
-                                null,
-                            images:
-                                Array.isArray(data.images)
-                                    ? data.images
-                                    : [],
-                            favoriteUserIds:
-                                Array.isArray(
-                                    data.favoriteUserIds
-                                )
-                                    ? data.favoriteUserIds
-                                    : [],
-                        };
-                    });
+                            );
+                        })
+                        .map((document) => {
+                            const data =
+                                document.data();
+
+                            return {
+                                id: document.id,
+
+                                title:
+                                    data.title || "",
+
+                                description:
+                                    data.comment || "",
+
+                                category:
+                                    data.type || "Інше",
+
+                                city:
+                                    data.city?.name || "",
+
+                                region:
+                                    data.city?.region || "",
+
+                                district:
+                                    data.city?.district || "",
+
+                                street:
+                                    data.street || "",
+
+                                location: [
+                                    data.city?.name,
+                                    data.street,
+                                ]
+                                    .filter(Boolean)
+                                    .join(", "),
+
+                                contact:
+                                    data.contactOriginal ||
+                                    data.contact ||
+                                    "",
+                                additionalContacts:
+                                    data.additionalContacts &&
+                                        typeof data.additionalContacts === "object"
+                                        ? data.additionalContacts
+                                        : {},
+                                authorName:
+                                    data.authorName || "",
+                                views:
+                                    Number(data.views ?? 0),
+                                createdAt:
+                                    data.createdAt
+                                        ?.toDate?.() ||
+                                    null,
+                                expiresAt:
+                                    data.expiresAt
+                                        ?.toDate?.() ||
+                                    null,
+                                images:
+                                    Array.isArray(data.images)
+                                        ? data.images
+                                        : [],
+                                favoriteUserIds:
+                                    Array.isArray(
+                                        data.favoriteUserIds
+                                    )
+                                        ? data.favoriteUserIds
+                                        : [],
+                            };
+                        });
 
                 setListings(receivedListings);
                 setLoading(false);
@@ -245,8 +278,8 @@ const Home = () => {
 
         return unsubscribe;
     }, []);
-    const currentUserId =
-        getCurrentUser()?.id || null;
+ const currentUserId =
+    currentUser?.uid || null;
     const filteredListings = useMemo(() => {
         const normalizedSearch = search
             .trim()

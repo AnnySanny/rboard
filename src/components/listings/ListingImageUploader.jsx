@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Swal from "sweetalert2";
 
 const MAX_IMAGES = 10;
@@ -10,120 +10,181 @@ export default function ListingImageUploader({
     disabled = false,
 }) {
     const inputRef = useRef(null);
+    const [isDragging, setIsDragging] =
+        useState(false);
+const processImages = async (files) => {
+    const selectedFiles = Array.from(
+        files || []
+    );
 
-    const handleSelectImages = async (event) => {
-        const selectedFiles = Array.from(
-            event.target.files || []
-        );
-
-        event.target.value = "";
-
-        if (selectedFiles.length === 0) {
-            return;
-        }
-
-        const availableSlots =
-            MAX_IMAGES - images.length;
-
-        if (availableSlots <= 0) {
-            await Swal.fire({
-                icon: "info",
-                title: "Досягнуто ліміт",
-                text: "До одного оголошення можна додати максимум 10 фотографій.",
-                confirmButtonText: "Добре",
-                confirmButtonColor: "#2563eb",
-            });
-
-            return;
-        }
-
-        if (
-            selectedFiles.length >
-            availableSlots
-        ) {
-            await Swal.fire({
-                icon: "warning",
-                title: "Забагато фотографій",
-                text: `Можна додати ще максимум ${availableSlots}.`,
-                confirmButtonText: "Добре",
-                confirmButtonColor: "#2563eb",
-            });
-
-            return;
-        }
-
-        const invalidType =
-            selectedFiles.find(
-                (file) =>
-                    !file.type.startsWith(
-                        "image/"
-                    )
-            );
-
-        if (invalidType) {
-            await Swal.fire({
-                icon: "warning",
-                title: "Неправильний формат",
-                text: "Можна додавати лише зображення.",
-                confirmButtonText: "Добре",
-                confirmButtonColor: "#2563eb",
-            });
-
-            return;
-        }
-
-        const oversizedFile =
-            selectedFiles.find(
-                (file) =>
-                    file.size > MAX_FILE_SIZE
-            );
-
-        if (oversizedFile) {
-            await Swal.fire({
-                icon: "warning",
-                title: "Файл завеликий",
-                text: "Розмір однієї фотографії не повинен перевищувати 5 МБ.",
-                confirmButtonText: "Добре",
-                confirmButtonColor: "#2563eb",
-            });
-
-            return;
-        }
-
-        const newImages =
-            selectedFiles.map((file) => ({
-                file,
-                previewUrl:
-                    URL.createObjectURL(file),
-                id: `${file.name}-${file.size}-${file.lastModified}`,
-            }));
-
-        onChange([
-            ...images,
-            ...newImages,
-        ]);
-    };
-
-const handleRemoveImage = (index) => {
-    const imageToRemove =
-        images[index];
-
-    if (
-        !imageToRemove?.isExisting &&
-        imageToRemove?.previewUrl
-    ) {
-        URL.revokeObjectURL(
-            imageToRemove.previewUrl
-        );
+    if (selectedFiles.length === 0) {
+        return;
     }
 
-    onChange(
-        images.filter(
-            (_, imageIndex) =>
-                imageIndex !== index
-        )
+    const availableSlots =
+        MAX_IMAGES - images.length;
+
+    if (availableSlots <= 0) {
+        await Swal.fire({
+            icon: "info",
+            title: "Досягнуто ліміт",
+            text: "До одного оголошення можна додати максимум 10 фотографій.",
+            confirmButtonText: "Добре",
+            confirmButtonColor: "#2563eb",
+        });
+
+        return;
+    }
+
+    if (
+        selectedFiles.length >
+        availableSlots
+    ) {
+        await Swal.fire({
+            icon: "warning",
+            title: "Забагато фотографій",
+            text: `Можна додати ще максимум ${availableSlots}.`,
+            confirmButtonText: "Добре",
+            confirmButtonColor: "#2563eb",
+        });
+
+        return;
+    }
+
+    const invalidType =
+        selectedFiles.find(
+            (file) =>
+                !file.type.startsWith(
+                    "image/"
+                )
+        );
+
+    if (invalidType) {
+        await Swal.fire({
+            icon: "warning",
+            title: "Неправильний формат",
+            text: "Можна додавати лише зображення.",
+            confirmButtonText: "Добре",
+            confirmButtonColor: "#2563eb",
+        });
+
+        return;
+    }
+
+    const oversizedFile =
+        selectedFiles.find(
+            (file) =>
+                file.size > MAX_FILE_SIZE
+        );
+
+    if (oversizedFile) {
+        await Swal.fire({
+            icon: "warning",
+            title: "Файл завеликий",
+            text: "Розмір однієї фотографії не повинен перевищувати 5 МБ.",
+            confirmButtonText: "Добре",
+            confirmButtonColor: "#2563eb",
+        });
+
+        return;
+    }
+
+    const newImages =
+        selectedFiles.map((file) => ({
+            file,
+            previewUrl:
+                URL.createObjectURL(file),
+            id: `${file.name}-${file.size}-${file.lastModified}`,
+        }));
+
+    onChange([
+        ...images,
+        ...newImages,
+    ]);
+};
+
+const handleSelectImages = async (event) => {
+    await processImages(
+        event.target.files
+    );
+
+    event.target.value = "";
+};
+const handleDragEnter = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (
+        disabled ||
+        images.length >= MAX_IMAGES
+    ) {
+        return;
+    }
+
+    setIsDragging(true);
+};
+
+const handleDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (
+        disabled ||
+        images.length >= MAX_IMAGES
+    ) {
+        return;
+    }
+
+    event.dataTransfer.dropEffect =
+        "copy";
+
+    setIsDragging(true);
+};
+
+const handleDragLeave = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setIsDragging(false);
+};
+
+const handleDrop = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setIsDragging(false);
+
+    if (
+        disabled ||
+        images.length >= MAX_IMAGES
+    ) {
+        return;
+    }
+
+    await processImages(
+        event.dataTransfer.files
     );
 };
+    const handleRemoveImage = (index) => {
+        const imageToRemove =
+            images[index];
+
+        if (
+            !imageToRemove?.isExisting &&
+            imageToRemove?.previewUrl
+        ) {
+            URL.revokeObjectURL(
+                imageToRemove.previewUrl
+            );
+        }
+
+        onChange(
+            images.filter(
+                (_, imageIndex) =>
+                    imageIndex !== index
+            )
+        );
+    };
 
     return (
         <div>
@@ -153,45 +214,95 @@ const handleRemoveImage = (index) => {
                 className="hidden"
             />
 
-            <button
-                type="button"
-                onClick={() =>
-                    inputRef.current?.click()
-                }
-                disabled={
-                    disabled ||
-                    images.length >= MAX_IMAGES
-                }
-                className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-7 text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-                <svg
-                    className="h-6 w-6 text-blue-600"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                    <rect
-                        x="3"
-                        y="3"
-                        width="18"
-                        height="18"
-                        rx="2"
-                    />
-                    <circle
-                        cx="8.5"
-                        cy="8.5"
-                        r="1.5"
-                    />
-                    <path d="m21 15-5-5L5 21" />
-                </svg>
+<div
+    onClick={() => {
+        if (
+            !disabled &&
+            images.length < MAX_IMAGES
+        ) {
+            inputRef.current?.click();
+        }
+    }}
+    onDragEnter={handleDragEnter}
+    onDragOver={handleDragOver}
+    onDragLeave={handleDragLeave}
+    onDrop={handleDrop}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(event) => {
+        if (
+            event.key === "Enter" ||
+            event.key === " "
+        ) {
+            event.preventDefault();
 
-                {images.length >= MAX_IMAGES
-                    ? "Додано максимум фотографій"
-                    : "Додати фотографії"}
-            </button>
+            if (
+                !disabled &&
+                images.length <
+                    MAX_IMAGES
+            ) {
+                inputRef.current?.click();
+            }
+        }
+    }}
+    className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-7 text-sm font-semibold transition ${
+        isDragging
+            ? "scale-[1.01] border-blue-500 bg-blue-100 text-blue-700"
+            : "border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+    } ${
+        disabled ||
+        images.length >= MAX_IMAGES
+            ? "cursor-not-allowed opacity-60"
+            : ""
+    }`}
+>
+    <svg
+        className={`h-7 w-7 transition ${
+            isDragging
+                ? "text-blue-700"
+                : "text-blue-600"
+        }`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+    >
+        <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="2"
+        />
+
+        <circle
+            cx="8.5"
+            cy="8.5"
+            r="1.5"
+        />
+
+        <path d="m21 15-5-5L5 21" />
+    </svg>
+
+    <span>
+        {images.length >= MAX_IMAGES
+            ? "Додано максимум фотографій"
+            : isDragging
+                ? "Відпустіть фотографії тут"
+                : "Додати або перетягнути фотографії"}
+    </span>
+
+    {images.length < MAX_IMAGES &&
+        !disabled && (
+            <span className="text-xs font-normal text-slate-400">
+                Натисніть або перетягніть
+                файли в цю область
+            </span>
+        )}
+</div>
 
             <p className="mt-2 text-xs leading-5 text-slate-400">
                 До 10 фотографій. JPG, PNG
@@ -211,9 +322,8 @@ const handleRemoveImage = (index) => {
                                     src={
                                         image.previewUrl
                                     }
-                                    alt={`Фото ${
-                                        index + 1
-                                    }`}
+                                    alt={`Фото ${index + 1
+                                        }`}
                                     className="h-full w-full object-cover"
                                 />
 

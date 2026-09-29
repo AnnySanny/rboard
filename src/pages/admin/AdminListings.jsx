@@ -13,6 +13,12 @@ import {
 
 import { db } from "../../firebase";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
+
+import {
+    createAdminLog,
+    ADMIN_LOG_ACTIONS,
+} from "../../utils/adminLogger";
+
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -28,6 +34,48 @@ const LISTING_TYPES = [
     "Інше",
 ];
 const EXTENSION_OPTIONS = [
+    {
+        value: "7-days",
+        label: "7 днів",
+    },
+    {
+        value: "14-days",
+        label: "14 днів",
+    },
+    {
+        value: "1-month",
+        label: "1 місяць",
+    },
+    {
+        value: "1.5-months",
+        label: "1.5 місяці",
+    },
+    {
+        value: "2-months",
+        label: "2 місяці",
+    },
+    {
+        value: "3-months",
+        label: "3 місяці",
+    },
+    {
+        value: "6-months",
+        label: "Півроку",
+    },
+];
+const SHORTEN_OPTIONS = [
+    {
+        value: "30-minutes",
+        label: "30 хвилин",
+    },
+    {
+        value: "1-hour",
+        label: "1 година",
+    },
+    {
+        value: "1-day",
+        label: "1 день",
+    },
     {
         value: "7-days",
         label: "7 днів",
@@ -130,6 +178,10 @@ const getDateFromFirestore = (value) => {
         : parsedDate;
 };
 const isListingExpired = (listing) => {
+    if (listing.status === "expired") {
+        return true;
+    }
+
     if (
         listing.status !== "approved" ||
         !listing.expiresAt
@@ -224,6 +276,79 @@ const calculateExtendedDate = (
         case "6-months":
             newDate.setMonth(
                 newDate.getMonth() + 6
+            );
+            break;
+
+        default:
+            return null;
+    }
+
+    return newDate;
+};
+const calculateShortenedDate = (
+    baseDate,
+    extension
+) => {
+    const newDate = new Date(baseDate);
+
+    switch (extension) {
+        case "30-minutes":
+            newDate.setMinutes(
+                newDate.getMinutes() - 30
+            );
+            break;
+
+        case "1-hour":
+            newDate.setHours(
+                newDate.getHours() - 1
+            );
+            break;
+
+        case "1-day":
+            newDate.setDate(
+                newDate.getDate() - 1
+            );
+            break;
+
+        case "7-days":
+            newDate.setDate(
+                newDate.getDate() - 7
+            );
+            break;
+
+        case "14-days":
+            newDate.setDate(
+                newDate.getDate() - 14
+            );
+            break;
+
+        case "1-month":
+            newDate.setMonth(
+                newDate.getMonth() - 1
+            );
+            break;
+
+        case "1.5-months":
+            newDate.setDate(
+                newDate.getDate() - 45
+            );
+            break;
+
+        case "2-months":
+            newDate.setMonth(
+                newDate.getMonth() - 2
+            );
+            break;
+
+        case "3-months":
+            newDate.setMonth(
+                newDate.getMonth() - 3
+            );
+            break;
+
+        case "6-months":
+            newDate.setMonth(
+                newDate.getMonth() - 6
             );
             break;
 
@@ -400,25 +525,139 @@ const AdminListings = () => {
         useState(null);
     const [extendingId, setExtendingId] =
         useState(null);
-
-    useEffect(() => {
-        const listingsCollection = collection(
-            db,
-            "listings"
+    const [shorteningId, setShorteningId] =
+        useState(null);
+    const [expandedDescriptions, setExpandedDescriptions] =
+        useState([]);
+    const [expandedContacts, setExpandedContacts] =
+        useState([]);
+    const toggleDescription = (listingId) => {
+        setExpandedDescriptions(
+            (previous) =>
+                previous.includes(listingId)
+                    ? previous.filter(
+                        (id) => id !== listingId
+                    )
+                    : [
+                        ...previous,
+                        listingId,
+                    ]
         );
+    };
+    const toggleContacts = (listingId) => {
+        setExpandedContacts(
+            (previous) =>
+                previous.includes(listingId)
+                    ? previous.filter(
+                        (id) => id !== listingId
+                    )
+                    : [
+                        ...previous,
+                        listingId,
+                    ]
+        );
+    };
+    useEffect(() => {
+        const listingsCollection =
+            collection(
+                db,
+                "listings"
+            );
 
         const unsubscribe = onSnapshot(
             listingsCollection,
-            (snapshot) => {
-                const receivedListings =
-                    snapshot.docs.map((listingDocument) => {
-                        return {
-                            id: listingDocument.id,
-                            ...listingDocument.data(),
-                        };
-                    });
+            async (snapshot) => {
+                const now = new Date();
 
-                setListings(receivedListings);
+                const receivedListings =
+                    snapshot.docs.map(
+                        (listingDocument) => ({
+                            id:
+                                listingDocument.id,
+                            ...listingDocument.data(),
+                        })
+                    );
+
+                const expiredListings =
+                    receivedListings.filter(
+                        (listing) => {
+                            if (
+                                listing.status !==
+                                "approved"
+                            ) {
+                                return false;
+                            }
+
+                            const expiresAt =
+                                getDateFromFirestore(
+                                    listing.expiresAt
+                                );
+
+                            return (
+                                expiresAt &&
+                                expiresAt.getTime() <=
+                                now.getTime()
+                            );
+                        }
+                    );
+
+                if (
+                    expiredListings.length > 0
+                ) {
+                    try {
+                        await Promise.all(
+                            expiredListings.map(
+                                (listing) =>
+                                    updateDoc(
+                                        doc(
+                                            db,
+                                            "listings",
+                                            listing.id
+                                        ),
+                                        {
+                                            status:
+                                                "expired",
+
+                                            updatedAt:
+                                                serverTimestamp(),
+                                        }
+                                    )
+                            )
+                        );
+                    } catch (error) {
+                        console.error(
+                            "Помилка автоматичного завершення оголошень:",
+                            error
+                        );
+                    }
+                }
+
+                setListings(
+                    receivedListings.map(
+                        (listing) => {
+                            const expiresAt =
+                                getDateFromFirestore(
+                                    listing.expiresAt
+                                );
+
+                            const expired =
+                                listing.status ===
+                                "approved" &&
+                                expiresAt &&
+                                expiresAt.getTime() <=
+                                now.getTime();
+
+                            return expired
+                                ? {
+                                    ...listing,
+                                    status:
+                                        "expired",
+                                }
+                                : listing;
+                        }
+                    )
+                );
+
                 setLoading(false);
                 setLoadError("");
             },
@@ -482,7 +721,6 @@ const AdminListings = () => {
                     listing.city?.region,
                     listing.city?.district,
                     listing.street,
-                    listing.author?.email,
                 ]
                     .map(normalizeText)
                     .join(" ");
@@ -669,20 +907,37 @@ const AdminListings = () => {
             if (newStatus === "approved") {
                 const approvedAt = new Date();
 
-                const expiresAt = new Date(
-                    approvedAt.getTime() +
-                    LISTING_LIFETIME_DAYS *
-                    24 *
-                    60 *
-                    60 *
-                    1000
-                );
+                const existingExpiresAt =
+                    getDateFromFirestore(
+                        listing.expiresAt
+                    );
+
+                const hasFutureExpiration =
+                    existingExpiresAt &&
+                    existingExpiresAt.getTime() >
+                    approvedAt.getTime();
+
+                const expiresAt =
+                    hasFutureExpiration
+                        ? existingExpiresAt
+                        : new Date(
+                            approvedAt.getTime() +
+                            LISTING_LIFETIME_DAYS *
+                            24 *
+                            60 *
+                            60 *
+                            1000
+                        );
 
                 updateData.approvedAt =
-                    Timestamp.fromDate(approvedAt);
+                    Timestamp.fromDate(
+                        approvedAt
+                    );
 
                 updateData.expiresAt =
-                    Timestamp.fromDate(expiresAt);
+                    Timestamp.fromDate(
+                        expiresAt
+                    );
 
                 updateData[
                     "moderation.rejectionReason"
@@ -711,7 +966,46 @@ const AdminListings = () => {
                 listingRef,
                 updateData
             );
+            let logAction =
+                ADMIN_LOG_ACTIONS.LISTING_UPDATED;
 
+            let logTitle =
+                "Змінено статус оголошення";
+
+            if (newStatus === "approved") {
+                logAction =
+                    ADMIN_LOG_ACTIONS.LISTING_APPROVED;
+
+                logTitle =
+                    "Схвалено оголошення";
+            }
+
+            if (newStatus === "cancelled") {
+                logAction =
+                    ADMIN_LOG_ACTIONS.LISTING_REJECTED;
+
+                logTitle =
+                    "Скасовано оголошення";
+            }
+
+            await createAdminLog({
+                action: logAction,
+
+                category: "listings",
+
+                title: logTitle,
+
+                description:
+                    `«${listing.title || "Без назви"}»: ` +
+                    `${getStatusData(listing.status).label} → ` +
+                    `${selectedStatus?.label || newStatus}`,
+
+                targetId:
+                    listing.id,
+
+                targetName:
+                    listing.title || "Без назви",
+            });
             await Swal.fire({
                 icon: "success",
                 title: "Статус змінено",
@@ -762,13 +1056,17 @@ const AdminListings = () => {
          * Продовжувати можна тільки
          * опубліковані оголошення.
          */
-        if (listing.status !== "approved") {
+        const canExtend =
+            listing.status === "approved" ||
+            listing.status === "expired";
+
+        if (!canExtend) {
             await Swal.fire({
                 icon: "warning",
                 title:
-                    "Оголошення не опубліковане",
+                    "Неможливо продовжити термін",
                 text:
-                    "Спочатку змініть статус оголошення на «Опубліковано».",
+                    "Продовжувати можна тільки опубліковані або прострочені оголошення.",
                 confirmButtonColor:
                     "#2563eb",
             });
@@ -867,6 +1165,9 @@ const AdminListings = () => {
                 listing.id
             );
 
+            const wasExpired =
+                listing.status === "expired";
+
             await updateDoc(
                 listingRef,
                 {
@@ -875,11 +1176,47 @@ const AdminListings = () => {
                             newExpiresAt
                         ),
 
+                    status: wasExpired
+                        ? "pending"
+                        : "approved",
+
                     updatedAt:
                         serverTimestamp(),
+
+                    ...(wasExpired
+                        ? {
+                            approvedAt: null,
+
+                            "moderation.reviewedAt":
+                                null,
+
+                            "moderation.rejectionReason":
+                                null,
+                        }
+                        : {}),
                 }
             );
+            await createAdminLog({
+                action:
+                    ADMIN_LOG_ACTIONS.LISTING_UPDATED,
 
+                category:
+                    "listings",
+
+                title:
+                    "Продовжено термін оголошення",
+
+                description:
+                    `«${listing.title || "Без назви"}» — ` +
+                    `продовжено на ${selectedExtension.label}. ` +
+                    `Новий термін: ${formatDate(newExpiresAt)}.`,
+
+                targetId:
+                    listing.id,
+
+                targetName:
+                    listing.title || "Без назви",
+            });
             await Swal.fire({
                 icon: "success",
 
@@ -933,6 +1270,218 @@ const AdminListings = () => {
             setExtendingId(null);
         }
     };
+
+    const handleShortenListing = async (
+        listing,
+        extension
+    ) => {
+        if (!extension) {
+            return;
+        }
+
+        const selectedExtension =
+            SHORTEN_OPTIONS.find(
+                (option) =>
+                    option.value === extension
+            );
+
+        if (!selectedExtension) {
+            return;
+        }
+
+        if (listing.status !== "approved") {
+            await Swal.fire({
+                icon: "warning",
+                title: "Оголошення не опубліковане",
+                text: "Скоротити термін можна тільки для опублікованого оголошення.",
+                confirmButtonColor: "#2563eb",
+            });
+
+            return;
+        }
+
+        const oldExpiresAt =
+            getDateFromFirestore(
+                listing.expiresAt
+            );
+
+        if (!oldExpiresAt) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Термін не вказаний",
+                text: "Для цього оголошення відсутня дата завершення.",
+                confirmButtonColor: "#2563eb",
+            });
+
+            return;
+        }
+
+        const now = new Date();
+
+        if (
+            oldExpiresAt.getTime() <=
+            now.getTime()
+        ) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Термін уже закінчився",
+                text: "Неможливо скоротити термін оголошення, яке вже прострочене.",
+                confirmButtonColor: "#2563eb",
+            });
+
+            return;
+        }
+
+        const newExpiresAt =
+            calculateShortenedDate(
+                oldExpiresAt,
+                extension
+            );
+
+        if (!newExpiresAt) {
+            return;
+        }
+
+        const willExpire =
+            newExpiresAt.getTime() <=
+            now.getTime();
+
+        if (willExpire) {
+            newExpiresAt.setTime(
+                now.getTime()
+            );
+        }
+
+        const confirmation =
+            await Swal.fire({
+                icon: "question",
+                title: "Скоротити термін?",
+                html: `
+                <div style="line-height:1.7">
+                    Оголошення
+                    <strong>
+                        «${listing.title || "Без назви"}»
+                    </strong>
+
+                    <br><br>
+
+                    Скоротити на:
+                    <strong>
+                        ${selectedExtension.label}
+                    </strong>
+
+                    <br>
+
+                    Поточний термін:
+                    <strong>
+                        ${formatDate(oldExpiresAt)}
+                    </strong>
+
+                    <br>
+
+                    Новий термін:
+                    <strong>
+                        ${formatDate(newExpiresAt)}
+                    </strong>
+                </div>
+            `,
+                showCancelButton: true,
+                confirmButtonText:
+                    "Так, скоротити",
+                cancelButtonText: "Скасувати",
+                confirmButtonColor: "#dc2626",
+                cancelButtonColor: "#64748b",
+                reverseButtons: true,
+            });
+
+        if (!confirmation.isConfirmed) {
+            return;
+        }
+
+        setShorteningId(listing.id);
+
+        try {
+            const listingRef = doc(
+                db,
+                "listings",
+                listing.id
+            );
+
+            await updateDoc(
+                listingRef,
+                {
+                    expiresAt:
+                        Timestamp.fromDate(
+                            newExpiresAt
+                        ),
+
+                    ...(willExpire && {
+                        status: "expired",
+                    }),
+
+                    updatedAt:
+                        serverTimestamp(),
+                }
+            );
+            await createAdminLog({
+                action:
+                    ADMIN_LOG_ACTIONS.LISTING_UPDATED,
+
+                category:
+                    "listings",
+
+                title:
+                    willExpire
+                        ? "Завершено термін оголошення"
+                        : "Скорочено термін оголошення",
+
+                description:
+                    `«${listing.title || "Без назви"}» — ` +
+                    `скорочено на ${selectedExtension.label}. ` +
+                    `Новий термін: ${formatDate(newExpiresAt)}.`,
+
+                targetId:
+                    listing.id,
+
+                targetName:
+                    listing.title || "Без назви",
+            });
+            await Swal.fire({
+                icon: "success",
+                title: "Термін скорочено",
+                html: `
+                <div style="line-height:1.7">
+                    Оголошення активне до:
+                    <br>
+                    <strong>
+                        ${formatDate(newExpiresAt)}
+                    </strong>
+                </div>
+            `,
+                confirmButtonText: "Добре",
+                confirmButtonColor: "#2563eb",
+                timer: 2000,
+                timerProgressBar: true,
+            });
+        } catch (error) {
+            console.error(
+                "Помилка скорочення терміну:",
+                error
+            );
+
+            await Swal.fire({
+                icon: "error",
+                title:
+                    "Не вдалося скоротити термін",
+                text:
+                    "Перевірте з’єднання та права доступу Firestore.",
+                confirmButtonText: "Закрити",
+                confirmButtonColor: "#2563eb",
+            });
+        } finally {
+            setShorteningId(null);
+        }
+    };
     const handleDeleteListing = async (
         listing
     ) => {
@@ -978,7 +1527,25 @@ const AdminListings = () => {
                     listing.id
                 )
             );
+            await createAdminLog({
+                action:
+                    ADMIN_LOG_ACTIONS.LISTING_DELETED,
 
+                category:
+                    "listings",
+
+                title:
+                    "Видалено оголошення",
+
+                description:
+                    `«${listing.title || "Без назви"}»`,
+
+                targetId:
+                    listing.id,
+
+                targetName:
+                    listing.title || "Без назви",
+            });
             await Swal.fire({
                 icon: "success",
                 title: "Оголошення видалено",
@@ -1371,6 +1938,20 @@ const AdminListings = () => {
                                     );
                                 const listingContacts =
                                     getListingContacts(listing);
+                                const isDescriptionExpanded =
+                                    expandedDescriptions.includes(
+                                        listing.id
+                                    );
+                                const isContactsExpanded =
+                                    expandedContacts.includes(
+                                        listing.id
+                                    );
+
+                                const mainContact =
+                                    listingContacts[0];
+
+                                const additionalContacts =
+                                    listingContacts.slice(1);
                                 return (
                                     <article
                                         key={listing.id}
@@ -1446,52 +2027,128 @@ const AdminListings = () => {
                                                 }
                                             />
                                             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                                                    Контакти
-                                                </p>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                        Контакти
+                                                    </p>
 
-                                                {listingContacts.length > 0 ? (
-                                                    <div className="mt-2 divide-y divide-slate-200">
-                                                        {listingContacts.map(
-                                                            (contact) => (
-                                                                <div
-                                                                    key={contact.key}
-                                                                    className="py-2 first:pt-0 last:pb-0"
+                                                    {additionalContacts.length > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                toggleContacts(
+                                                                    listing.id
+                                                                )
+                                                            }
+                                                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-blue-600 transition hover:bg-blue-100 hover:text-blue-700"
+                                                            aria-label={
+                                                                isContactsExpanded
+                                                                    ? "Згорнути контакти"
+                                                                    : "Показати додаткові контакти"
+                                                            }
+                                                        >
+                                                            <svg
+                                                                className={`h-4 w-4 transition-transform duration-200 ${isContactsExpanded
+                                                                    ? "rotate-180"
+                                                                    : ""
+                                                                    }`}
+                                                                viewBox="0 0 24 24"
+                                                                fill="none"
+                                                                stroke="currentColor"
+                                                                strokeWidth="2"
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                aria-hidden="true"
+                                                            >
+                                                                <path d="m6 9 6 6 6-6" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                {mainContact ? (
+                                                    <>
+                                                        <div className="mt-2">
+                                                            <p className="text-xs font-bold text-slate-500">
+                                                                {mainContact.labels.join(", ")}
+                                                            </p>
+
+                                                            {mainContact.type === "link" ? (
+                                                                <a
+                                                                    href={
+                                                                        mainContact.value.startsWith(
+                                                                            "http://"
+                                                                        ) ||
+                                                                            mainContact.value.startsWith(
+                                                                                "https://"
+                                                                            )
+                                                                            ? mainContact.value
+                                                                            : `https://${mainContact.value}`
+                                                                    }
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="mt-0.5 block break-all text-sm font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
                                                                 >
-                                                                    <p className="text-xs font-bold text-slate-500">
-                                                                        {contact.labels.join(
-                                                                            ", "
-                                                                        )}
-                                                                    </p>
+                                                                    {mainContact.value}
+                                                                </a>
+                                                            ) : (
+                                                                <p className="mt-0.5 break-all text-sm font-semibold text-slate-800">
+                                                                    {mainContact.value}
+                                                                </p>
+                                                            )}
+                                                        </div>
 
-                                                                    {contact.type ===
-                                                                        "link" ? (
-                                                                        <a
-                                                                            href={
-                                                                                contact.value.startsWith(
-                                                                                    "http://"
-                                                                                ) ||
-                                                                                    contact.value.startsWith(
-                                                                                        "https://"
-                                                                                    )
-                                                                                    ? contact.value
-                                                                                    : `https://${contact.value}`
-                                                                            }
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="mt-0.5 block break-all text-sm font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
-                                                                        >
-                                                                            {contact.value}
-                                                                        </a>
-                                                                    ) : (
-                                                                        <p className="mt-0.5 break-all text-sm font-semibold text-slate-800">
-                                                                            {contact.value}
-                                                                        </p>
+                                                        {isContactsExpanded &&
+                                                            additionalContacts.length > 0 && (
+                                                                <div className="mt-3 divide-y divide-slate-200 border-t border-slate-200 pt-1">
+                                                                    {additionalContacts.map(
+                                                                        (contact) => (
+                                                                            <div
+                                                                                key={
+                                                                                    contact.key
+                                                                                }
+                                                                                className="py-2 last:pb-0"
+                                                                            >
+                                                                                <p className="text-xs font-bold text-slate-500">
+                                                                                    {contact.labels.join(
+                                                                                        ", "
+                                                                                    )}
+                                                                                </p>
+
+                                                                                {contact.type ===
+                                                                                    "link" ? (
+                                                                                    <a
+                                                                                        href={
+                                                                                            contact.value.startsWith(
+                                                                                                "http://"
+                                                                                            ) ||
+                                                                                                contact.value.startsWith(
+                                                                                                    "https://"
+                                                                                                )
+                                                                                                ? contact.value
+                                                                                                : `https://${contact.value}`
+                                                                                        }
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="mt-0.5 block break-all text-sm font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
+                                                                                    >
+                                                                                        {
+                                                                                            contact.value
+                                                                                        }
+                                                                                    </a>
+                                                                                ) : (
+                                                                                    <p className="mt-0.5 break-all text-sm font-semibold text-slate-800">
+                                                                                        {
+                                                                                            contact.value
+                                                                                        }
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                        )
                                                                     )}
                                                                 </div>
-                                                            )
-                                                        )}
-                                                    </div>
+                                                            )}
+                                                    </>
                                                 ) : (
                                                     <p className="mt-2 text-sm font-medium text-slate-400">
                                                         Не вказано
@@ -1515,7 +2172,10 @@ const AdminListings = () => {
                                                 )}
 
                                             />
-                                            {listing.status === "approved" &&
+                                            {(
+                                                listing.status === "approved" ||
+                                                listing.status === "expired"
+                                            ) &&
                                                 listing.expiresAt && (
                                                     <InfoItem
                                                         label={
@@ -1543,20 +2203,6 @@ const AdminListings = () => {
                                                         )}
                                                     />
                                                 )}
-
-                                            {isAuthenticated && (
-                                                <>
-                                                    <InfoItem
-                                                        label="Email облікового запису"
-                                                        value={
-                                                            listing
-                                                                .author
-                                                                ?.email ||
-                                                            "Не вказано"
-                                                        }
-                                                    />
-                                                </>
-                                            )}
                                         </div>
 
                                         <div className="mt-5">
@@ -1564,9 +2210,32 @@ const AdminListings = () => {
                                                 Опис
                                             </p>
 
-                                            <div className="mt-2 min-h-24 whitespace-pre-wrap break-words rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                                                {listing.comment ||
-                                                    "Коментар до оголошення не додано."}
+                                            <div className="mt-2 rounded-2xl bg-slate-50 p-4">
+                                                <p
+                                                    className={`whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 ${isDescriptionExpanded
+                                                        ? ""
+                                                        : "line-clamp-2"
+                                                        }`}
+                                                >
+                                                    {listing.comment ||
+                                                        "Коментар до оголошення не додано."}
+                                                </p>
+
+                                                {listing.comment && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            toggleDescription(
+                                                                listing.id
+                                                            )
+                                                        }
+                                                        className="mt-2 text-sm font-bold text-blue-600 transition hover:text-blue-700"
+                                                    >
+                                                        {isDescriptionExpanded
+                                                            ? "Згорнути"
+                                                            : "Показати весь текст"}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1617,7 +2286,9 @@ const AdminListings = () => {
                                                     }
                                                     disabled={
                                                         isUpdating ||
-                                                        isDeleting
+                                                        isDeleting ||
+                                                        isExtending ||
+                                                        shorteningId === listing.id
                                                     }
                                                     onChange={(
                                                         event
@@ -1651,7 +2322,11 @@ const AdminListings = () => {
                                                         isUpdating ||
                                                         isDeleting ||
                                                         isExtending ||
-                                                        listing.status !== "approved"
+                                                        shorteningId === listing.id ||
+                                                        (
+                                                            listing.status !== "approved" &&
+                                                            listing.status !== "expired"
+                                                        )
                                                     }
                                                     onChange={(event) => {
                                                         const value =
@@ -1675,6 +2350,48 @@ const AdminListings = () => {
                                                     </option>
 
                                                     {EXTENSION_OPTIONS.map(
+                                                        (option) => (
+                                                            <option
+                                                                key={option.value}
+                                                                value={option.value}
+                                                            >
+                                                                {option.label}
+                                                            </option>
+                                                        )
+                                                    )}
+                                                </select>
+                                                <select
+                                                    value=""
+                                                    disabled={
+                                                        isUpdating ||
+                                                        isDeleting ||
+                                                        isExtending ||
+                                                        shorteningId === listing.id ||
+                                                        listing.status !== "approved" ||
+                                                        isExpired
+                                                    }
+                                                    onChange={(event) => {
+                                                        const value =
+                                                            event.target.value;
+
+                                                        if (!value) {
+                                                            return;
+                                                        }
+
+                                                        handleShortenListing(
+                                                            listing,
+                                                            value
+                                                        );
+                                                    }}
+                                                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    <option value="">
+                                                        {shorteningId === listing.id
+                                                            ? "Скорочення..."
+                                                            : "Скоротити термін"}
+                                                    </option>
+
+                                                    {SHORTEN_OPTIONS.map(
                                                         (option) => (
                                                             <option
                                                                 key={option.value}

@@ -10,7 +10,10 @@ import {
   doc,
   onSnapshot,
 } from "firebase/firestore";
-
+import {
+  createAdminLog,
+  ADMIN_LOG_ACTIONS,
+} from "../../utils/adminLogger";
 import Swal from "sweetalert2";
 
 import { db } from "../../firebase";
@@ -214,7 +217,26 @@ const AdminContacts = () => {
           item.id
         )
       );
+      await createAdminLog({
+        action:
+          ADMIN_LOG_ACTIONS.FEEDBACK_DELETED,
 
+        category:
+          "feedback",
+
+        title:
+          "Видалено звернення",
+
+        description:
+          `Видалено звернення від «${item.name || "Без імені"}» ` +
+          `типу «${item.type || "Інше"}».`,
+
+        targetId:
+          item.id,
+
+        targetName:
+          item.name || "Без імені",
+      });
       await Swal.fire({
         toast: true,
         position: "top-end",
@@ -522,7 +544,7 @@ const AdminContacts = () => {
                       title="Видалити звернення"
                     >
                       {deletingId ===
-                      item.id ? (
+                        item.id ? (
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
                       ) : (
                         <svg

@@ -7,7 +7,10 @@ import {
     serverTimestamp,
     updateDoc,
 } from "firebase/firestore";
-
+import {
+    createAdminLog,
+    ADMIN_LOG_ACTIONS,
+} from "../../utils/adminLogger";
 import { db } from "../../firebase";
 import CityAutocomplete from "../listings/CityAutocomplete";
 import ListingImageUploader from "../listings/ListingImageUploader";
@@ -480,6 +483,111 @@ const AdminEditListingForm = ({
              */
             const additionalContacts =
                 getCleanAdditionalContacts();
+            const changes = [];
+
+            const newAuthorName =
+                form.authorName.trim();
+
+            const newContact =
+                form.contact.trim();
+
+            const newTitle =
+                form.title.trim();
+
+            const newStreet =
+                form.street.trim();
+
+            const newComment =
+                form.comment.trim();
+
+
+            if (
+                newAuthorName !==
+                (listing.authorName || "")
+            ) {
+                changes.push(
+                    `ім’я автора: «${listing.authorName || "—"}» → «${newAuthorName}»`
+                );
+            }
+
+
+            if (
+                newContact !==
+                (
+                    listing.contactOriginal ||
+                    listing.contact ||
+                    ""
+                )
+            ) {
+                changes.push(
+                    "змінено основний контакт"
+                );
+            }
+
+
+            if (
+                newTitle !==
+                (listing.title || "")
+            ) {
+                changes.push(
+                    `назва: «${listing.title || "—"}» → «${newTitle}»`
+                );
+            }
+
+
+            if (
+                form.type !==
+                (listing.type || "")
+            ) {
+                changes.push(
+                    `тип: «${listing.type || "—"}» → «${form.type}»`
+                );
+            }
+
+
+            if (
+                form.city?.name !==
+                listing.city?.name
+            ) {
+                changes.push(
+                    `населений пункт: «${listing.city?.name || "—"}» → «${form.city?.name || "—"}»`
+                );
+            }
+
+
+            if (
+                newStreet !==
+                (listing.street || "")
+            ) {
+                changes.push(
+                    `вулиця: «${listing.street || "—"}» → «${newStreet || "—"}»`
+                );
+            }
+
+
+            if (
+                newComment !==
+                (listing.comment || "")
+            ) {
+                changes.push(
+                    "змінено опис оголошення"
+                );
+            }
+
+
+            const oldImagesCount =
+                Array.isArray(listing.images)
+                    ? listing.images.length
+                    : 0;
+
+            if (
+                finalImages.length !==
+                oldImagesCount
+            ) {
+                changes.push(
+                    `кількість фото: ${oldImagesCount} → ${finalImages.length}`
+                );
+            }
             await updateDoc(
                 listingRef,
                 {
@@ -545,7 +653,27 @@ const AdminEditListingForm = ({
                     );
                 }
             });
+            await createAdminLog({
+                action:
+                    ADMIN_LOG_ACTIONS.LISTING_UPDATED,
 
+                category:
+                    "listings",
+
+                title:
+                    "Відредаговано оголошення",
+
+                description:
+                    changes.length > 0
+                        ? `«${newTitle}». Зміни: ${changes.join("; ")}.`
+                        : `«${newTitle}». Дані збережено без помітних змін.`,
+
+                targetId:
+                    listing.id,
+
+                targetName:
+                    newTitle,
+            });
             await Swal.fire({
                 icon: "success",
                 title: "Зміни збережено",

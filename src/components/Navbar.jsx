@@ -3,7 +3,12 @@ import {
     NavLink,
     useNavigate,
 } from "react-router-dom";
+import {
+    onAuthStateChanged,
+    signOut,
+} from "firebase/auth";
 
+import { auth } from "../firebase";
 import {
     LogOut,
     User,
@@ -27,11 +32,25 @@ const Navbar = () => {
 
     const navigate = useNavigate();
 
-    const savedUser =
-        localStorage.getItem("rboardUser");
+    const [currentUser, setCurrentUser] =
+        useState(null);
 
-    const userMode = Boolean(savedUser);
+    const [authLoading, setAuthLoading] =
+        useState(true);
 
+    const userMode = Boolean(currentUser);
+    useEffect(() => {
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                (user) => {
+                    setCurrentUser(user);
+                    setAuthLoading(false);
+                }
+            );
+
+        return unsubscribe;
+    }, []);
 
     const navLinkClass = ({ isActive }) =>
         `text-sm font-medium transition ${isActive
@@ -87,24 +106,33 @@ const Navbar = () => {
             );
         };
     }, []);
-    const handleLogout = () => {
+    const handleLogout = async () => {
         setShowMobileMenu(false);
 
-        localStorage.removeItem("rboardUser");
-
-        navigate("/");
+        try {
+            await signOut(auth);
+            navigate("/");
+        } catch (error) {
+            console.error(
+                "Помилка виходу:",
+                error
+            );
+        }
     };
 
-
+    if (authLoading) {
+        return (
+            <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md">
+                <div className="mx-auto min-h-16 max-w-6xl px-4 sm:px-6" />
+            </header>
+        );
+    }
     return (
         <>
             <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md">
 
                 <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
 
-                    {/* =========================
-                        Логотип
-                    ========================= */}
 
                     <NavLink
                         to={userMode ? "/user" : "/"}
@@ -114,12 +142,8 @@ const Navbar = () => {
                         <img
                             src="/logo.png"
                             alt="RBoard"
-                            className="h-10 w-10 object-contain"
+                            className="h-20 w-20 object-contain"
                         />
-
-                        <span className="text-xl font-black tracking-tight text-slate-950">
-                            RBoard
-                        </span>
                     </NavLink>
 
 
@@ -133,9 +157,15 @@ const Navbar = () => {
                                     end
                                     className={navLinkClass}
                                 >
-                                    Оголошення
+                                    Головна
                                 </NavLink>
-
+                                <NavLink
+                                    to="/user"
+                                    end
+                                    className={navLinkClass}
+                                >
+                                    Особистий кабінет
+                                </NavLink>
 
 
                                 <NavLink
@@ -161,7 +191,7 @@ const Navbar = () => {
                                     end
                                     className={navLinkClass}
                                 >
-                                    Оголошення
+                                    Головна
                                 </NavLink>
 
                                 <NavLink
@@ -305,9 +335,16 @@ const Navbar = () => {
                                         onClick={closeMobileMenu}
                                         className={mobileNavLinkClass}
                                     >
-                                        Оголошення
+                                        Головна
                                     </NavLink>
-
+                                    <NavLink
+                                        to="/user"
+                                        end
+                                        onClick={closeMobileMenu}
+                                        className={mobileNavLinkClass}
+                                    >
+                                        Особистий кабінет
+                                    </NavLink>
                                     <NavLink
                                         to="/create-listing"
                                         onClick={closeMobileMenu}

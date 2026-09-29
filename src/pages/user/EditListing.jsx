@@ -7,24 +7,18 @@ import {
     doc,
     getDoc,
 } from "firebase/firestore";
-
+import {
+    onAuthStateChanged,
+} from "firebase/auth";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import EditListingForm from "../../components/listings/EditListingForm";
-import { db } from "../../firebase";
+import {
+    auth,
+    db,
+} from "../../firebase";
 
-const getCurrentUser = () => {
-    try {
-        const savedUser =
-            localStorage.getItem("rboardUser");
 
-        return savedUser
-            ? JSON.parse(savedUser)
-            : null;
-    } catch {
-        return null;
-    }
-};
 
 const EditListing = () => {
     const navigate = useNavigate();
@@ -40,76 +34,98 @@ const EditListing = () => {
         useState("");
 
     useEffect(() => {
-        const loadListing = async () => {
-            try {
-                setLoading(true);
-                setError("");
+    let isActive = true;
 
-                const currentUser =
-                    getCurrentUser();
+    const unsubscribe =
+        onAuthStateChanged(
+            auth,
+            async (currentUser) => {
+                if (!isActive) {
+                    return;
+                }
 
-                if (!currentUser?.id) {
+                if (!currentUser) {
+                    setListing(null);
                     setError(
                         "Не вдалося визначити користувача."
                     );
+                    setLoading(false);
                     return;
                 }
 
-                const listingRef = doc(
-                    db,
-                    "listings",
-                    listingId
-                );
+                try {
+                    setLoading(true);
+                    setError("");
 
-                const snapshot =
-                    await getDoc(listingRef);
-
-                if (!snapshot.exists()) {
-                    setError(
-                        "Оголошення не знайдено."
+                    const listingRef = doc(
+                        db,
+                        "listings",
+                        listingId
                     );
-                    return;
-                }
 
-                const data =
-                    snapshot.data();
+                    const snapshot =
+                        await getDoc(
+                            listingRef
+                        );
 
-                if (
-                    data.author?.uid !==
-                    currentUser.id
-                ) {
-                    setError(
-                        "У вас немає доступу до редагування цього оголошення."
+                    if (!isActive) {
+                        return;
+                    }
+
+                    if (!snapshot.exists()) {
+                        setError(
+                            "Оголошення не знайдено."
+                        );
+                        return;
+                    }
+
+                    const data =
+                        snapshot.data();
+
+                    if (
+                        data.author?.uid !==
+                        currentUser.uid
+                    ) {
+                        setError(
+                            "У вас немає доступу до редагування цього оголошення."
+                        );
+                        return;
+                    }
+
+                    setListing({
+                        id: snapshot.id,
+                        ...data,
+                        images:
+                            Array.isArray(
+                                data.images
+                            )
+                                ? data.images
+                                : [],
+                    });
+                } catch (error) {
+                    console.error(
+                        "Помилка завантаження оголошення:",
+                        error
                     );
-                    return;
+
+                    if (isActive) {
+                        setError(
+                            "Не вдалося завантажити оголошення."
+                        );
+                    }
+                } finally {
+                    if (isActive) {
+                        setLoading(false);
+                    }
                 }
-
-                setListing({
-                    id: snapshot.id,
-                    ...data,
-                    images:
-                        Array.isArray(
-                            data.images
-                        )
-                            ? data.images
-                            : [],
-                });
-            } catch (error) {
-                console.error(
-                    "Помилка завантаження оголошення:",
-                    error
-                );
-
-                setError(
-                    "Не вдалося завантажити оголошення."
-                );
-            } finally {
-                setLoading(false);
             }
-        };
+        );
 
-        loadListing();
-    }, [listingId]);
+    return () => {
+        isActive = false;
+        unsubscribe();
+    };
+}, [listingId]);
 
     return (
         <div className="flex min-h-screen flex-col bg-slate-100">

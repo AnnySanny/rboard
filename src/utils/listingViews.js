@@ -4,35 +4,28 @@ import {
     serverTimestamp,
 } from "firebase/firestore";
 
-import { db } from "../firebase";
+import {
+    auth,
+    db,
+} from "../firebase";
 
 
-const VISITOR_STORAGE_KEY = "rboardVisitorId";
+const VISITOR_STORAGE_KEY =
+    "rboardVisitorId";
 
-const getRegisteredUser = () => {
-    try {
-        const savedUser =
-            localStorage.getItem("rboardUser");
-
-        if (!savedUser) {
-            return null;
-        }
-
-        return JSON.parse(savedUser);
-    } catch {
-        return null;
-    }
-};
 
 const getGuestVisitorId = () => {
     let visitorId =
-        localStorage.getItem(VISITOR_STORAGE_KEY);
+        localStorage.getItem(
+            VISITOR_STORAGE_KEY
+        );
 
     if (visitorId) {
         return visitorId;
     }
 
-    visitorId = crypto.randomUUID();
+    visitorId =
+        crypto.randomUUID();
 
     localStorage.setItem(
         VISITOR_STORAGE_KEY,
@@ -42,22 +35,50 @@ const getGuestVisitorId = () => {
     return visitorId;
 };
 
-export const getViewerId = () => {
-    const user = getRegisteredUser();
 
-    if (user?.id) {
-        return `user_${user.id}`;
+const getViewerData = () => {
+    const currentUser =
+        auth.currentUser;
+
+    if (currentUser?.uid) {
+        return {
+            viewerId:
+                `user_${currentUser.uid}`,
+
+            viewerType:
+                "user",
+        };
     }
 
-    return `guest_${getGuestVisitorId()}`;
+    const guestId =
+        getGuestVisitorId();
+
+    return {
+        viewerId:
+            `guest_${guestId}`,
+
+        viewerType:
+            "guest",
+    };
 };
 
-export const registerListingView = async (listingId) => {
+
+export const getViewerId = () => {
+    return getViewerData().viewerId;
+};
+
+
+export const registerListingView = async (
+    listingId
+) => {
     if (!listingId) {
         return null;
     }
 
-    const viewerId = getViewerId();
+    const {
+        viewerId,
+        viewerType,
+    } = getViewerData();
 
     const listingRef = doc(
         db,
@@ -65,7 +86,13 @@ export const registerListingView = async (listingId) => {
         listingId
     );
 
-    const viewId = `${listingId}_${viewerId}`;
+    /*
+     * Один viewerId може створити
+     * тільки один документ перегляду
+     * для конкретного оголошення.
+     */
+    const viewId =
+        `${listingId}_${viewerId}`;
 
     const viewRef = doc(
         db,
@@ -76,8 +103,15 @@ export const registerListingView = async (listingId) => {
     return runTransaction(
         db,
         async (transaction) => {
+            /*
+             * Спочатку перевіряємо,
+             * чи цей користувач/гість
+             * уже переглядав оголошення.
+             */
             const viewSnapshot =
-                await transaction.get(viewRef);
+                await transaction.get(
+                    viewRef
+                );
 
             if (viewSnapshot.exists()) {
                 const listingSnapshot =
@@ -85,19 +119,30 @@ export const registerListingView = async (listingId) => {
                         listingRef
                     );
 
-                if (!listingSnapshot.exists()) {
+                if (
+                    !listingSnapshot.exists()
+                ) {
                     return null;
                 }
 
-                return (
-                    listingSnapshot.data().views ?? 0
+                return Number(
+                    listingSnapshot
+                        .data()
+                        .views ?? 0
                 );
             }
 
+            /*
+             * Отримуємо оголошення.
+             */
             const listingSnapshot =
-                await transaction.get(listingRef);
+                await transaction.get(
+                    listingRef
+                );
 
-            if (!listingSnapshot.exists()) {
+            if (
+                !listingSnapshot.exists()
+            ) {
                 return null;
             }
 
@@ -105,20 +150,42 @@ export const registerListingView = async (listingId) => {
                 listingSnapshot.data();
 
             const currentViews =
-                Number(listingData.views ?? 0);
+                Number(
+                    listingData.views ?? 0
+                );
 
             const newViews =
                 currentViews + 1;
 
-            transaction.set(viewRef, {
-                listingId,
-                viewerId,
-                viewedAt: serverTimestamp(),
-            });
+            /*
+             * Створюємо унікальний
+             * запис перегляду.
+             */
+            transaction.set(
+                viewRef,
+                {
+                    listingId,
 
-            transaction.update(listingRef, {
-                views: newViews,
-            });
+                    viewerId,
+
+                    viewerType,
+
+                    viewedAt:
+                        serverTimestamp(),
+                }
+            );
+
+            /*
+             * Збільшуємо лічильник
+             * тільки на 1.
+             */
+            transaction.update(
+                listingRef,
+                {
+                    views:
+                        newViews,
+                }
+            );
 
             return newViews;
         }

@@ -17,7 +17,13 @@ import Swal from "sweetalert2";
 import UserListingsStatistics from "../../components/listings/UserListingsStatistics";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
-import { db } from "../../firebase";
+import {
+    auth,
+    db,
+} from "../../firebase";
+import {
+    onAuthStateChanged,
+} from "firebase/auth";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
 const LISTING_TYPES = [
     "Усі типи",
@@ -103,22 +109,6 @@ const getStatusData = (status) => {
             };
     }
 };
-
-const getCurrentUser = () => {
-    try {
-        const savedUser =
-            localStorage.getItem("rboardUser");
-
-        if (!savedUser) {
-            return null;
-        }
-
-        return JSON.parse(savedUser);
-    } catch {
-        return null;
-    }
-};
-
 
 
 
@@ -280,115 +270,152 @@ const UserListings = () => {
         showStatistics,
         setShowStatistics,
     ] = useState(false);
-    useEffect(() => {
-        const currentUser =
-            getCurrentUser();
+useEffect(() => {
+    let unsubscribeListings = null;
 
-        if (!currentUser?.id) {
-            setListings([]);
-            setLoading(false);
-            setLoadError(
-                "Не вдалося визначити користувача."
-            );
+    const unsubscribeAuth =
+        onAuthStateChanged(
+            auth,
+            (currentUser) => {
+                if (unsubscribeListings) {
+                    unsubscribeListings();
+                    unsubscribeListings = null;
+                }
 
-            return;
-        }
-
-        const listingsQuery = query(
-            collection(db, "listings"),
-            where(
-                "author.uid",
-                "==",
-                currentUser.id
-            )
-        );
-
-        const unsubscribe = onSnapshot(
-            listingsQuery,
-            (snapshot) => {
-                const receivedListings =
-                    snapshot.docs.map(
-                        (document) => {
-                            const data =
-                                document.data();
-
-                            return {
-                                id: document.id,
-
-                                title:
-                                    data.title || "",
-
-                                comment:
-                                    data.comment || "",
-
-                                type:
-                                    data.type || "Інше",
-
-                                authorName:
-                                    data.authorName || "",
-
-                                contact:
-                                    data.contactOriginal ||
-                                    data.contact ||
-                                    "",
-                                contactOriginal:
-                                    data.contactOriginal || "",
-
-                                additionalContacts:
-                                    data.additionalContacts &&
-                                        typeof data.additionalContacts === "object"
-                                        ? data.additionalContacts
-                                        : {},
-                                city:
-                                    data.city || null,
-
-                                street:
-                                    data.street || "",
-
-                                status:
-                                    data.status ||
-                                    "pending",
-
-                                views:
-                                    Number(
-                                        data.views ?? 0
-                                    ),
-
-                                createdAt:
-                                    data.createdAt || null,
-                                expiresAt:
-                                    data.expiresAt || null,
-                                images:
-                                    Array.isArray(data.images)
-                                        ? data.images
-                                        : [],
-                            };
-                        }
+                if (!currentUser) {
+                    setListings([]);
+                    setLoading(false);
+                    setLoadError(
+                        "Не вдалося визначити користувача."
                     );
 
-                setListings(
-                    receivedListings
-                );
+                    return;
+                }
 
-                setLoading(false);
+                setLoading(true);
                 setLoadError("");
-            },
-            (error) => {
-                console.error(
-                    "Помилка завантаження оголошень:",
-                    error
+
+                const listingsQuery = query(
+                    collection(db, "listings"),
+                    where(
+                        "author.uid",
+                        "==",
+                        currentUser.uid
+                    )
                 );
 
-                setLoadError(
-                    "Не вдалося завантажити ваші оголошення."
-                );
+                unsubscribeListings =
+                    onSnapshot(
+                        listingsQuery,
+                        (snapshot) => {
+                            const receivedListings =
+                                snapshot.docs.map(
+                                    (document) => {
+                                        const data =
+                                            document.data();
 
-                setLoading(false);
+                                        return {
+                                            id: document.id,
+
+                                            title:
+                                                data.title ||
+                                                "",
+
+                                            comment:
+                                                data.comment ||
+                                                "",
+
+                                            type:
+                                                data.type ||
+                                                "Інше",
+
+                                            authorName:
+                                                data.authorName ||
+                                                "",
+
+                                            contact:
+                                                data.contactOriginal ||
+                                                data.contact ||
+                                                "",
+
+                                            contactOriginal:
+                                                data.contactOriginal ||
+                                                "",
+
+                                            additionalContacts:
+                                                data.additionalContacts &&
+                                                typeof data.additionalContacts ===
+                                                    "object"
+                                                    ? data.additionalContacts
+                                                    : {},
+
+                                            city:
+                                                data.city ||
+                                                null,
+
+                                            street:
+                                                data.street ||
+                                                "",
+
+                                            status:
+                                                data.status ||
+                                                "pending",
+
+                                            views:
+                                                Number(
+                                                    data.views ??
+                                                        0
+                                                ),
+
+                                            createdAt:
+                                                data.createdAt ||
+                                                null,
+
+                                            expiresAt:
+                                                data.expiresAt ||
+                                                null,
+
+                                            images:
+                                                Array.isArray(
+                                                    data.images
+                                                )
+                                                    ? data.images
+                                                    : [],
+                                        };
+                                    }
+                                );
+
+                            setListings(
+                                receivedListings
+                            );
+
+                            setLoading(false);
+                            setLoadError("");
+                        },
+                        (error) => {
+                            console.error(
+                                "Помилка завантаження оголошень:",
+                                error
+                            );
+
+                            setLoadError(
+                                "Не вдалося завантажити ваші оголошення."
+                            );
+
+                            setLoading(false);
+                        }
+                    );
             }
         );
 
-        return unsubscribe;
-    }, []);
+    return () => {
+        unsubscribeAuth();
+
+        if (unsubscribeListings) {
+            unsubscribeListings();
+        }
+    };
+}, []);
 
     const filteredListings =
         useMemo(() => {

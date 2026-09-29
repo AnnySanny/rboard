@@ -1,4 +1,7 @@
-import { useState } from "react";
+import {
+    useEffect,
+    useState,
+} from "react";
 
 import {
     arrayRemove,
@@ -7,42 +10,57 @@ import {
     updateDoc,
 } from "firebase/firestore";
 
+import {
+    onAuthStateChanged,
+} from "firebase/auth";
+
 import Swal from "sweetalert2";
 
-import { db } from "../../firebase";
+import {
+    auth,
+    db,
+} from "../../firebase";
 
-const getCurrentUser = () => {
-    try {
-        const savedUser =
-            localStorage.getItem(
-                "rboardUser"
-            );
-
-        return savedUser
-            ? JSON.parse(savedUser)
-            : null;
-    } catch {
-        return null;
-    }
-};
 
 const FavoriteButton = ({
     listing,
 }) => {
-    const currentUser =
-        getCurrentUser();
+    const [currentUser, setCurrentUser] =
+        useState(null);
+
+    const [authLoading, setAuthLoading] =
+        useState(true);
 
     const [updating, setUpdating] =
         useState(false);
 
+
+    useEffect(() => {
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                (user) => {
+                    setCurrentUser(user);
+                    setAuthLoading(false);
+                }
+            );
+
+        return unsubscribe;
+    }, []);
+
+
     /*
-     * Для неавторизованого
-     * користувача кнопку
-     * не показуємо.
+     * Поки Firebase перевіряє сесію
+     * або користувач не авторизований,
+     * кнопку не показуємо.
      */
-    if (!currentUser?.id) {
+    if (
+        authLoading ||
+        !currentUser
+    ) {
         return null;
     }
+
 
     const favoriteUserIds =
         Array.isArray(
@@ -51,10 +69,16 @@ const FavoriteButton = ({
             ? listing.favoriteUserIds
             : [];
 
+
+    /*
+     * Тепер використовуємо
+     * Firebase Authentication UID.
+     */
     const isFavorite =
         favoriteUserIds.includes(
-            currentUser.id
+            currentUser.uid
         );
+
 
     const handleFavorite =
         async (event) => {
@@ -62,10 +86,9 @@ const FavoriteButton = ({
              * Картка оголошення
              * сама є клікабельною.
              *
-             * Тому зупиняємо клік,
-             * щоб при натисканні
-             * на сердечко не
-             * відкривалося оголошення.
+             * Тому не дозволяємо
+             * кліку по сердечку
+             * відкривати оголошення.
              */
             event.preventDefault();
             event.stopPropagation();
@@ -84,6 +107,7 @@ const FavoriteButton = ({
                         listing.id
                     );
 
+
                 /*
                  * ВИДАЛЕННЯ З ОБРАНОГО
                  */
@@ -93,7 +117,7 @@ const FavoriteButton = ({
                         {
                             favoriteUserIds:
                                 arrayRemove(
-                                    currentUser.id
+                                    currentUser.uid
                                 ),
                         }
                     );
@@ -115,6 +139,7 @@ const FavoriteButton = ({
                     return;
                 }
 
+
                 /*
                  * ДОДАВАННЯ В ОБРАНЕ
                  */
@@ -123,7 +148,7 @@ const FavoriteButton = ({
                     {
                         favoriteUserIds:
                             arrayUnion(
-                                currentUser.id
+                                currentUser.uid
                             ),
                     }
                 );
@@ -164,6 +189,7 @@ const FavoriteButton = ({
                 setUpdating(false);
             }
         };
+
 
     return (
         <button
@@ -219,6 +245,7 @@ const FavoriteButton = ({
     );
 };
 
+
 const HeartIcon = ({
     filled = false,
 }) => {
@@ -241,5 +268,6 @@ const HeartIcon = ({
         </svg>
     );
 };
+
 
 export default FavoriteButton;

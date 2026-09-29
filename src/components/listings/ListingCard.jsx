@@ -93,28 +93,21 @@ const ListingCard = ({
 
         <h2
           className="
-        mt-4
-        max-w-full
-        overflow-hidden
-        break-words
-        text-xl
-        font-black
-        leading-snug
-        text-slate-950
-        transition
-        group-hover:text-blue-700
-        line-clamp-2
-    "
+    mt-4
+    max-w-full
+    truncate
+    text-xl
+    font-black
+    leading-snug
+    text-slate-950
+    transition
+    group-hover:text-blue-700
+  "
         >
           {listing.title}
         </h2>
 
-        <p
-          className={`mt-2 max-w-2xl text-sm leading-6 text-slate-600 ${viewMode === "grid"
-            ? "line-clamp-3"
-            : "line-clamp-2"
-            }`}
-        >
+        <p className="mt-2 max-w-2xl overflow-hidden text-sm leading-6 text-slate-600 line-clamp-2">
           {listing.description ||
             "Опис оголошення не вказано."}
         </p>

@@ -8,8 +8,13 @@ import {
     serverTimestamp,
     getDoc,
 } from "firebase/firestore";
-
-import { db } from "../../firebase";
+import {
+    onAuthStateChanged,
+} from "firebase/auth";
+import {
+    auth,
+    db,
+} from "../../firebase";
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
 import ListingContacts from "./ListingContacts";
@@ -197,59 +202,140 @@ export default function CreateListingForm({
     const [errors, setErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [images, setImages] = useState([]);
-    const savedUser = localStorage.getItem("rboardUser");
+    const [currentUser, setCurrentUser] =
+        useState(null);
 
-    let currentUser = null;
+    const [userProfile, setUserProfile] =
+        useState(null);
 
-    try {
-        currentUser = savedUser
-            ? JSON.parse(savedUser)
-            : null;
-    } catch {
-        currentUser = null;
-    }
+    const [authLoading, setAuthLoading] =
+        useState(true);
 
-    const isAuthenticated = Boolean(currentUser?.id);
+    const isAuthenticated =
+        Boolean(currentUser);
 
 
     useEffect(() => {
-        if (!isAuthenticated || !currentUser?.id) {
-            return;
-        }
+        let isActive = true;
 
-        const loadUserData = async () => {
-            try {
-                const userRef = doc(
-                    db,
-                    "users",
-                    currentUser.id
-                );
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                async (firebaseUser) => {
+                    if (!isActive) {
+                        return;
+                    }
 
-                const userSnapshot = await getDoc(userRef);
+                    setCurrentUser(
+                        firebaseUser
+                    );
 
-                if (!userSnapshot.exists()) {
-                    return;
+                    /*
+                     * ГІСТЬ.
+                     *
+                     * Це нормальний сценарій.
+                     * Форму НЕ блокуємо.
+                     */
+                    if (!firebaseUser) {
+                        setUserProfile(null);
+                        setAuthLoading(false);
+
+                        return;
+                    }
+
+                    /*
+                     * АВТОРИЗОВАНИЙ КОРИСТУВАЧ.
+                     *
+                     * Завантажуємо його профіль
+                     * users/{Firebase UID}.
+                     */
+                    try {
+                        const userRef = doc(
+                            db,
+                            "users",
+                            firebaseUser.uid
+                        );
+
+                        const userSnapshot =
+                            await getDoc(
+                                userRef
+                            );
+
+                        if (
+                            !isActive
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            !userSnapshot.exists()
+                        ) {
+                            setUserProfile(null);
+                            setAuthLoading(false);
+
+                            return;
+                        }
+
+                        const userData =
+                            userSnapshot.data();
+
+                        const profile = {
+                            uid:
+                                firebaseUser.uid,
+
+                            login:
+                                userData.login ||
+                                "",
+
+                            phone:
+                                userData.phone ||
+                                "",
+                        };
+
+                        setUserProfile(
+                            profile
+                        );
+
+                        /*
+                         * Для зареєстрованого
+                         * користувача автоматично
+                         * заповнюємо ім'я та телефон.
+                         */
+                        setForm(
+                            (previousForm) => ({
+                                ...previousForm,
+
+                                authorName:
+                                    profile.login,
+
+                                contact:
+                                    profile.phone,
+                            })
+                        );
+                    } catch (error) {
+                        console.error(
+                            "Помилка завантаження даних користувача:",
+                            error
+                        );
+
+                        setUserProfile(
+                            null
+                        );
+                    } finally {
+                        if (isActive) {
+                            setAuthLoading(
+                                false
+                            );
+                        }
+                    }
                 }
+            );
 
-                const userData = userSnapshot.data();
-
-                setForm((previousForm) => ({
-                    ...previousForm,
-                    authorName:
-                        userData.login || "",
-                    contact:
-                        userData.phone || "",
-                }));
-            } catch (error) {
-                console.error(
-                    "Помилка завантаження даних користувача:",
-                    error
-                );
-            }
+        return () => {
+            isActive = false;
+            unsubscribe();
         };
-
-        loadUserData();
-    }, [isAuthenticated, currentUser?.id]);
+    }, []);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -459,18 +545,30 @@ export default function CreateListingForm({
 
             author: {
                 isAuthenticated,
+
                 uid:
-                    currentUser?.id ||
-                    null,
+                    isAuthenticated
+                        ? currentUser.uid
+                        : null,
+
                 login:
-                    currentUser?.login ||
-                    null,
+                    isAuthenticated
+                        ? userProfile?.login ||
+                        form.authorName.trim()
+                        : null,
+
                 phone:
-                    currentUser?.phone ||
-                    null,
-                label: isAuthenticated
-                    ? "Авторизований користувач"
-                    : "Не авторизований",
+                    isAuthenticated
+                        ? userProfile?.phone ||
+                        normalizeContact(
+                            form.contact
+                        )
+                        : null,
+
+                label:
+                    isAuthenticated
+                        ? "Авторизований користувач"
+                        : "Не авторизований",
             },
 
             moderation: {
@@ -911,7 +1009,17 @@ export default function CreateListingForm({
             : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
             }`;
     };
+if (authLoading) {
+    return (
+        <div className="flex min-h-40 items-center justify-center">
+            <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
 
+                Завантаження...
+            </div>
+        </div>
+    );
+}
     return (
         <form
             onSubmit={handleSubmit}

@@ -7,7 +7,10 @@ import {
     serverTimestamp,
     Timestamp,
 } from "firebase/firestore";
-
+import {
+    createAdminLog,
+    ADMIN_LOG_ACTIONS,
+} from "../../utils/adminLogger";
 import { db } from "../../firebase";
 
 import CityAutocomplete from "../listings/CityAutocomplete";
@@ -115,7 +118,7 @@ const uploadToCloudinary = async (file) => {
     if (!response.ok) {
         throw new Error(
             data.error?.message ||
-                "Не вдалося завантажити фотографію"
+            "Не вдалося завантажити фотографію"
         );
     }
 
@@ -311,112 +314,134 @@ const AdminCreateListingForm = ({
 
             const expiresAt = new Date(
                 now.getTime() +
-                    LISTING_LIFETIME_DAYS *
-                        24 *
-                        60 *
-                        60 *
-                        1000
+                LISTING_LIFETIME_DAYS *
+                24 *
+                60 *
+                60 *
+                1000
             );
 
             /*
              * 3. Створюємо документ.
              */
-            await addDoc(
-                collection(
-                    db,
-                    "listings"
-                ),
-                {
-                    authorName:
-                        form.authorName.trim(),
+            const createdListingRef =
+                await addDoc(
+                    collection(
+                        db,
+                        "listings"
+                    ),
+                    {
+                        authorName:
+                            form.authorName.trim(),
 
-                    normalizedAuthorName:
-                        normalizeName(
-                            form.authorName
-                        ),
+                        normalizedAuthorName:
+                            normalizeName(
+                                form.authorName
+                            ),
 
-                    contact:
-                        normalizeContact(
-                            form.contact
-                        ),
+                        contact:
+                            normalizeContact(
+                                form.contact
+                            ),
 
-                    contactOriginal:
-                        form.contact.trim(),
+                        contactOriginal:
+                            form.contact.trim(),
 
-                    title:
-                        form.title.trim(),
+                        title:
+                            form.title.trim(),
 
-                    type:
-                        form.type,
+                        type:
+                            form.type,
 
-                    city:
-                        getCleanCity(
-                            form.city
-                        ),
+                        city:
+                            getCleanCity(
+                                form.city
+                            ),
 
-                    street:
-                        form.street.trim(),
+                        street:
+                            form.street.trim(),
 
-                    comment:
-                        form.comment.trim(),
+                        comment:
+                            form.comment.trim(),
 
-                    images:
-                        uploadedImages,
+                        images:
+                            uploadedImages,
 
-                    status:
-                        "approved",
+                        status:
+                            "approved",
 
-                    views: 0,
+                        views: 0,
 
-                    /*
-                     * Це оголошення створив
-                     * адміністратор, а не
-                     * звичайний користувач.
-                     */
-                    author: {
-                        isAuthenticated:
-                            false,
+                        /*
+                         * Це оголошення створив
+                         * адміністратор, а не
+                         * звичайний користувач.
+                         */
+                        author: {
+                            isAuthenticated:
+                                false,
 
-                        uid: null,
+                            uid: null,
 
-                        login: null,
+                            login: null,
 
-                        phone: null,
+                            phone: null,
 
-                        label:
-                            "Створено адміністратором",
-                    },
+                            label:
+                                "Створено адміністратором",
+                        },
 
-                    moderation: {
-                        reviewedBy:
-                            "admin",
+                        moderation: {
+                            reviewedBy:
+                                "admin",
 
-                        reviewedAt:
+                            reviewedAt:
+                                serverTimestamp(),
+
+                            rejectionReason:
+                                null,
+                        },
+
+                        createdAt:
                             serverTimestamp(),
 
-                        rejectionReason:
-                            null,
-                    },
+                        updatedAt:
+                            serverTimestamp(),
 
-                    createdAt:
-                        serverTimestamp(),
+                        approvedAt:
+                            serverTimestamp(),
 
-                    updatedAt:
-                        serverTimestamp(),
+                        expiresAt:
+                            Timestamp.fromDate(
+                                expiresAt
+                            ),
 
-                    approvedAt:
-                        serverTimestamp(),
+                        createdByAdmin:
+                            true,
+                    }
+                );
+            await createAdminLog({
+                action:
+                    ADMIN_LOG_ACTIONS.LISTING_CREATED,
 
-                    expiresAt:
-                        Timestamp.fromDate(
-                            expiresAt
-                        ),
+                category:
+                    "listings",
 
-                    createdByAdmin:
-                        true,
-                }
-            );
+                title:
+                    "Створено оголошення",
 
+                description:
+                    `Адміністратор створив та одразу опублікував ` +
+                    `оголошення «${form.title.trim()}» ` +
+                    `у категорії «${form.type}» ` +
+                    `для населеного пункту «${form.city?.name || "—"}».`,
+
+                targetId:
+                    createdListingRef.id,
+
+                targetName:
+                    form.title.trim(),
+            });
             /*
              * 4. Прибираємо локальні
              * preview URL.
@@ -482,11 +507,10 @@ const AdminCreateListingForm = ({
     const inputClass = (
         fieldName
     ) => {
-        return `w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-4 ${
-            errors[fieldName]
-                ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-        }`;
+        return `w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-4 ${errors[fieldName]
+            ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+            : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+            }`;
     };
 
     return (

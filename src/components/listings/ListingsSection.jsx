@@ -1,12 +1,10 @@
-import { useState } from "react";
-
 import ListingCard from "./ListingCard";
-import ListingDetailsModal from "./ListingDetailsModal";
 
-const ListingsSection = ({ listings, viewMode }) => {
-  const [selectedListing, setSelectedListing] =
-    useState(null);
-
+const ListingsSection = ({
+  listings,
+  viewMode,
+  onListingClick,
+}) => {
   if (!listings.length) {
     return (
       <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
@@ -38,34 +36,23 @@ const ListingsSection = ({ listings, viewMode }) => {
   }
 
   return (
-    <>
-      <section
-        id="listings"
-        className={`mt-7 grid gap-5 ${
-          viewMode === "grid"
-            ? "grid-cols-1 md:grid-cols-2"
-            : "grid-cols-1"
-        }`}
-      >
-        {listings.map((listing) => (
-          <ListingCard
-            key={listing.id}
-            listing={listing}
-            viewMode={viewMode}
-            onClick={() =>
-              setSelectedListing(listing)
-            }
-          />
-        ))}
-      </section>
-
-      <ListingDetailsModal
-        listing={selectedListing}
-        onClose={() =>
-          setSelectedListing(null)
-        }
-      />
-    </>
+    <section
+      id="listings"
+      className={`mt-7 grid gap-5 ${
+        viewMode === "grid"
+          ? "grid-cols-1 md:grid-cols-2"
+          : "grid-cols-1"
+      }`}
+    >
+      {listings.map((listing) => (
+        <ListingCard
+          key={listing.id}
+          listing={listing}
+          viewMode={viewMode}
+          onClick={() => onListingClick(listing)}
+        />
+      ))}
+    </section>
   );
 };
 

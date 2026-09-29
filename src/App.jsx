@@ -35,6 +35,7 @@ import AdminLogs from "./pages/admin/AdminLogs";
 import AdminTouristPlaces from "./pages/admin/AdminTouristPlaces";
 import AdminStatistics from "./pages/admin/AdminStatistics";
 import AdminEditListing from "./pages/admin/AdminEditListing";
+
 const App = () => {
   return (
     <BrowserRouter>
@@ -44,7 +45,10 @@ const App = () => {
           path="/"
           element={<Home />}
         />
-
+        <Route
+          path="/listing/:listingId"
+          element={<Home />}
+        />
         <Route
           path="/about"
           element={<About />}

@@ -3,7 +3,10 @@ import {
     useMemo,
     useState,
 } from "react";
-
+import {
+    useNavigate,
+    useParams,
+} from "react-router-dom";
 import {
     collection,
     onSnapshot,
@@ -19,6 +22,7 @@ import Footer from "../components/Footer";
 import SearchFilters from "../components/SearchFilters";
 import ListingsSection from "../components/listings/ListingsSection";
 import AddListingButton from "../components/listings/AddListingButton";
+import ListingDetailsModal from "../components/listings/ListingDetailsModal";
 import {
     auth,
     db,
@@ -62,22 +66,24 @@ const isListingActive = (expiresAt) => {
 };
 
 const Home = () => {
+    const navigate = useNavigate();
+     const { listingId } = useParams();
     const [currentUser, setCurrentUser] =
-    useState(null);
+        useState(null);
     const [search, setSearch] = useState("");
     const [searchPlaceholder, setSearchPlaceholder] =
         useState("");
-useEffect(() => {
-    const unsubscribe =
-        onAuthStateChanged(
-            auth,
-            (user) => {
-                setCurrentUser(user);
-            }
-        );
+    useEffect(() => {
+        const unsubscribe =
+            onAuthStateChanged(
+                auth,
+                (user) => {
+                    setCurrentUser(user);
+                }
+            );
 
-    return unsubscribe;
-}, []);
+        return unsubscribe;
+    }, []);
     useEffect(() => {
         let phraseIndex = 0;
         let charIndex = 0;
@@ -278,8 +284,141 @@ useEffect(() => {
 
         return unsubscribe;
     }, []);
- const currentUserId =
-    currentUser?.uid || null;
+    const currentUserId =
+        currentUser?.uid || null;
+    const selectedListing = useMemo(() => {
+        if (!listingId) {
+            return null;
+        }
+
+        return (
+            listings.find(
+                (listing) =>
+                    listing.id === listingId
+            ) || null
+        );
+    }, [listings, listingId]);
+
+
+    useEffect(() => {
+    const defaultTitle =
+        "RBoard — оголошення Рахів | Купівля, продаж, робота та послуги";
+
+    const defaultDescription =
+        "RBoard — локальна дошка оголошень Рахова. Купівля та продаж товарів, робота, оренда, послуги, події та оголошення громади.";
+
+    const descriptionMeta = document.querySelector(
+        'meta[name="description"]'
+    );
+
+    const canonicalLink = document.querySelector(
+        'link[rel="canonical"]'
+    );
+
+    const ogTitle = document.querySelector(
+        'meta[property="og:title"]'
+    );
+
+    const ogDescription = document.querySelector(
+        'meta[property="og:description"]'
+    );
+
+    const ogUrl = document.querySelector(
+        'meta[property="og:url"]'
+    );
+
+    if (selectedListing) {
+        const location =
+            selectedListing.city ||
+            selectedListing.location ||
+            "Рахів";
+
+        const listingTitle =
+            `${selectedListing.title} — ${location} | RBoard`;
+
+        const rawDescription =
+            selectedListing.description?.trim() ||
+            `${selectedListing.category || "Оголошення"} у ${location}. Переглянути детальну інформацію на RBoard.`;
+
+        const listingDescription =
+            rawDescription.length > 160
+                ? `${rawDescription.slice(0, 157)}...`
+                : rawDescription;
+
+        const listingUrl =
+            `https://rboard.netlify.app/listing/${selectedListing.id}`;
+
+        document.title = listingTitle;
+
+        descriptionMeta?.setAttribute(
+            "content",
+            listingDescription
+        );
+
+        canonicalLink?.setAttribute(
+            "href",
+            listingUrl
+        );
+
+        ogTitle?.setAttribute(
+            "content",
+            listingTitle
+        );
+
+        ogDescription?.setAttribute(
+            "content",
+            listingDescription
+        );
+
+        ogUrl?.setAttribute(
+            "content",
+            listingUrl
+        );
+
+        return;
+    }
+
+    document.title = defaultTitle;
+
+    descriptionMeta?.setAttribute(
+        "content",
+        defaultDescription
+    );
+
+    canonicalLink?.setAttribute(
+        "href",
+        "https://rboard.netlify.app/"
+    );
+
+    ogTitle?.setAttribute(
+        "content",
+        "RBoard — оголошення Рахів"
+    );
+
+    ogDescription?.setAttribute(
+        "content",
+        "Локальна дошка оголошень Рахова. Купуйте, продавайте, знаходьте роботу, житло та послуги поруч."
+    );
+
+    ogUrl?.setAttribute(
+        "content",
+        "https://rboard.netlify.app/"
+    );
+}, [selectedListing]);
+    const openListing = (listing) => {
+        navigate(
+            `/listing/${listing.id}`,
+            {
+                state: {
+                    fromHome: true,
+                },
+            }
+        );
+    };
+
+    const closeListing = () => {
+        navigate("/");
+    };
     const filteredListings = useMemo(() => {
         const normalizedSearch = search
             .trim()
@@ -423,6 +562,9 @@ useEffect(() => {
 
             <main className="flex-1">
                 <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+                    <h1 className="sr-only">
+                        Оголошення Рахів — локальна дошка оголошень RBoard
+                    </h1>
                     <AddListingButton />
 
                     <SearchFilters
@@ -467,6 +609,7 @@ useEffect(() => {
                             <ListingsSection
                                 listings={visibleListings}
                                 viewMode={viewMode}
+                                onListingClick={openListing}
                             />
 
                             {hasMoreListings && (
@@ -488,9 +631,13 @@ useEffect(() => {
                             )}
                         </>
                     )}
+
                 </div>
             </main>
-
+            <ListingDetailsModal
+                listing={selectedListing}
+                onClose={closeListing}
+            />
             <Footer />
             {showScrollTop && (
                 <button

@@ -6,8 +6,6 @@ import {
 
 import {
     collection,
-    deleteDoc,
-    doc,
     onSnapshot,
     query,
     where,
@@ -619,80 +617,106 @@ const UserListings = () => {
         );
     };
 
-    const handleDelete = async (
-        listing
-    ) => {
-        const result =
-            await Swal.fire({
-                icon: "warning",
-                title:
-                    "Видалити оголошення?",
-                html: `
-          <div style="margin-top:8px">
-            Оголошення
-            <strong>«${listing.title}»</strong>
-            буде назавжди видалено.
-          </div>
+const handleDelete = async (listing) => {
+    const result = await Swal.fire({
+        icon: "warning",
+        title: "Видалити оголошення?",
+        html: `
+            <div style="margin-top:8px">
+                Оголошення
+                <strong>«${listing.title || "Без назви"}»</strong>
+                буде назавжди видалено.
+            </div>
         `,
-                showCancelButton: true,
-                confirmButtonText:
-                    "Видалити",
-                cancelButtonText:
-                    "Скасувати",
-                confirmButtonColor:
-                    "#dc2626",
-                cancelButtonColor:
-                    "#64748b",
-                reverseButtons: true,
-            });
+        showCancelButton: true,
+        confirmButtonText: "Видалити",
+        cancelButtonText: "Скасувати",
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#64748b",
+        reverseButtons: true,
+        focusCancel: true,
+    });
 
-        if (!result.isConfirmed) {
-            return;
+    if (!result.isConfirmed) {
+        return;
+    }
+
+    setDeletingId(listing.id);
+
+    try {
+        const currentUser = auth.currentUser;
+
+        if (!currentUser) {
+            throw new Error(
+                "Необхідна авторизація."
+            );
         }
+
+        const idToken =
+            await currentUser.getIdToken();
+
+        const response = await fetch(
+            "/.netlify/functions/delete-listing",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                    Authorization:
+                        `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    listingId: listing.id,
+                }),
+            }
+        );
+
+        let responseData = null;
 
         try {
-            setDeletingId(
-                listing.id
-            );
-
-            await deleteDoc(
-                doc(
-                    db,
-                    "listings",
-                    listing.id
-                )
-            );
-
-            await Swal.fire({
-                toast: true,
-                position: "top-end",
-                icon: "success",
-                title:
-                    "Оголошення видалено",
-                showConfirmButton: false,
-                timer: 2000,
-                timerProgressBar: true,
-            });
-        } catch (error) {
-            console.error(
-                "Помилка видалення оголошення:",
-                error
-            );
-
-            await Swal.fire({
-                toast: true,
-                position: "top-end",
-                icon: "error",
-                title:
-                    "Не вдалося видалити оголошення",
-                showConfirmButton: false,
-                timer: 2500,
-                timerProgressBar: true,
-            });
-        } finally {
-            setDeletingId(null);
+            responseData =
+                await response.json();
+        } catch {
+            responseData = null;
         }
-    };
+
+        if (!response.ok) {
+            throw new Error(
+                responseData?.message ||
+                    "Не вдалося видалити оголошення."
+            );
+        }
+
+        await Swal.fire({
+            toast: true,
+            position: "top-end",
+            icon: "success",
+            title: "Оголошення видалено",
+            showConfirmButton: false,
+            timer: 2500,
+            timerProgressBar: true,
+        });
+    } catch (error) {
+        console.error(
+            "Помилка видалення оголошення:",
+            error
+        );
+
+        await Swal.fire({
+            toast: true,
+            position: "top-end",
+            icon: "error",
+            title:
+                error?.message ||
+                "Не вдалося видалити оголошення",
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+        });
+    } finally {
+        setDeletingId(null);
+    }
+};
 
     return (
         <div className="flex min-h-screen flex-col bg-slate-100">

@@ -133,10 +133,6 @@ const getListingContacts = (listing) => {
 
     const phoneContacts = [
         {
-            key: "telegram",
-            label: "Telegram",
-        },
-        {
             key: "viber",
             label: "Viber",
         },
@@ -145,7 +141,25 @@ const getListingContacts = (listing) => {
             label: "WhatsApp",
         },
     ];
+    const telegramValue =
+        typeof additional.telegram === "string"
+            ? additional.telegram.trim()
+            : "";
 
+    const telegramIsPhone =
+        telegramValue &&
+        /^\+?[\d\s()-]{7,}$/.test(
+            telegramValue
+        );
+
+    if (telegramValue && telegramIsPhone) {
+        contacts.push({
+            key: "telegram",
+            label: "Telegram",
+            value: telegramValue,
+            type: "phone",
+        });
+    }
     phoneContacts.forEach(
         ({ key, label }) => {
             const value = additional[key];
@@ -197,7 +211,16 @@ const getListingContacts = (listing) => {
     });
 
     const socialLinks = [];
-
+    if (
+        telegramValue &&
+        !telegramIsPhone
+    ) {
+        socialLinks.push({
+            key: "telegram",
+            label: "Telegram",
+            value: telegramValue,
+        });
+    }
     if (
         typeof additional.instagram ===
         "string" &&
@@ -228,17 +251,50 @@ const getListingContacts = (listing) => {
     };
 };
 
-const getSafeUrl = (value) => {
-    const url = String(value || "").trim();
+const getSafeUrl = (value, type) => {
+    const rawValue =
+        String(value || "").trim();
 
-    if (
-        url.startsWith("https://") ||
-        url.startsWith("http://")
-    ) {
-        return url;
+    if (!rawValue) {
+        return "#";
     }
 
-    return `https://${url}`;
+    if (
+        rawValue.startsWith("https://") ||
+        rawValue.startsWith("http://")
+    ) {
+        return rawValue;
+    }
+
+    if (type === "telegram") {
+        // @username
+        if (rawValue.startsWith("@")) {
+            return `https://t.me/${rawValue.slice(1)}`;
+        }
+
+        // t.me/username
+        if (
+            /^(t\.me|telegram\.me)\//i.test(
+                rawValue
+            )
+        ) {
+            return `https://${rawValue}`;
+        }
+
+        return `https://t.me/${rawValue}`;
+    }
+
+    if (type === "instagram") {
+        if (
+            rawValue.startsWith("@")
+        ) {
+            return `https://instagram.com/${rawValue.slice(
+                1
+            )}`;
+        }
+    }
+
+    return `https://${rawValue}`;
 };
 const UserListings = () => {
 
@@ -270,152 +326,152 @@ const UserListings = () => {
         showStatistics,
         setShowStatistics,
     ] = useState(false);
-useEffect(() => {
-    let unsubscribeListings = null;
+    useEffect(() => {
+        let unsubscribeListings = null;
 
-    const unsubscribeAuth =
-        onAuthStateChanged(
-            auth,
-            (currentUser) => {
-                if (unsubscribeListings) {
-                    unsubscribeListings();
-                    unsubscribeListings = null;
-                }
+        const unsubscribeAuth =
+            onAuthStateChanged(
+                auth,
+                (currentUser) => {
+                    if (unsubscribeListings) {
+                        unsubscribeListings();
+                        unsubscribeListings = null;
+                    }
 
-                if (!currentUser) {
-                    setListings([]);
-                    setLoading(false);
-                    setLoadError(
-                        "Не вдалося визначити користувача."
+                    if (!currentUser) {
+                        setListings([]);
+                        setLoading(false);
+                        setLoadError(
+                            "Не вдалося визначити користувача."
+                        );
+
+                        return;
+                    }
+
+                    setLoading(true);
+                    setLoadError("");
+
+                    const listingsQuery = query(
+                        collection(db, "listings"),
+                        where(
+                            "author.uid",
+                            "==",
+                            currentUser.uid
+                        )
                     );
 
-                    return;
-                }
+                    unsubscribeListings =
+                        onSnapshot(
+                            listingsQuery,
+                            (snapshot) => {
+                                const receivedListings =
+                                    snapshot.docs.map(
+                                        (document) => {
+                                            const data =
+                                                document.data();
 
-                setLoading(true);
-                setLoadError("");
+                                            return {
+                                                id: document.id,
 
-                const listingsQuery = query(
-                    collection(db, "listings"),
-                    where(
-                        "author.uid",
-                        "==",
-                        currentUser.uid
-                    )
-                );
+                                                title:
+                                                    data.title ||
+                                                    "",
 
-                unsubscribeListings =
-                    onSnapshot(
-                        listingsQuery,
-                        (snapshot) => {
-                            const receivedListings =
-                                snapshot.docs.map(
-                                    (document) => {
-                                        const data =
-                                            document.data();
+                                                comment:
+                                                    data.comment ||
+                                                    "",
 
-                                        return {
-                                            id: document.id,
+                                                type:
+                                                    data.type ||
+                                                    "Інше",
 
-                                            title:
-                                                data.title ||
-                                                "",
+                                                authorName:
+                                                    data.authorName ||
+                                                    "",
 
-                                            comment:
-                                                data.comment ||
-                                                "",
+                                                contact:
+                                                    data.contactOriginal ||
+                                                    data.contact ||
+                                                    "",
 
-                                            type:
-                                                data.type ||
-                                                "Інше",
+                                                contactOriginal:
+                                                    data.contactOriginal ||
+                                                    "",
 
-                                            authorName:
-                                                data.authorName ||
-                                                "",
+                                                additionalContacts:
+                                                    data.additionalContacts &&
+                                                        typeof data.additionalContacts ===
+                                                        "object"
+                                                        ? data.additionalContacts
+                                                        : {},
 
-                                            contact:
-                                                data.contactOriginal ||
-                                                data.contact ||
-                                                "",
+                                                city:
+                                                    data.city ||
+                                                    null,
 
-                                            contactOriginal:
-                                                data.contactOriginal ||
-                                                "",
+                                                street:
+                                                    data.street ||
+                                                    "",
 
-                                            additionalContacts:
-                                                data.additionalContacts &&
-                                                typeof data.additionalContacts ===
-                                                    "object"
-                                                    ? data.additionalContacts
-                                                    : {},
+                                                status:
+                                                    data.status ||
+                                                    "pending",
 
-                                            city:
-                                                data.city ||
-                                                null,
-
-                                            street:
-                                                data.street ||
-                                                "",
-
-                                            status:
-                                                data.status ||
-                                                "pending",
-
-                                            views:
-                                                Number(
-                                                    data.views ??
+                                                views:
+                                                    Number(
+                                                        data.views ??
                                                         0
-                                                ),
+                                                    ),
 
-                                            createdAt:
-                                                data.createdAt ||
-                                                null,
+                                                createdAt:
+                                                    data.createdAt ||
+                                                    null,
 
-                                            expiresAt:
-                                                data.expiresAt ||
-                                                null,
+                                                expiresAt:
+                                                    data.expiresAt ||
+                                                    null,
 
-                                            images:
-                                                Array.isArray(
-                                                    data.images
-                                                )
-                                                    ? data.images
-                                                    : [],
-                                        };
-                                    }
+                                                images:
+                                                    Array.isArray(
+                                                        data.images
+                                                    )
+                                                        ? data.images
+                                                        : [],
+                                            };
+                                        }
+                                    );
+
+                                setListings(
+                                    receivedListings
                                 );
 
-                            setListings(
-                                receivedListings
-                            );
+                                setLoading(false);
+                                setLoadError("");
+                            },
+                            (error) => {
+                                console.error(
+                                    "Помилка завантаження оголошень:",
+                                    error
+                                );
 
-                            setLoading(false);
-                            setLoadError("");
-                        },
-                        (error) => {
-                            console.error(
-                                "Помилка завантаження оголошень:",
-                                error
-                            );
+                                setLoadError(
+                                    "Не вдалося завантажити ваші оголошення."
+                                );
 
-                            setLoadError(
-                                "Не вдалося завантажити ваші оголошення."
-                            );
+                                setLoading(false);
+                            }
+                        );
+                }
+            );
 
-                            setLoading(false);
-                        }
-                    );
+        return () => {
+            unsubscribeAuth();
+
+            if (unsubscribeListings) {
+                unsubscribeListings();
             }
-        );
-
-    return () => {
-        unsubscribeAuth();
-
-        if (unsubscribeListings) {
-            unsubscribeListings();
-        }
-    };
-}, []);
+        };
+    }, []);
 
     const filteredListings =
         useMemo(() => {
@@ -1065,7 +1121,8 @@ useEffect(() => {
                                                                                             <a
                                                                                                 key={contact.key}
                                                                                                 href={getSafeUrl(
-                                                                                                    contact.value
+                                                                                                    contact.value,
+                                                                                                    contact.key
                                                                                                 )}
                                                                                                 target="_blank"
                                                                                                 rel="noopener noreferrer"

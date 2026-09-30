@@ -117,15 +117,44 @@ const createInitialAdditionalContacts = (
     additionalContacts = {}
 ) => {
     const getContact = (key) => {
-        const value =
-            typeof additionalContacts[key] ===
-                "string"
-                ? additionalContacts[key]
-                : "";
+        const contact =
+            additionalContacts?.[key];
+
+        // Старий формат:
+        // telegram: "@username"
+        if (typeof contact === "string") {
+            return {
+                enabled:
+                    Boolean(contact.trim()),
+                value: contact,
+            };
+        }
+
+        // Новий/об'єктний формат:
+        // telegram: {
+        //     enabled: true,
+        //     value: "@username"
+        // }
+        if (
+            contact &&
+            typeof contact === "object"
+        ) {
+            const value =
+                typeof contact.value === "string"
+                    ? contact.value
+                    : "";
+
+            return {
+                enabled:
+                    contact.enabled === true ||
+                    Boolean(value.trim()),
+                value,
+            };
+        }
 
         return {
-            enabled: Boolean(value.trim()),
-            value,
+            enabled: false,
+            value: "",
         };
     };
 
@@ -250,36 +279,68 @@ const AdminEditListingForm = ({
         }));
     };
     const getCleanAdditionalContacts = () => {
-        const phoneContacts = [
-            "telegram",
-            "viber",
-            "whatsapp",
-        ];
+    return Object.entries(
+        form.additionalContacts
+    ).reduce(
+        (result, [key, contact]) => {
+            const value =
+                contact.value.trim();
 
-        return Object.entries(
-            form.additionalContacts
-        ).reduce(
-            (result, [key, contact]) => {
-                const value =
-                    contact.value.trim();
+            if (
+                !contact.enabled ||
+                !value
+            ) {
+                return result;
+            }
+
+            // Viber та WhatsApp —
+            // телефонні номери
+            if (
+                key === "viber" ||
+                key === "whatsapp"
+            ) {
+                result[key] =
+                    normalizeContact(value);
+
+                return result;
+            }
+
+            // Telegram може бути:
+            // @username
+            // t.me/username
+            // telegram.me/username
+            // або номер телефону
+            if (key === "telegram") {
+                if (
+                    value.startsWith("@")
+                ) {
+                    result[key] = value;
+                    return result;
+                }
 
                 if (
-                    !contact.enabled ||
-                    !value
+                    /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
+                        value
+                    )
                 ) {
+                    result[key] = value;
                     return result;
                 }
 
                 result[key] =
-                    phoneContacts.includes(key)
-                        ? normalizeContact(value)
-                        : value;
+                    normalizeContact(value);
 
                 return result;
-            },
-            {}
-        );
-    };
+            }
+
+            // Instagram та Facebook
+            result[key] = value;
+
+            return result;
+        },
+        {}
+    );
+};
     const validateForm = () => {
         const newErrors = {};
 

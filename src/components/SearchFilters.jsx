@@ -1,3 +1,17 @@
+
+import {
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    onAuthStateChanged,
+} from "firebase/auth";
+
+import {
+    auth,
+} from "../firebase";
+
 const categories = [
   "Усі",
   "Продаж",
@@ -13,24 +27,7 @@ const categories = [
   "Оголошення громади",
   "Інше",
 ];
-const getCurrentUser = () => {
-    try {
-        const savedUser =
-            localStorage.getItem(
-                "rboardUser"
-            );
 
-        if (!savedUser) {
-            return null;
-        }
-
-        return JSON.parse(
-            savedUser
-        );
-    } catch {
-        return null;
-    }
-};
 const SearchFilters = ({
   search,
   setSearch,
@@ -42,16 +39,48 @@ const SearchFilters = ({
   viewMode,
   setViewMode,
 }) => {
-  const currentUser =
-    getCurrentUser();
+const [currentUser, setCurrentUser] =
+    useState(null);
 
+const [authLoading, setAuthLoading] =
+    useState(true);
+
+useEffect(() => {
+    const unsubscribe =
+        onAuthStateChanged(
+            auth,
+            (user) => {
+                setCurrentUser(user);
+                setAuthLoading(false);
+            }
+        );
+
+    return unsubscribe;
+}, []);
+useEffect(() => {
+    if (
+        !authLoading &&
+        !currentUser &&
+        activeCategory === "Обрані"
+    ) {
+        setActiveCategory("Усі");
+    }
+}, [
+    authLoading,
+    currentUser,
+    activeCategory,
+    setActiveCategory,
+]);
 const visibleCategories =
-    currentUser?.id
+    !authLoading && currentUser
         ? [
               ...categories,
               "Обрані",
           ]
         : categories;
+
+
+
   const hasActiveFilters =
     search.trim() !== "" ||
     activeCategory !== "Усі" ||

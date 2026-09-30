@@ -35,7 +35,7 @@ import AdminLogs from "./pages/admin/AdminLogs";
 import AdminTouristPlaces from "./pages/admin/AdminTouristPlaces";
 import AdminStatistics from "./pages/admin/AdminStatistics";
 import AdminEditListing from "./pages/admin/AdminEditListing";
-
+import AdminSite from "./pages/admin/AdminSite";
 const App = () => {
   return (
     <BrowserRouter>
@@ -143,7 +143,10 @@ const App = () => {
             path="users"
             element={<AdminUsers />}
           />
-
+          <Route
+            path="site"
+            element={<AdminSite />}
+          />
           {/* Повідомлення з форми зворотного зв'язку */}
           <Route
             path="contacts"

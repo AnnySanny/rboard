@@ -21,7 +21,10 @@ const adminPages = {
         path: "/dashboard/admin-create-listing",
         title: "Додати оголошення",
     },
-
+    site: {
+        path: "/dashboard/site",
+        title: "Головна сайту",
+    },
     users: {
         path: "/dashboard/users",
         title: "Користувачі",
@@ -61,31 +64,31 @@ const AdminLayout = () => {
         "dashboard",
     ]);
 
-const activePageKey = useMemo(() => {
-    /*
-     * Сторінка редагування оголошення
-     * належить до вкладки "Оголошення".
-     */
-    if (
-        location.pathname.startsWith(
-            "/dashboard/listings/"
-        )
-    ) {
-        return "listings";
-    }
+    const activePageKey = useMemo(() => {
+        /*
+         * Сторінка редагування оголошення
+         * належить до вкладки "Оголошення".
+         */
+        if (
+            location.pathname.startsWith(
+                "/dashboard/listings/"
+            )
+        ) {
+            return "listings";
+        }
 
-    const currentPage = Object.entries(
-        adminPages
-    ).find(
-        ([, page]) =>
-            page.path === location.pathname
-    );
+        const currentPage = Object.entries(
+            adminPages
+        ).find(
+            ([, page]) =>
+                page.path === location.pathname
+        );
 
-    return (
-        currentPage?.[0] ||
-        "dashboard"
-    );
-}, [location.pathname]);
+        return (
+            currentPage?.[0] ||
+            "dashboard"
+        );
+    }, [location.pathname]);
 
     /*
      * Якщо користувач потрапив на сторінку
@@ -242,8 +245,8 @@ const activePageKey = useMemo(() => {
                                     <div
                                         key={pageKey}
                                         className={`group flex h-10 w-[160px] shrink-0 items-center border-r border-slate-200 ${isActive
-                                                ? "border-t-2 border-t-blue-600 bg-slate-100"
-                                                : "bg-white"
+                                            ? "border-t-2 border-t-blue-600 bg-slate-100"
+                                            : "bg-white"
                                             }`}
                                     >
                                         {/* Назва вкладки */}
@@ -255,8 +258,8 @@ const activePageKey = useMemo(() => {
                                                 )
                                             }
                                             className={`flex min-w-0 flex-1 items-center px-4 text-left text-sm font-semibold transition ${isActive
-                                                    ? "text-slate-950"
-                                                    : "text-slate-500 hover:text-slate-900"
+                                                ? "text-slate-950"
+                                                : "text-slate-500 hover:text-slate-900"
                                                 }`}
                                         >
                                             <span className="truncate">

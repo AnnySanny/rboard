@@ -118,15 +118,44 @@ const createInitialAdditionalContacts = (
     additionalContacts = {}
 ) => {
     const getContact = (key) => {
-        const value =
-            typeof additionalContacts[key] ===
-                "string"
-                ? additionalContacts[key]
-                : "";
+        const contact =
+            additionalContacts?.[key];
+
+        // Старий формат:
+        // telegram: "@username"
+        if (typeof contact === "string") {
+            return {
+                enabled:
+                    Boolean(contact.trim()),
+                value: contact,
+            };
+        }
+
+        // Новий/об'єктний формат:
+        // telegram: {
+        //     enabled: true,
+        //     value: "@username"
+        // }
+        if (
+            contact &&
+            typeof contact === "object"
+        ) {
+            const value =
+                typeof contact.value === "string"
+                    ? contact.value
+                    : "";
+
+            return {
+                enabled:
+                    contact.enabled === true ||
+                    Boolean(value.trim()),
+                value,
+            };
+        }
 
         return {
-            enabled: Boolean(value.trim()),
-            value,
+            enabled: false,
+            value: "",
         };
     };
 

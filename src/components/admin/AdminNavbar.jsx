@@ -15,6 +15,7 @@ import {
     X,
     MapPinned,
     ChartNoAxesCombined,
+    House,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
@@ -33,6 +34,12 @@ const menuItems = [
         to: "/dashboard/listings",
         title: "Оголошення",
         icon: List,
+    },
+    {
+        key: "site",
+        to: "/dashboard/site",
+        title: "Головна сайту",
+        icon: House,
     },
     {
         key: "create-listing",
@@ -119,17 +126,17 @@ const AdminNavbar = ({ onOpenTab }) => {
         }
     };
 
-const isActive = (pageKey) => {
-    const item = menuItems.find(
-        (menuItem) => menuItem.key === pageKey
-    );
+    const isActive = (pageKey) => {
+        const item = menuItems.find(
+            (menuItem) => menuItem.key === pageKey
+        );
 
-    if (!item) {
-        return false;
-    }
+        if (!item) {
+            return false;
+        }
 
-    return location.pathname === item.to;
-};
+        return location.pathname === item.to;
+    };
 
     return (
         <>
@@ -167,11 +174,10 @@ const isActive = (pageKey) => {
                                             item.key
                                         )
                                     }
-                                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
-                                        active
+                                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${active
                                             ? "bg-blue-600 text-white shadow-sm"
                                             : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                                    }`}
+                                        }`}
                                 >
                                     <Icon className="h-5 w-5 shrink-0" />
 
@@ -258,11 +264,10 @@ const isActive = (pageKey) => {
                                             item.key
                                         )
                                     }
-                                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
-                                        active
+                                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${active
                                             ? "bg-blue-600 text-white"
                                             : "text-slate-700 hover:bg-slate-100 hover:text-slate-950"
-                                    }`}
+                                        }`}
                                 >
                                     <Icon className="h-5 w-5 shrink-0" />
 

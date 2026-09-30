@@ -124,15 +124,15 @@ export default function ListingContacts({
             >
                 <label
                     className={`
-                        flex
-                        items-center
-                        gap-3
-                        p-4
-                        ${hidePhone
+        flex
+        items-center
+        gap-3
+        p-4
+        ${disabled
                             ? "cursor-not-allowed opacity-60"
                             : "cursor-pointer"
                         }
-                    `}
+    `}
                 >
                     <input
                         type="checkbox"

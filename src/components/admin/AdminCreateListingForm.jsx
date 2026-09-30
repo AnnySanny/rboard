@@ -12,7 +12,7 @@ import {
     ADMIN_LOG_ACTIONS,
 } from "../../utils/adminLogger";
 import { db } from "../../firebase";
-
+import ListingContacts from "../listings/ListingContacts";
 import CityAutocomplete from "../listings/CityAutocomplete";
 import ListingImageUploader from "../listings/ListingImageUploader";
 
@@ -169,7 +169,30 @@ const AdminCreateListingForm = ({
             city: "",
         }));
     };
+    const [hidePhone, setHidePhone] = useState(false);
 
+    const [additionalContacts, setAdditionalContacts] = useState({
+        instagram: {
+            enabled: false,
+            value: "",
+        },
+        telegram: {
+            enabled: false,
+            value: "",
+        },
+        viber: {
+            enabled: false,
+            value: "",
+        },
+        whatsapp: {
+            enabled: false,
+            value: "",
+        },
+        facebook: {
+            enabled: false,
+            value: "",
+        },
+    });
     const validateForm = () => {
         const newErrors = {};
 
@@ -263,7 +286,18 @@ const AdminCreateListingForm = ({
             0
         );
     };
-
+    const cleanAdditionalContacts = Object.fromEntries(
+        Object.entries(additionalContacts)
+            .filter(
+                ([, contact]) =>
+                    contact.enabled &&
+                    contact.value.trim()
+            )
+            .map(([key, contact]) => [
+                key,
+                contact.value.trim(),
+            ])
+    );
     const handleSubmit = async (
         event
     ) => {
@@ -418,6 +452,10 @@ const AdminCreateListingForm = ({
 
                         createdByAdmin:
                             true,
+                        additionalContacts:
+                            cleanAdditionalContacts,
+
+                        hidePhone,
                     }
                 );
             await createAdminLog({
@@ -736,7 +774,15 @@ const AdminCreateListingForm = ({
                     </p>
                 )}
             </div>
-
+            <ListingContacts
+                value={additionalContacts}
+                onChange={setAdditionalContacts}
+                hidePhone={hidePhone}
+                onHidePhoneChange={(event) =>
+                    setHidePhone(event.target.checked)
+                }
+                disabled={submitting}
+            />
             {/* ========================= */}
             {/* ФОТО */}
             {/* ========================= */}

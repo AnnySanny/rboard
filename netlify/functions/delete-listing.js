@@ -22,12 +22,26 @@ function getFirebaseAdminApp() {
         return getApps()[0];
     }
 
-    const privateKey =
-        process.env.FIREBASE_PRIVATE_KEY?.replace(
-            /\\n/g,
-            "\n"
-        );
-
+const privateKey =
+    process.env.FIREBASE_PRIVATE_KEY
+        ?.trim()
+        .replace(/^["']|["']$/g, "")
+        .replace(/\\n/g, "\n")
+        .replace(/\r\n/g, "\n");
+console.log("Firebase private key check:", {
+    exists: Boolean(privateKey),
+    length: privateKey?.length || 0,
+    startsCorrectly:
+        privateKey?.startsWith(
+            "-----BEGIN PRIVATE KEY-----"
+        ) || false,
+    endsCorrectly:
+        privateKey?.endsWith(
+            "-----END PRIVATE KEY-----"
+        ) || false,
+    hasRealNewlines:
+        privateKey?.includes("\n") || false,
+});
     if (
         !process.env.FIREBASE_PROJECT_ID ||
         !process.env.FIREBASE_CLIENT_EMAIL ||

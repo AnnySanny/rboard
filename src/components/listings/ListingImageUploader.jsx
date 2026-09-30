@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import Swal from "sweetalert2";
 
 const MAX_IMAGES = 10;
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function ListingImageUploader({
     images,
@@ -81,7 +81,7 @@ const processImages = async (files) => {
         await Swal.fire({
             icon: "warning",
             title: "Файл завеликий",
-            text: "Розмір однієї фотографії не повинен перевищувати 5 МБ.",
+            text: "Розмір однієї фотографії не повинен перевищувати 10 МБ.",
             confirmButtonText: "Добре",
             confirmButtonColor: "#2563eb",
         });
@@ -307,7 +307,7 @@ const handleDrop = async (event) => {
             <p className="mt-2 text-xs leading-5 text-slate-400">
                 До 10 фотографій. JPG, PNG
                 або WebP. Максимальний розмір
-                одного файлу — 5 МБ.
+                одного файлу — 10 МБ.
             </p>
 
             {images.length > 0 && (

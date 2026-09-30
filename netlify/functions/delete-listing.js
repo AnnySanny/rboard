@@ -17,12 +17,6 @@ const {
 } = require("cloudinary");
 
 
-/*
- * =========================================
- * FIREBASE ADMIN
- * =========================================
- */
-
 function getFirebaseAdminApp() {
     if (getApps().length > 0) {
         return getApps()[0];
@@ -68,12 +62,6 @@ const adminDb =
     getFirestore(firebaseAdminApp);
 
 
-/*
- * =========================================
- * CLOUDINARY
- * =========================================
- */
-
 cloudinary.config({
     cloud_name:
         process.env.CLOUDINARY_CLOUD_NAME,
@@ -87,12 +75,6 @@ cloudinary.config({
     secure: true,
 });
 
-
-/*
- * =========================================
- * RESPONSE
- * =========================================
- */
 
 function response(statusCode, body) {
     return {
@@ -108,17 +90,21 @@ function response(statusCode, body) {
 }
 
 
-/*
- * =========================================
- * FUNCTION
- * =========================================
- */
-
 exports.handler = async (event) => {
-    /*
-     * Дозволяємо тільки POST.
-     */
+    console.log(
+        "=== DELETE LISTING START ==="
+    );
+
+    console.log(
+        "HTTP method:",
+        event.httpMethod
+    );
+
     if (event.httpMethod !== "POST") {
+        console.warn(
+            "Request rejected: method is not POST"
+        );
+
         return response(405, {
             success: false,
             message: "Method not allowed.",
@@ -126,12 +112,6 @@ exports.handler = async (event) => {
     }
 
     try {
-        /*
-         * =========================================
-         * 1. FIREBASE TOKEN
-         * =========================================
-         */
-
         const authorizationHeader =
             event.headers.authorization ||
             event.headers.Authorization ||
@@ -142,6 +122,10 @@ exports.handler = async (event) => {
                 "Bearer "
             )
         ) {
+            console.warn(
+                "Authorization header is missing"
+            );
+
             return response(401, {
                 success: false,
                 message:
@@ -161,7 +145,7 @@ exports.handler = async (event) => {
                 );
         } catch (error) {
             console.error(
-                "Invalid Firebase token:",
+                "Firebase token verification failed:",
                 error
             );
 
@@ -172,14 +156,14 @@ exports.handler = async (event) => {
             });
         }
 
-        const uid = decodedToken.uid;
+        const uid =
+            decodedToken.uid;
 
+        console.log(
+            "Authenticated UID:",
+            uid
+        );
 
-        /*
-         * =========================================
-         * 2. BODY
-         * =========================================
-         */
 
         let body;
 
@@ -187,7 +171,12 @@ exports.handler = async (event) => {
             body = JSON.parse(
                 event.body || "{}"
             );
-        } catch {
+        } catch (error) {
+            console.error(
+                "Invalid JSON body:",
+                error
+            );
+
             return response(400, {
                 success: false,
                 message:
@@ -195,12 +184,17 @@ exports.handler = async (event) => {
             });
         }
 
+
         const listingId =
             typeof body.listingId === "string"
                 ? body.listingId.trim()
                 : "";
 
         if (!listingId) {
+            console.warn(
+                "Listing ID is missing"
+            );
+
             return response(400, {
                 success: false,
                 message:
@@ -208,12 +202,11 @@ exports.handler = async (event) => {
             });
         }
 
+        console.log(
+            "Listing ID:",
+            listingId
+        );
 
-        /*
-         * =========================================
-         * 3. ОТРИМУЄМО ОГОЛОШЕННЯ
-         * =========================================
-         */
 
         const listingRef =
             adminDb
@@ -224,6 +217,11 @@ exports.handler = async (event) => {
             await listingRef.get();
 
         if (!listingSnapshot.exists) {
+            console.warn(
+                "Listing not found:",
+                listingId
+            );
+
             return response(404, {
                 success: false,
                 message:
@@ -231,15 +229,22 @@ exports.handler = async (event) => {
             });
         }
 
+
         const listing =
             listingSnapshot.data();
 
+        console.log(
+            "Listing found:",
+            listingId
+        );
 
-        /*
-         * =========================================
-         * 4. ОТРИМУЄМО КОРИСТУВАЧА
-         * =========================================
-         */
+        console.log(
+            "Listing images:",
+            JSON.stringify(
+                listing.images || []
+            )
+        );
+
 
         const userSnapshot =
             await adminDb
@@ -248,12 +253,18 @@ exports.handler = async (event) => {
                 .get();
 
         if (!userSnapshot.exists) {
+            console.warn(
+                "User profile not found:",
+                uid
+            );
+
             return response(403, {
                 success: false,
                 message:
                     "Профіль користувача не знайдено.",
             });
         }
+
 
         const user =
             userSnapshot.data();
@@ -265,23 +276,24 @@ exports.handler = async (event) => {
             listing.author?.isAuthenticated === true &&
             listing.author?.uid === uid;
 
+        console.log(
+            "Permission check:",
+            {
+                isAdmin,
+                isOwner,
+            }
+        );
 
-        /*
-         * =========================================
-         * 5. ПЕРЕВІРКА ПРАВ
-         * =========================================
-         *
-         * ADMIN:
-         * може видаляти будь-яке оголошення.
-         *
-         * USER:
-         * тільки власне.
-         *
-         * Гостьове:
-         * звичайний user видалити не може.
-         */
 
         if (!isAdmin && !isOwner) {
+            console.warn(
+                "Delete permission denied:",
+                {
+                    uid,
+                    listingId,
+                }
+            );
+
             return response(403, {
                 success: false,
                 message:
@@ -289,12 +301,6 @@ exports.handler = async (event) => {
             });
         }
 
-
-        /*
-         * =========================================
-         * 6. PUBLIC IDs CLOUDINARY
-         * =========================================
-         */
 
         const images =
             Array.isArray(listing.images)
@@ -322,35 +328,94 @@ exports.handler = async (event) => {
         ];
 
 
-        /*
-         * =========================================
-         * 7. ВИДАЛЯЄМО CLOUDINARY
-         * =========================================
-         */
+        console.log(
+            "Cloudinary public IDs:",
+            publicIds
+        );
+
+        console.log(
+            "Cloudinary configuration:",
+            {
+                cloudName:
+                    process.env
+                        .CLOUDINARY_CLOUD_NAME ||
+                    null,
+
+                hasApiKey:
+                    Boolean(
+                        process.env
+                            .CLOUDINARY_API_KEY
+                    ),
+
+                hasApiSecret:
+                    Boolean(
+                        process.env
+                            .CLOUDINARY_API_SECRET
+                    ),
+            }
+        );
+
+
+        if (
+            images.length > 0 &&
+            publicIds.length === 0
+        ) {
+            console.error(
+                "Listing contains images but no imagePublicId:",
+                listingId
+            );
+
+            return response(500, {
+                success: false,
+                message:
+                    "Не вдалося визначити фотографії оголошення для видалення.",
+            });
+        }
+
 
         if (publicIds.length > 0) {
-            const cloudinaryResult =
-                await cloudinary.api.delete_resources(
-                    publicIds,
-                    {
-                        resource_type: "image",
-                        type: "upload",
-                        invalidate: true,
-                    }
+            console.log(
+                "Deleting Cloudinary images..."
+            );
+
+            let cloudinaryResult;
+
+            try {
+                cloudinaryResult =
+                    await cloudinary.api.delete_resources(
+                        publicIds,
+                        {
+                            resource_type:
+                                "image",
+
+                            type:
+                                "upload",
+
+                            invalidate:
+                                true,
+                        }
+                    );
+            } catch (error) {
+                console.error(
+                    "Cloudinary request failed:",
+                    error
                 );
+
+                return response(502, {
+                    success: false,
+                    message:
+                        "Не вдалося видалити фотографії оголошення.",
+                });
+            }
+
 
             console.log(
                 "Cloudinary delete result:",
-                cloudinaryResult
+                JSON.stringify(
+                    cloudinaryResult
+                )
             );
 
-            /*
-             * Перевіряємо кожен publicId.
-             *
-             * "deleted"    — видалено.
-             * "not_found"  — файла вже немає,
-             *                це теж нормально.
-             */
 
             const failedIds =
                 publicIds.filter(
@@ -360,6 +425,14 @@ exports.handler = async (event) => {
                                 ?.deleted
                                 ?.[publicId];
 
+                        console.log(
+                            "Cloudinary image status:",
+                            {
+                                publicId,
+                                status,
+                            }
+                        );
+
                         return (
                             status !== "deleted" &&
                             status !== "not_found"
@@ -367,9 +440,10 @@ exports.handler = async (event) => {
                     }
                 );
 
+
             if (failedIds.length > 0) {
                 console.error(
-                    "Cloudinary failed IDs:",
+                    "Cloudinary deletion failed for:",
                     failedIds
                 );
 
@@ -377,48 +451,50 @@ exports.handler = async (event) => {
                     success: false,
                     message:
                         "Не вдалося видалити всі фотографії оголошення.",
-
-                    /*
-                     * publicId користувачу
-                     * спеціально не повертаємо.
-                     */
                     failedImages:
                         failedIds.length,
                 });
             }
+
+
+            console.log(
+                "Cloudinary images deleted successfully:",
+                publicIds.length
+            );
+        } else {
+            console.log(
+                "Listing has no Cloudinary images"
+            );
         }
 
 
-        /*
-         * =========================================
-         * 8. ВИДАЛЯЄМО FIRESTORE
-         * =========================================
-         *
-         * До цього моменту всі фотографії
-         * Cloudinary вже видалені.
-         */
+        console.log(
+            "Deleting Firestore listing:",
+            listingId
+        );
 
         await listingRef.delete();
 
+        console.log(
+            "Firestore listing deleted:",
+            listingId
+        );
 
-        /*
-         * =========================================
-         * 9. SUCCESS
-         * =========================================
-         */
+        console.log(
+            "=== DELETE LISTING SUCCESS ==="
+        );
+
 
         return response(200, {
             success: true,
-
             message:
                 "Оголошення успішно видалено.",
-
             deletedImages:
                 publicIds.length,
         });
     } catch (error) {
         console.error(
-            "DELETE LISTING ERROR:",
+            "=== DELETE LISTING ERROR ===",
             error
         );
 

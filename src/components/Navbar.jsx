@@ -44,6 +44,16 @@ const Navbar = () => {
         isOnboardingOpen,
         setIsOnboardingOpen,
     ] = useState(false);
+
+    const [
+    hasSeenOnboarding,
+    setHasSeenOnboarding,
+] = useState(
+    () =>
+        localStorage.getItem(
+            "rboard_onboarding_seen"
+        ) === "true"
+);
     const [showLogin, setShowLogin] =
         useState(false);
 
@@ -75,81 +85,86 @@ const Navbar = () => {
 
         return unsubscribe;
     }, []);
-    useEffect(() => {
-        if (authLoading) {
+useEffect(() => {
+    if (authLoading) {
+        return;
+    }
+
+    if (location.pathname !== "/") {
+        return;
+    }
+
+    if (hasSeenOnboarding) {
+        return;
+    }
+
+    getOnboardingImages().forEach((src) => {
+        const image = new Image();
+        image.src = src;
+    });
+
+    let timerId;
+
+    const startTimer = () => {
+        clearTimeout(timerId);
+
+        timerId = setTimeout(() => {
+            setIsOnboardingOpen(true);
+        }, 5000);
+    };
+
+    const handleActivity = () => {
+        if (isOnboardingOpen) {
             return;
         }
-
-        if (location.pathname !== "/") {
-            return;
-        }
-        const hasSeenOnboarding =
-            localStorage.getItem(
-                "rboard_onboarding_seen"
-            ) === "true";
-
-        if (hasSeenOnboarding) {
-            return;
-        }
-
-        getOnboardingImages().forEach((src) => {
-            const image = new Image();
-            image.src = src;
-        });
-
-        let timerId;
-
-        const startTimer = () => {
-            clearTimeout(timerId);
-
-            timerId = setTimeout(() => {
-                setIsOnboardingOpen(true);
-            }, 5000);
-        };
-
-        const handleActivity = () => {
-            startTimer();
-        };
 
         startTimer();
+    };
 
-        window.addEventListener(
+    startTimer();
+
+    window.addEventListener(
+        "click",
+        handleActivity
+    );
+
+    window.addEventListener(
+        "keydown",
+        handleActivity
+    );
+
+    window.addEventListener(
+        "touchstart",
+        handleActivity
+    );
+
+    return () => {
+        clearTimeout(timerId);
+
+        window.removeEventListener(
             "click",
             handleActivity
         );
 
-        window.addEventListener(
+        window.removeEventListener(
             "keydown",
             handleActivity
         );
 
-        window.addEventListener(
+        window.removeEventListener(
             "touchstart",
             handleActivity
         );
+    };
+}, [
+    authLoading,
+    location.pathname,
+    hasSeenOnboarding,
+    isOnboardingOpen,
+]);
 
-        return () => {
-            clearTimeout(timerId);
 
-            window.removeEventListener(
-                "click",
-                handleActivity
-            );
 
-            window.removeEventListener(
-                "keydown",
-                handleActivity
-            );
-
-            window.removeEventListener(
-                "touchstart",
-                handleActivity
-            );
-        };
-    }, [
-        authLoading,
-        location.pathname,
-    ]);
     const navLinkClass = ({ isActive }) =>
         `text-sm font-medium transition ${isActive
             ? "text-blue-600"
@@ -192,28 +207,29 @@ const Navbar = () => {
 
         setIsOnboardingOpen(true);
     };
-    const closeOnboarding = () => {
-        localStorage.setItem(
-            "rboard_onboarding_seen",
-            "true"
-        );
+const closeOnboarding = () => {
+    localStorage.setItem(
+        "rboard_onboarding_seen",
+        "true"
+    );
 
-        setIsOnboardingOpen(false);
-    };
+    setHasSeenOnboarding(true);
+    setIsOnboardingOpen(false);
+};
+const openRegisterFromOnboarding = () => {
+    localStorage.setItem(
+        "rboard_onboarding_seen",
+        "true"
+    );
 
-    const openRegisterFromOnboarding = () => {
-        localStorage.setItem(
-            "rboard_onboarding_seen",
-            "true"
-        );
+    setHasSeenOnboarding(true);
+    setIsOnboardingOpen(false);
+    setShowLogin(false);
 
-        setIsOnboardingOpen(false);
-        setShowLogin(false);
-
-        setTimeout(() => {
-            setShowRegister(true);
-        }, 150);
-    };
+    setTimeout(() => {
+        setShowRegister(true);
+    }, 150);
+};
 
     useEffect(() => {
         const handleOpenRegister = () => {

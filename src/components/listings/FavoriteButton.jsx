@@ -210,15 +210,13 @@ const FavoriteButton = ({
                 justify-center
                 transition-all
                 duration-200
-                ${
-                    isFavorite
-                        ? "text-blue-600"
-                        : "text-blue-600 hover:text-blue-600"
+${isFavorite
+                    ? "text-[#f35179]"
+                    : "text-[#f35179] hover:text-[#f35179]"
                 }
-                ${
-                    updating
-                        ? "cursor-wait opacity-50"
-                        : "hover:scale-110 active:scale-95"
+                ${updating
+                    ? "cursor-wait opacity-50"
+                    : "hover:scale-110 active:scale-95"
                 }
             `}
             title={
@@ -233,7 +231,7 @@ const FavoriteButton = ({
             }
         >
             {updating ? (
-                <span className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#f35179] border-t-transparent" />
             ) : (
                 <HeartIcon
                     filled={

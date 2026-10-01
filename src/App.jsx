@@ -12,6 +12,7 @@ import AdminLogin from "./pages/AdminLogin";
 import AccessDenied from "./pages/AccessDenied";
 import CreateListing from "./pages/CreateListing";
 import Rules from "./pages/Rules";
+import Help from "./pages/Help";
 // Захист адмінських сторінок
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 
@@ -65,6 +66,10 @@ const App = () => {
         <Route
           path="/rules"
           element={<Rules />}
+        />
+        <Route
+          path="/help"
+          element={<Help />}
         />
         <Route
           path="/create-listing"

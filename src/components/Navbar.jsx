@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import {
     NavLink,
     useNavigate,
+    useLocation,
+    Link,
 } from "react-router-dom";
 import {
     onAuthStateChanged,
@@ -13,14 +15,35 @@ import {
     LogOut,
     User,
     Plus,
+    Info,
 } from "lucide-react";
 
 import Modal from "./Modal";
 import LoginModal from "./auth/LoginModal";
 import RegisterModal from "./auth/RegisterModal";
+import OnboardingModal from "./onboarding/OnboardingModal";
+const getOnboardingImages = () => {
+    const isMobile = window.matchMedia(
+        "(max-width: 767px)"
+    ).matches;
 
+    const folder = isMobile
+        ? "/images/mobile"
+        : "/images";
 
+    return [
+        `${folder}/slide-1.png`,
+        `${folder}/slide-2.png`,
+        `${folder}/slide-3.png`,
+        `${folder}/slide-4.png`,
+        `${folder}/slide-5.png`,
+    ];
+};
 const Navbar = () => {
+    const [
+        isOnboardingOpen,
+        setIsOnboardingOpen,
+    ] = useState(false);
     const [showLogin, setShowLogin] =
         useState(false);
 
@@ -31,6 +54,7 @@ const Navbar = () => {
         useState(false);
 
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [currentUser, setCurrentUser] =
         useState(null);
@@ -51,7 +75,81 @@ const Navbar = () => {
 
         return unsubscribe;
     }, []);
+    useEffect(() => {
+        if (authLoading) {
+            return;
+        }
 
+        if (location.pathname !== "/") {
+            return;
+        }
+        const hasSeenOnboarding =
+            localStorage.getItem(
+                "rboard_onboarding_seen"
+            ) === "true";
+
+        if (hasSeenOnboarding) {
+            return;
+        }
+
+        getOnboardingImages().forEach((src) => {
+            const image = new Image();
+            image.src = src;
+        });
+
+        let timerId;
+
+        const startTimer = () => {
+            clearTimeout(timerId);
+
+            timerId = setTimeout(() => {
+                setIsOnboardingOpen(true);
+            }, 5000);
+        };
+
+        const handleActivity = () => {
+            startTimer();
+        };
+
+        startTimer();
+
+        window.addEventListener(
+            "click",
+            handleActivity
+        );
+
+        window.addEventListener(
+            "keydown",
+            handleActivity
+        );
+
+        window.addEventListener(
+            "touchstart",
+            handleActivity
+        );
+
+        return () => {
+            clearTimeout(timerId);
+
+            window.removeEventListener(
+                "click",
+                handleActivity
+            );
+
+            window.removeEventListener(
+                "keydown",
+                handleActivity
+            );
+
+            window.removeEventListener(
+                "touchstart",
+                handleActivity
+            );
+        };
+    }, [
+        authLoading,
+        location.pathname,
+    ]);
     const navLinkClass = ({ isActive }) =>
         `text-sm font-medium transition ${isActive
             ? "text-blue-600"
@@ -85,6 +183,36 @@ const Navbar = () => {
         setShowMobileMenu(false);
         setShowLogin(false);
         setShowRegister(true);
+    };
+    const openOnboarding = () => {
+        getOnboardingImages().forEach((src) => {
+            const image = new Image();
+            image.src = src;
+        });
+
+        setIsOnboardingOpen(true);
+    };
+    const closeOnboarding = () => {
+        localStorage.setItem(
+            "rboard_onboarding_seen",
+            "true"
+        );
+
+        setIsOnboardingOpen(false);
+    };
+
+    const openRegisterFromOnboarding = () => {
+        localStorage.setItem(
+            "rboard_onboarding_seen",
+            "true"
+        );
+
+        setIsOnboardingOpen(false);
+        setShowLogin(false);
+
+        setTimeout(() => {
+            setShowRegister(true);
+        }, 150);
     };
 
     useEffect(() => {
@@ -128,23 +256,52 @@ const Navbar = () => {
         );
     }
     return (
+
         <>
             <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md">
 
                 <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
 
 
-                    <NavLink
-                        to={userMode ? "/user" : "/"}
-                        onClick={closeMobileMenu}
-                        className="flex items-center gap-3"
-                    >
-                        <img
-                            src="/logo.png"
-                            alt="RBoard"
-                            className="h-20 w-20 object-contain"
-                        />
-                    </NavLink>
+                    <div className="flex items-center gap-2">
+                        <Link
+                            to="/"
+                            className="flex shrink-0 items-center"
+                        >
+                            <img
+                                src="/logo.png"
+                                alt="RBoard"
+                                className="h-16 w-auto object-contain"
+                            />
+                        </Link>
+
+                        <button
+                            type="button"
+                            onClick={openOnboarding}
+                            aria-label="Що таке RBoard?"
+                            title="Що таке RBoard?"
+                            className="
+            flex h-8 w-8
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            border border-slate-200
+            bg-white
+            text-slate-500
+            transition
+            hover:border-blue-200
+            hover:bg-blue-50
+            hover:text-blue-600
+            active:scale-95
+        "
+                        >
+                            <Info
+                                size={16}
+                                strokeWidth={2.2}
+                            />
+                        </button>
+                    </div>
 
 
                     <nav className="hidden items-center gap-7 md:flex">
@@ -183,6 +340,12 @@ const Navbar = () => {
                                 >
                                     Мої оголошення
                                 </NavLink>
+                                <NavLink
+                                    to="/help"
+                                    className={navLinkClass}
+                                >
+                                    Допомога
+                                </NavLink>
                             </>
                         ) : (
                             <>
@@ -206,6 +369,12 @@ const Navbar = () => {
                                     className={navLinkClass}
                                 >
                                     Контакти
+                                </NavLink>
+                                <NavLink
+                                    to="/help"
+                                    className={navLinkClass}
+                                >
+                                    Допомога
                                 </NavLink>
                             </>
                         )}
@@ -364,7 +533,13 @@ const Navbar = () => {
                                     >
                                         Мої оголошення
                                     </NavLink>
-
+                                    <NavLink
+                                        to="/help"
+                                        onClick={closeMobileMenu}
+                                        className={mobileNavLinkClass}
+                                    >
+                                        Допомога
+                                    </NavLink>
                                     <NavLink
                                         to="/user/profile"
                                         onClick={closeMobileMenu}
@@ -427,7 +602,13 @@ const Navbar = () => {
                                     >
                                         Контакти
                                     </NavLink>
-
+                                    <NavLink
+                                        to="/help"
+                                        onClick={closeMobileMenu}
+                                        className={mobileNavLinkClass}
+                                    >
+                                        Допомога
+                                    </NavLink>
                                 </nav>
 
                                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
@@ -469,7 +650,6 @@ const Navbar = () => {
                         <LoginModal />
                     </Modal>
 
-
                     <Modal
                         isOpen={showRegister}
                         onClose={() =>
@@ -480,6 +660,11 @@ const Navbar = () => {
                     </Modal>
                 </>
             )}
+            <OnboardingModal
+                isOpen={isOnboardingOpen}
+                onClose={closeOnboarding}
+                onRegister={openRegisterFromOnboarding}
+            />
         </>
     );
 };

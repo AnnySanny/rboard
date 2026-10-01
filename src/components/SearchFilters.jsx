@@ -1,15 +1,15 @@
 
 import {
-    useEffect,
-    useState,
+  useEffect,
+  useState,
 } from "react";
 
 import {
-    onAuthStateChanged,
+  onAuthStateChanged,
 } from "firebase/auth";
-
+import { Heart } from "lucide-react";
 import {
-    auth,
+  auth,
 } from "../firebase";
 
 const categories = [
@@ -39,45 +39,45 @@ const SearchFilters = ({
   viewMode,
   setViewMode,
 }) => {
-const [currentUser, setCurrentUser] =
+  const [currentUser, setCurrentUser] =
     useState(null);
 
-const [authLoading, setAuthLoading] =
+  const [authLoading, setAuthLoading] =
     useState(true);
 
-useEffect(() => {
+  useEffect(() => {
     const unsubscribe =
-        onAuthStateChanged(
-            auth,
-            (user) => {
-                setCurrentUser(user);
-                setAuthLoading(false);
-            }
-        );
+      onAuthStateChanged(
+        auth,
+        (user) => {
+          setCurrentUser(user);
+          setAuthLoading(false);
+        }
+      );
 
     return unsubscribe;
-}, []);
-useEffect(() => {
+  }, []);
+  useEffect(() => {
     if (
-        !authLoading &&
-        !currentUser &&
-        activeCategory === "Обрані"
+      !authLoading &&
+      !currentUser &&
+      activeCategory === "Обрані"
     ) {
-        setActiveCategory("Усі");
+      setActiveCategory("Усі");
     }
-}, [
+  }, [
     authLoading,
     currentUser,
     activeCategory,
     setActiveCategory,
-]);
-const visibleCategories =
+  ]);
+  const visibleCategories =
     !authLoading && currentUser
-        ? [
-              ...categories,
-              "Обрані",
-          ]
-        : categories;
+      ? [
+        ...categories,
+        "Обрані",
+      ]
+      : categories;
 
 
 
@@ -237,11 +237,19 @@ const visibleCategories =
               onClick={() =>
                 setActiveCategory(category)
               }
-              className={`rounded-full px-5 py-2.5 text-sm font-medium transition ${isActive
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "bg-white text-slate-700 shadow-sm hover:bg-slate-100"
+              className={`flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium transition ${isActive
+                ? "bg-blue-600 text-white shadow-sm"
+                : "bg-white text-slate-700 shadow-sm hover:bg-slate-100"
                 }`}
             >
+              {category === "Обрані" && (
+                <Heart
+                  size={15}
+                  strokeWidth={2.4}
+                  className="mr-1.5 fill-[#f35179] text-[#f35179]"
+                />
+              )}
+
               {category}
             </button>
           );

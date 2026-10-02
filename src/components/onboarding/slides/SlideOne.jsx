@@ -95,22 +95,99 @@ const SlideOne = () => {
             </div>
 
             <div className="relative hidden h-full w-full md:block">
-                <div className="pointer-events-none absolute -left-[12%] bottom-[-38%] z-0 h-[65%] w-[45%] rounded-[50%] bg-blue-50/80" />
+                <div className="
+        pointer-events-none
+        absolute
+        -left-[12%]
+        bottom-[-38%]
+        z-0
+        h-[65%]
+        w-[45%]
+        rounded-[50%]
+        bg-blue-50/80
+    " />
 
                 <div className="relative z-10 flex h-full">
-                    <div className="relative z-20 flex h-full w-[48%] flex-col justify-center px-[5%] py-10">
-                        <div className="mt-10">
-                            <p className="text-[12px] font-black uppercase tracking-[0.28em] text-blue-400 lg:text-[15px]">
+                    <div className="
+            relative z-20
+            flex h-full
+            w-[50%]
+            flex-col
+            justify-center
+
+            px-[4%]
+            py-5
+
+            lg:w-[48%]
+            lg:px-[4.5%]
+            lg:py-7
+
+            xl:px-[5%]
+            xl:py-10
+        ">
+                        <div className="
+                mt-8
+                lg:mt-10
+                xl:mt-12
+            ">
+                            <p className="
+                    text-[10px]
+                    font-black
+                    uppercase
+                    tracking-[0.24em]
+                    text-blue-400
+
+                    lg:text-[12px]
+                    lg:tracking-[0.26em]
+
+                    xl:text-[14px]
+                    xl:tracking-[0.28em]
+
+                    2xl:text-[15px]
+                ">
                                 Локальна дошка оголошень
                             </p>
 
-                            <h2 className="mt-5 max-w-[560px] text-[42px] font-black leading-[0.98] tracking-[-0.045em] text-slate-950 lg:text-[54px] xl:text-[68px]">
+                            <h2 className="
+                    mt-3
+                    max-w-[560px]
+                    text-[34px]
+                    font-black
+                    leading-[0.98]
+                    tracking-[-0.045em]
+                    text-slate-950
+
+                    lg:mt-4
+                    lg:text-[44px]
+
+                    xl:mt-5
+                    xl:text-[56px]
+
+                    2xl:text-[68px]
+                ">
                                 Все потрібне
                                 <br />
                                 поруч
                             </h2>
 
-                            <p className="mt-7 max-w-[590px] text-[16px] font-medium leading-[1.55] text-slate-500 lg:text-[18px] xl:text-[21px]">
+                            <p className="
+                    mt-4
+                    max-w-[590px]
+                    text-[13px]
+                    font-medium
+                    leading-[1.5]
+                    text-slate-500
+
+                    lg:mt-5
+                    lg:text-[15px]
+                    lg:leading-[1.55]
+
+                    xl:mt-6
+                    xl:text-[17px]
+
+                    2xl:mt-7
+                    2xl:text-[20px]
+                ">
                                 Оголошення Рахівщини в одному місці.
                                 <br className="hidden xl:block" />
                                 Купуйте, продавайте, знаходьте послуги,
@@ -118,7 +195,22 @@ const SlideOne = () => {
                                 роботу, оренду та події поруч із вами.
                             </p>
 
-                            <div className="mt-8 grid max-w-[600px] grid-cols-3 gap-3">
+                            <div className="
+                    mt-5
+                    grid
+                    max-w-[600px]
+                    grid-cols-2
+                    gap-2
+
+                    lg:mt-6
+                    lg:grid-cols-3
+                    lg:gap-2.5
+
+                    xl:mt-7
+                    xl:gap-3
+
+                    2xl:mt-8
+                ">
                                 {categories.map(
                                     ({
                                         label,
@@ -127,15 +219,52 @@ const SlideOne = () => {
                                     }) => (
                                         <div
                                             key={label}
-                                            className={`flex min-h-[64px] items-center gap-3 rounded-2xl border px-4 shadow-sm ${className}`}
+                                            className={`
+                                    flex
+                                    min-h-[48px]
+                                    items-center
+                                    gap-2
+                                    rounded-xl
+                                    border
+                                    px-3
+                                    shadow-sm
+
+                                    lg:min-h-[54px]
+                                    lg:gap-2.5
+                                    lg:rounded-xl
+                                    lg:px-3
+
+                                    xl:min-h-[60px]
+                                    xl:gap-3
+                                    xl:rounded-2xl
+                                    xl:px-4
+
+                                    2xl:min-h-[64px]
+
+                                    ${className}
+                                `}
                                         >
                                             <Icon
-                                                size={25}
+                                                size={22}
                                                 strokeWidth={2.2}
-                                                className="shrink-0"
+                                                className="
+                                        shrink-0
+                                        lg:h-[23px]
+                                        lg:w-[23px]
+                                        xl:h-[25px]
+                                        xl:w-[25px]
+                                    "
                                             />
 
-                                            <span className="text-[14px] font-black text-slate-900 lg:text-[16px]">
+                                            <span className="
+                                    text-[12px]
+                                    font-black
+                                    text-slate-900
+
+                                    lg:text-[13px]
+                                    xl:text-[14px]
+                                    2xl:text-[16px]
+                                ">
                                                 {label}
                                             </span>
                                         </div>
@@ -145,12 +274,36 @@ const SlideOne = () => {
                         </div>
                     </div>
 
-                    <div className="relative h-full w-[54%]">
-                        <div className="absolute inset-y-0 right-0 w-full overflow-hidden rounded-[42%_0_0_42%/50%_0_0_50%]">
+                    <div className="
+            relative
+            h-full
+            w-[52%]
+
+            lg:w-[54%]
+        ">
+                        <div className="
+                absolute
+                inset-y-0
+                right-0
+                w-full
+                overflow-hidden
+                rounded-[38%_0_0_38%/50%_0_0_50%]
+
+                lg:rounded-[40%_0_0_40%/50%_0_0_50%]
+                xl:rounded-[42%_0_0_42%/50%_0_0_50%]
+            ">
                             <img
                                 src="/images/slide-1.png"
                                 alt="RBoard — оголошення Рахівщини"
-                                className="h-full w-full object-cover object-[96%_center]"
+                                className="
+                        h-full
+                        w-full
+                        object-cover
+                        object-[94%_center]
+
+                        lg:object-[95%_center]
+                        xl:object-[96%_center]
+                    "
                             />
                         </div>
                     </div>

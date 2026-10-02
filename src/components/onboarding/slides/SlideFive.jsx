@@ -94,75 +94,305 @@ const SlideFive = ({
             </div>
 
 
-            {/* DESKTOP */}
-            <div className="hidden h-full md:block">
-                <div className="pointer-events-none absolute -left-[15%] bottom-[-38%] h-[68%] w-[50%] rounded-[50%] bg-blue-50/80" />
+{/* DESKTOP */}
+<div className="relative hidden h-full md:block">
+    <div className="
+        pointer-events-none
+        absolute
+        -left-[15%]
+        bottom-[-38%]
+        h-[68%]
+        w-[50%]
+        rounded-[50%]
+        bg-blue-50/80
+    " />
 
-                <div className="relative z-10 flex h-full">
-                    <div className="relative z-20 flex h-full w-[45%] flex-col px-[5%]">
-                        <div className="flex h-full flex-col justify-center pt-[55px]">
-                            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-blue-400 lg:text-[13px]">
-                                Приєднуйтесь до RBoard
-                            </p>
+    <div className="relative z-10 flex h-full">
+        <div className="
+            relative z-20
+            flex h-full
+            w-[48%]
+            flex-col
+            px-[4%]
 
-                            <h2 className="mt-4 max-w-[560px] text-[32px] font-black leading-[1.02] tracking-[-0.04em] text-slate-950 lg:text-[40px] xl:text-[46px]">
-                                Готові
-                                <br />
-                                приєднатися?
-                            </h2>
+            lg:w-[46%]
+            lg:px-[4.5%]
 
-                            <p className="mt-5 max-w-[500px] text-[14px] font-medium leading-[1.55] text-slate-500 lg:text-[16px]">
-                                Створіть обліковий запис RBoard
-                                та користуйтеся всіма можливостями
-                                сервісу.
-                            </p>
+            xl:w-[45%]
+            xl:px-[5%]
+        ">
+            <div className="
+                flex h-full
+                flex-col
+                justify-center
+                pt-[40px]
 
-                            <div className="mt-6 flex max-w-[500px] items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3.5">
-                                <CheckCircle2
-                                    size={24}
-                                    strokeWidth={2.5}
-                                    className="shrink-0 text-emerald-500"
-                                />
+                lg:pt-[48px]
+                xl:pt-[55px]
 
-                                <p className="text-[13px] font-bold leading-[1.4] text-slate-700 lg:text-[14px]">
-                                    Реєстрація безкоштовна та займає
-                                    лише кілька хвилин
-                                </p>
-                            </div>
+                md:[@media(max-height:720px)]:pt-0
+            ">
+                <p className="
+                    text-[9px]
+                    font-black
+                    uppercase
+                    tracking-[0.24em]
+                    text-blue-400
 
-                            <div className="mt-7 max-w-[500px]">
-                                <button
-                                    type="button"
-                                    onClick={onRegister}
-                                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 px-6 py-4 text-[15px] font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 active:scale-[0.98]"
-                                >
-                                    <UserPlus
-                                        size={21}
-                                        strokeWidth={2.4}
-                                    />
+                    lg:text-[11px]
+                    lg:tracking-[0.26em]
 
-                                    Зареєструватися
+                    xl:text-[12px]
+                    xl:tracking-[0.28em]
 
-                                    <ArrowRight
-                                        size={20}
-                                        strokeWidth={2.4}
-                                    />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    2xl:text-[13px]
 
-                    <div className="relative h-full w-[55%]">
-                        <div className="absolute inset-y-0 -left-[18%] right-0 overflow-hidden rounded-[32%_0_0_32%/50%_0_0_50%]">
-                            <img
-                                src="/images/slide-5.png"
-                                alt="Приєднуйтесь до RBoard"
-                                className="h-full w-full object-cover object-[100%_center]"
-                            />
-                        </div>
-                    </div>
+                    md:[@media(max-height:720px)]:text-[8px]
+                ">
+                    Приєднуйтесь до RBoard
+                </p>
+
+                <h2 className="
+                    mt-3
+                    max-w-[560px]
+                    text-[28px]
+                    font-black
+                    leading-[1.02]
+                    tracking-[-0.04em]
+                    text-slate-950
+
+                    lg:mt-4
+                    lg:text-[35px]
+
+                    xl:text-[41px]
+
+                    2xl:text-[46px]
+
+                    md:[@media(max-height:720px)]:mt-2
+                    md:[@media(max-height:720px)]:text-[25px]
+
+                    lg:[@media(max-height:720px)]:text-[30px]
+                    xl:[@media(max-height:720px)]:text-[34px]
+                ">
+                    Готові
+                    <br />
+                    приєднатися?
+                </h2>
+
+                <p className="
+                    mt-4
+                    max-w-[500px]
+                    text-[12px]
+                    font-medium
+                    leading-[1.5]
+                    text-slate-500
+
+                    lg:mt-5
+                    lg:text-[14px]
+
+                    xl:text-[15px]
+
+                    2xl:text-[16px]
+
+                    md:[@media(max-height:720px)]:mt-3
+                    md:[@media(max-height:720px)]:text-[11px]
+
+                    lg:[@media(max-height:720px)]:text-[12px]
+                    xl:[@media(max-height:720px)]:text-[13px]
+                ">
+                    Створіть обліковий запис RBoard
+                    та користуйтеся всіма можливостями
+                    сервісу.
+                </p>
+
+                <div className="
+                    mt-5
+                    flex
+                    max-w-[500px]
+                    items-center
+                    gap-2.5
+                    rounded-xl
+                    bg-emerald-50
+                    px-3.5
+                    py-3
+
+                    lg:mt-5
+                    lg:gap-3
+                    lg:rounded-2xl
+                    lg:px-4
+                    lg:py-3.5
+
+                    xl:mt-6
+
+                    md:[@media(max-height:720px)]:mt-4
+                    md:[@media(max-height:720px)]:px-3
+                    md:[@media(max-height:720px)]:py-2.5
+                ">
+                    <CheckCircle2
+                        strokeWidth={2.5}
+                        className="
+                            h-[19px]
+                            w-[19px]
+                            shrink-0
+                            text-emerald-500
+
+                            lg:h-[21px]
+                            lg:w-[21px]
+
+                            xl:h-[24px]
+                            xl:w-[24px]
+
+                            md:[@media(max-height:720px)]:h-[18px]
+                            md:[@media(max-height:720px)]:w-[18px]
+                        "
+                    />
+
+                    <p className="
+                        text-[11px]
+                        font-bold
+                        leading-[1.35]
+                        text-slate-700
+
+                        lg:text-[12px]
+                        xl:text-[13px]
+                        2xl:text-[14px]
+
+                        md:[@media(max-height:720px)]:text-[10px]
+                        lg:[@media(max-height:720px)]:text-[11px]
+                        xl:[@media(max-height:720px)]:text-[12px]
+                    ">
+                        Реєстрація безкоштовна та займає
+                        лише кілька хвилин
+                    </p>
+                </div>
+
+                <div className="
+                    mt-5
+                    max-w-[500px]
+
+                    lg:mt-6
+                    xl:mt-7
+
+                    md:[@media(max-height:720px)]:mt-4
+                ">
+                    <button
+                        type="button"
+                        onClick={onRegister}
+                        className="
+                            flex
+                            w-full
+                            items-center
+                            justify-center
+                            gap-2
+                            rounded-xl
+                            bg-blue-600
+                            px-5
+                            py-3
+                            text-[12px]
+                            font-black
+                            text-white
+                            shadow-lg
+                            shadow-blue-600/20
+                            transition
+                            hover:bg-blue-700
+                            active:scale-[0.98]
+
+                            lg:gap-2.5
+                            lg:rounded-2xl
+                            lg:px-6
+                            lg:py-3.5
+                            lg:text-[14px]
+
+                            xl:gap-3
+                            xl:py-4
+                            xl:text-[15px]
+
+                            md:[@media(max-height:720px)]:py-2.5
+                            md:[@media(max-height:720px)]:text-[11px]
+
+                            lg:[@media(max-height:720px)]:py-3
+                            lg:[@media(max-height:720px)]:text-[12px]
+                        "
+                    >
+                        <UserPlus
+                            strokeWidth={2.4}
+                            className="
+                                h-[18px]
+                                w-[18px]
+
+                                lg:h-[20px]
+                                lg:w-[20px]
+
+                                xl:h-[21px]
+                                xl:w-[21px]
+
+                                md:[@media(max-height:720px)]:h-[17px]
+                                md:[@media(max-height:720px)]:w-[17px]
+                            "
+                        />
+
+                        Зареєструватися
+
+                        <ArrowRight
+                            strokeWidth={2.4}
+                            className="
+                                h-[17px]
+                                w-[17px]
+
+                                lg:h-[19px]
+                                lg:w-[19px]
+
+                                xl:h-[20px]
+                                xl:w-[20px]
+
+                                md:[@media(max-height:720px)]:h-[16px]
+                                md:[@media(max-height:720px)]:w-[16px]
+                            "
+                        />
+                    </button>
                 </div>
             </div>
+        </div>
+
+        <div className="
+            relative
+            h-full
+            w-[52%]
+
+            lg:w-[54%]
+            xl:w-[55%]
+        ">
+            <div className="
+                absolute
+                inset-y-0
+                -left-[10%]
+                right-0
+                overflow-hidden
+                rounded-[28%_0_0_28%/50%_0_0_50%]
+
+                lg:-left-[14%]
+                lg:rounded-[30%_0_0_30%/50%_0_0_50%]
+
+                xl:-left-[18%]
+                xl:rounded-[32%_0_0_32%/50%_0_0_50%]
+            ">
+                <img
+                    src="/images/slide-5.png"
+                    alt="Приєднуйтесь до RBoard"
+                    className="
+                        h-full
+                        w-full
+                        object-cover
+                        object-[97%_center]
+
+                        lg:object-[98%_center]
+                        xl:object-[100%_center]
+                    "
+                />
+            </div>
+        </div>
+    </div>
+</div>
         </section>
     );
 };

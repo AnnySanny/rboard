@@ -90,77 +90,293 @@ const SlideFour = () => {
         </div>
 
 
-        {/* DESKTOP */}
-        <div className="hidden h-full md:block">
-            <div className="pointer-events-none absolute -left-[15%] bottom-[-38%] h-[68%] w-[50%] rounded-[50%] bg-blue-50/80" />
+{/* DESKTOP */}
+<div className="relative hidden h-full md:block">
+    <div className="
+        pointer-events-none
+        absolute
+        -left-[15%]
+        bottom-[-38%]
+        h-[68%]
+        w-[50%]
+        rounded-[50%]
+        bg-blue-50/80
+    " />
 
-            <div className="relative z-10 flex h-full">
-                <div className="relative z-20 flex h-full w-[45%] flex-col px-[5%]">
-                    <div className="flex h-full flex-col justify-center pt-[70px]">
-                        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-blue-400 sm:text-[12px] lg:text-[14px]">
-                            З обліковим записом
-                        </p>
+    <div className="relative z-10 flex h-full">
+        <div className="
+            relative z-20
+            flex h-full
+            w-[48%]
+            flex-col
+            px-[4%]
 
-                        <h2 className="mt-3 max-w-[560px] text-[30px] font-black leading-[1.03] tracking-[-0.035em] text-slate-950 lg:text-[36px] xl:text-[42px]">
-                            Значно більше
-                            <br />
-                            можливостей
-                        </h2>
+            lg:w-[46%]
+            lg:px-[4.5%]
 
-                        <p className="mt-4 max-w-[520px] text-[11px] font-medium leading-[1.5] text-slate-500 lg:text-[12px] xl:text-[13px]">
-                            Створіть обліковий запис і керуйте
-                            <br className="hidden xl:block" />
-                            своїми оголошеннями зручно в одному місці.
-                        </p>
+            xl:w-[45%]
+            xl:px-[5%]
+        ">
+            <div className="
+                flex h-full
+                flex-col
+                justify-center
+                pt-[40px]
 
-                        <div className="mt-5 flex max-w-[590px] flex-col gap-3">
-                            {features.map(
-                                ({
-                                    title,
-                                    description,
-                                    icon: Icon,
-                                    iconClass,
-                                }) => (
-                                    <div
-                                        key={title}
-                                        className="flex items-center gap-4"
-                                    >
-                                        <div
-                                            className={`flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-2xl ${iconClass}`}
-                                        >
-                                            <Icon
-                                                size={25}
-                                                strokeWidth={2.4}
-                                            />
-                                        </div>
+                lg:pt-[55px]
+                xl:pt-[70px]
 
-                                        <div className="min-w-0">
-                                            <h3 className="text-[14px] font-black leading-tight text-slate-950 lg:text-[15px] xl:text-[17px]">
-                                                {title}
-                                            </h3>
+                md:[@media(max-height:720px)]:pt-0
+            ">
+                <p className="
+                    text-[9px]
+                    font-black
+                    uppercase
+                    tracking-[0.24em]
+                    text-blue-400
 
-                                            <p className="mt-1 text-[12px] font-medium leading-[1.3] text-slate-500 lg:text-[13px] xl:text-[15px]">
-                                                {description}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )
-                            )}
-                        </div>
-                    </div>
-                </div>
+                    lg:text-[11px]
+                    lg:tracking-[0.26em]
 
-                <div className="relative h-full w-[55%]">
-                    <div className="absolute inset-y-0 -left-[18%] right-0 overflow-hidden rounded-[32%_0_0_32%/50%_0_0_50%]">
-                        <img
-                            src="/images/slide-4.png"
-                            alt="Можливості облікового запису RBoard"
-                            className="h-full w-full object-cover object-[100%_center]"
-                        />
-                    </div>
+                    xl:text-[12px]
+                    xl:tracking-[0.28em]
+
+                    2xl:text-[14px]
+
+                    md:[@media(max-height:720px)]:text-[8px]
+                ">
+                    З обліковим записом
+                </p>
+
+                <h2 className="
+                    mt-2.5
+                    max-w-[560px]
+                    text-[26px]
+                    font-black
+                    leading-[1.03]
+                    tracking-[-0.035em]
+                    text-slate-950
+
+                    lg:mt-3
+                    lg:text-[32px]
+
+                    xl:text-[37px]
+
+                    2xl:text-[42px]
+
+                    md:[@media(max-height:720px)]:mt-2
+                    md:[@media(max-height:720px)]:text-[23px]
+
+                    lg:[@media(max-height:720px)]:text-[27px]
+                    xl:[@media(max-height:720px)]:text-[31px]
+                ">
+                    Значно більше
+                    <br />
+                    можливостей
+                </h2>
+
+                <p className="
+                    mt-3
+                    max-w-[520px]
+                    text-[10px]
+                    font-medium
+                    leading-[1.45]
+                    text-slate-500
+
+                    lg:mt-3.5
+                    lg:text-[11px]
+
+                    xl:mt-4
+                    xl:text-[12px]
+
+                    2xl:text-[13px]
+
+                    md:[@media(max-height:720px)]:mt-2
+                    md:[@media(max-height:720px)]:text-[9px]
+
+                    lg:[@media(max-height:720px)]:text-[10px]
+                    xl:[@media(max-height:720px)]:text-[11px]
+                ">
+                    Створіть обліковий запис і керуйте
+                    <br className="hidden xl:block" />
+                    своїми оголошеннями зручно в одному місці.
+                </p>
+
+                <div className="
+                    mt-4
+                    flex
+                    max-w-[590px]
+                    flex-col
+                    gap-2
+
+                    lg:mt-4.5
+                    lg:gap-2.5
+
+                    xl:mt-5
+                    xl:gap-3
+
+                    md:[@media(max-height:720px)]:mt-3
+                    md:[@media(max-height:720px)]:gap-1
+                ">
+                    {features.map(
+                        ({
+                            title,
+                            description,
+                            icon: Icon,
+                            iconClass,
+                        }) => (
+                            <div
+                                key={title}
+                                className="
+                                    flex
+                                    items-center
+                                    gap-3
+
+                                    lg:gap-3.5
+                                    xl:gap-4
+
+                                    md:[@media(max-height:720px)]:gap-2.5
+                                "
+                            >
+                                <div
+                                    className={`
+                                        flex
+                                        h-[40px]
+                                        w-[40px]
+                                        shrink-0
+                                        items-center
+                                        justify-center
+                                        rounded-xl
+
+                                        lg:h-[44px]
+                                        lg:w-[44px]
+
+                                        xl:h-[48px]
+                                        xl:w-[48px]
+                                        xl:rounded-2xl
+
+                                        2xl:h-[50px]
+                                        2xl:w-[50px]
+
+                                        md:[@media(max-height:720px)]:h-[34px]
+                                        md:[@media(max-height:720px)]:w-[34px]
+
+                                        lg:[@media(max-height:720px)]:h-[36px]
+                                        lg:[@media(max-height:720px)]:w-[36px]
+
+                                        ${iconClass}
+                                    `}
+                                >
+                                    <Icon
+                                        strokeWidth={2.4}
+                                        className="
+                                            h-[19px]
+                                            w-[19px]
+
+                                            lg:h-[21px]
+                                            lg:w-[21px]
+
+                                            xl:h-[23px]
+                                            xl:w-[23px]
+
+                                            2xl:h-[25px]
+                                            2xl:w-[25px]
+
+                                            md:[@media(max-height:720px)]:h-[16px]
+                                            md:[@media(max-height:720px)]:w-[16px]
+
+                                            lg:[@media(max-height:720px)]:h-[18px]
+                                            lg:[@media(max-height:720px)]:w-[18px]
+                                        "
+                                    />
+                                </div>
+
+                                <div className="min-w-0">
+                                    <h3 className="
+                                        text-[12px]
+                                        font-black
+                                        leading-tight
+                                        text-slate-950
+
+                                        lg:text-[13px]
+                                        xl:text-[15px]
+                                        2xl:text-[17px]
+
+                                        md:[@media(max-height:720px)]:text-[10px]
+                                        lg:[@media(max-height:720px)]:text-[11px]
+                                        xl:[@media(max-height:720px)]:text-[12px]
+                                    ">
+                                        {title}
+                                    </h3>
+
+                                    <p className="
+                                        mt-0.5
+                                        text-[10px]
+                                        font-medium
+                                        leading-[1.25]
+                                        text-slate-500
+
+                                        lg:text-[11px]
+
+                                        xl:mt-1
+                                        xl:text-[13px]
+
+                                        2xl:text-[15px]
+
+                                        md:[@media(max-height:720px)]:mt-0
+                                        md:[@media(max-height:720px)]:text-[8px]
+                                        lg:[@media(max-height:720px)]:text-[9px]
+                                        xl:[@media(max-height:720px)]:text-[10px]
+                                    ">
+                                        {description}
+                                    </p>
+                                </div>
+                            </div>
+                        )
+                    )}
                 </div>
             </div>
         </div>
+
+        <div className="
+            relative
+            h-full
+            w-[52%]
+
+            lg:w-[54%]
+            xl:w-[55%]
+        ">
+            <div className="
+                absolute
+                inset-y-0
+                -left-[10%]
+                right-0
+                overflow-hidden
+                rounded-[28%_0_0_28%/50%_0_0_50%]
+
+                lg:-left-[14%]
+                lg:rounded-[30%_0_0_30%/50%_0_0_50%]
+
+                xl:-left-[18%]
+                xl:rounded-[32%_0_0_32%/50%_0_0_50%]
+            ">
+                <img
+                    src="/images/slide-4.png"
+                    alt="Можливості облікового запису RBoard"
+                    className="
+                        h-full
+                        w-full
+                        object-cover
+                        object-[97%_center]
+
+                        lg:object-[98%_center]
+                        xl:object-[100%_center]
+                    "
+                />
+            </div>
+        </div>
+    </div>
+</div>
     </section>
 );
 };

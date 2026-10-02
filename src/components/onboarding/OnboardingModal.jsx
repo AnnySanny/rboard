@@ -23,7 +23,18 @@ const slides = [
     SlideFour,
     SlideFive,
 ];
-
+const onboardingImages = [
+    "/images/slide-1.png",
+    "/images/slide-2.png",
+    "/images/slide-3.png",
+    "/images/slide-4.png",
+    "/images/slide-5.png",
+    "/images/mobile/slide-1.png",
+    "/images/mobile/slide-2.png",
+    "/images/mobile/slide-3.png",
+    "/images/mobile/slide-4.png",
+    "/images/mobile/slide-5.png",
+];
 const OnboardingModal = ({
     isOpen,
     onClose,
@@ -32,7 +43,12 @@ const OnboardingModal = ({
     const touchStartX = useRef(null);
     const [currentSlide, setCurrentSlide] =
         useState(0);
-
+    useEffect(() => {
+        onboardingImages.forEach((src) => {
+            const image = new Image();
+            image.src = src;
+        });
+    }, []);
     const isFirst = currentSlide === 0;
 
     const isLast =
@@ -177,13 +193,16 @@ const OnboardingModal = ({
     return (
         <div
             className="
-        fixed inset-0 z-[1000]
-        flex items-center justify-center
-        bg-slate-950/60
-        p-0
-        backdrop-blur-sm
-        md:p-5
-    "
+    fixed inset-0 z-[1000]
+    flex items-center justify-center
+    bg-slate-950/60
+    p-0
+    backdrop-blur-sm
+
+    md:p-3
+    lg:p-4
+    xl:p-5
+"
             role="dialog"
             aria-modal="true"
             aria-label="Знайомство з RBoard"
@@ -197,12 +216,25 @@ const OnboardingModal = ({
     overflow-hidden
     bg-white
 
-    md:h-[min(92dvh,900px)]
-    md:max-w-[1500px]
-    md:rounded-[32px]
+    md:h-[min(92dvh,820px)]
+    md:w-[94vw]
+    md:max-w-[1280px]
+    md:rounded-[24px]
     md:border
     md:border-white/30
     md:shadow-2xl
+
+    lg:h-[min(90dvh,860px)]
+    lg:w-[92vw]
+    lg:max-w-[1400px]
+    lg:rounded-[28px]
+
+    xl:w-[90vw]
+    xl:max-w-[1500px]
+    xl:rounded-[32px]
+
+    2xl:h-[min(88dvh,920px)]
+    2xl:max-w-[1600px]
 "
             >
                 {/* ЗАКРИТИ */}
@@ -242,15 +274,31 @@ const OnboardingModal = ({
                     <img
                         src="/logo.png"
                         alt="RBoard"
-                        className="
-        absolute left-5 top-4 z-50
-        h-[52px] w-auto object-contain
+className="
+    absolute
+    left-5
+    top-4
+    z-50
+    h-[52px]
+    w-auto
+    object-contain
 
-        md:left-[5%]
-        md:top-[4%]
-        md:h-[72px]
-        xl:h-[80px]
-    "
+    md:left-[4%]
+    md:top-[3%]
+    md:h-[56px]
+
+    lg:left-[4.5%]
+    lg:top-[3.5%]
+    lg:h-[64px]
+
+    xl:left-[5%]
+    xl:top-[4%]
+    xl:h-[72px]
+
+    2xl:h-[80px]
+
+    md:[@media(max-height:850px)]:hidden
+"
                     />
 
                     <CurrentSlide
@@ -263,9 +311,10 @@ const OnboardingModal = ({
 
                 {/* НИЖНЯ НАВІГАЦІЯ */}
                 <div
-                    className="
+className="
     relative z-40
-    flex h-[64px] shrink-0
+    flex h-[64px]
+    shrink-0
     items-center
     justify-between
     gap-2
@@ -274,9 +323,16 @@ const OnboardingModal = ({
     bg-white
     px-4
 
-    md:h-auto
-    md:px-7
-    md:py-4
+    md:h-[68px]
+    md:px-5
+    md:py-3
+
+    lg:h-[72px]
+    lg:px-6
+
+    xl:h-auto
+    xl:px-7
+    xl:py-4
 "
                 >
                     {/* ПРОПУСТИТИ */}

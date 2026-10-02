@@ -10,7 +10,7 @@ import {
     Timestamp,
 } from "firebase/firestore";
 
-import { db,  auth} from "../../firebase";
+import { db, auth } from "../../firebase";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
 
 import {
@@ -388,6 +388,10 @@ const getListingContacts = (listing) => {
         viber: {
             label: "Viber",
             type: "contact",
+        },
+        tiktok: {
+            label: "TikTok",
+            type: "link",
         },
         whatsapp: {
             label: "WhatsApp",
@@ -1485,106 +1489,106 @@ const AdminListings = () => {
 
 
     const handleDeleteListing = async (listing) => {
-    const confirmation = await Swal.fire({
-        icon: "warning",
-        title: "Видалити оголошення?",
-        html: `
+        const confirmation = await Swal.fire({
+            icon: "warning",
+            title: "Видалити оголошення?",
+            html: `
             <p style="line-height: 1.6;">
                 Оголошення
                 <strong>«${listing.title || "Без назви"}»</strong>
                 буде повністю видалено.
             </p>
         `,
-        showCancelButton: true,
-        confirmButtonText: "Так, видалити",
-        cancelButtonText: "Не видаляти",
-        confirmButtonColor: "#dc2626",
-        cancelButtonColor: "#64748b",
-        reverseButtons: true,
-        focusCancel: true,
-    });
+            showCancelButton: true,
+            confirmButtonText: "Так, видалити",
+            cancelButtonText: "Не видаляти",
+            confirmButtonColor: "#dc2626",
+            cancelButtonColor: "#64748b",
+            reverseButtons: true,
+            focusCancel: true,
+        });
 
-    if (!confirmation.isConfirmed) {
-        return;
-    }
-
-    setDeletingId(listing.id);
-
-    try {
-        const currentUser = auth.currentUser;
-
-        if (!currentUser) {
-            throw new Error("Необхідна авторизація.");
+        if (!confirmation.isConfirmed) {
+            return;
         }
 
-        const idToken = await currentUser.getIdToken();
-
-        const response = await fetch(
-            "/.netlify/functions/delete-listing",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${idToken}`,
-                },
-                body: JSON.stringify({
-                    listingId: listing.id,
-                }),
-            }
-        );
-
-        let result = null;
+        setDeletingId(listing.id);
 
         try {
-            result = await response.json();
-        } catch {
-            result = null;
-        }
+            const currentUser = auth.currentUser;
 
-        if (!response.ok) {
-            throw new Error(
-                result?.message ||
-                "Не вдалося видалити оголошення."
+            if (!currentUser) {
+                throw new Error("Необхідна авторизація.");
+            }
+
+            const idToken = await currentUser.getIdToken();
+
+            const response = await fetch(
+                "/.netlify/functions/delete-listing",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({
+                        listingId: listing.id,
+                    }),
+                }
             );
+
+            let result = null;
+
+            try {
+                result = await response.json();
+            } catch {
+                result = null;
+            }
+
+            if (!response.ok) {
+                throw new Error(
+                    result?.message ||
+                    "Не вдалося видалити оголошення."
+                );
+            }
+
+            await createAdminLog({
+                action: ADMIN_LOG_ACTIONS.LISTING_DELETED,
+                category: "listings",
+                title: "Видалено оголошення",
+                description: `«${listing.title || "Без назви"}»`,
+                targetId: listing.id,
+                targetName: listing.title || "Без назви",
+            });
+
+            await Swal.fire({
+                toast: true,
+                position: "top-end",
+                icon: "success",
+                title: "Оголошення видалено",
+                showConfirmButton: false,
+                timer: 2500,
+                timerProgressBar: true,
+            });
+        } catch (error) {
+            console.error(
+                "Помилка видалення:",
+                error
+            );
+
+            await Swal.fire({
+                icon: "error",
+                title: "Не вдалося видалити",
+                text:
+                    error?.message ||
+                    "Сталася помилка під час видалення оголошення.",
+                confirmButtonText: "Закрити",
+                confirmButtonColor: "#2563eb",
+            });
+        } finally {
+            setDeletingId(null);
         }
-
-        await createAdminLog({
-            action: ADMIN_LOG_ACTIONS.LISTING_DELETED,
-            category: "listings",
-            title: "Видалено оголошення",
-            description: `«${listing.title || "Без назви"}»`,
-            targetId: listing.id,
-            targetName: listing.title || "Без назви",
-        });
-
-        await Swal.fire({
-            toast: true,
-            position: "top-end",
-            icon: "success",
-            title: "Оголошення видалено",
-            showConfirmButton: false,
-            timer: 2500,
-            timerProgressBar: true,
-        });
-    } catch (error) {
-        console.error(
-            "Помилка видалення:",
-            error
-        );
-
-        await Swal.fire({
-            icon: "error",
-            title: "Не вдалося видалити",
-            text:
-                error?.message ||
-                "Сталася помилка під час видалення оголошення.",
-            confirmButtonText: "Закрити",
-            confirmButtonColor: "#2563eb",
-        });
-    } finally {
-        setDeletingId(null);
-    }
-};
+    };
 
     return (
         <section>

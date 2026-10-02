@@ -162,6 +162,8 @@ const createInitialAdditionalContacts = (
     return {
         instagram:
             getContact("instagram"),
+               tiktok:
+        getContact("tiktok"),
 
         telegram:
             getContact("telegram"),

@@ -101,6 +101,10 @@ const initialAdditionalContacts = {
         enabled: false,
         value: "",
     },
+        tiktok: {
+        enabled: false,
+        value: "",
+    },
 };
 const initialForm = {
     authorName: "",

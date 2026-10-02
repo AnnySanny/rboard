@@ -8,9 +8,10 @@ import {
     FaTelegramPlane,
     FaViber,
     FaWhatsapp,
+    FaTiktok,
 } from "react-icons/fa";
-
 const CONTACT_TYPES = [
+
     {
         key: "instagram",
         label: "Instagram",
@@ -20,6 +21,11 @@ const CONTACT_TYPES = [
         type: "url",
         inputMode: "url",
         hint: "Вкажіть посилання на профіль Instagram",
+        iconActive:
+            "bg-pink-50 text-pink-600 ring-1 ring-pink-200",
+        borderActive:
+            "border-pink-200 shadow-sm",
+        checkboxColor: "accent-pink-600",
     },
     {
         key: "telegram",
@@ -29,8 +35,12 @@ const CONTACT_TYPES = [
         icon: FaTelegramPlane,
         type: "text",
         inputMode: "text",
-        hint:
-            "Вкажіть номер телефону або посилання на профіль Telegram",
+        hint: "Вкажіть номер телефону або посилання на профіль Telegram",
+        iconActive:
+            "bg-sky-50 text-sky-500 ring-1 ring-sky-200",
+        borderActive:
+            "border-sky-200 shadow-sm",
+        checkboxColor: "accent-sky-500",
     },
     {
         key: "viber",
@@ -40,6 +50,11 @@ const CONTACT_TYPES = [
         type: "tel",
         inputMode: "tel",
         hint: "Вкажіть номер телефону, прив’язаний до Viber",
+        iconActive:
+            "bg-violet-50 text-violet-600 ring-1 ring-violet-200",
+        borderActive:
+            "border-violet-200 shadow-sm",
+        checkboxColor: "accent-violet-600",
     },
     {
         key: "whatsapp",
@@ -49,6 +64,11 @@ const CONTACT_TYPES = [
         type: "tel",
         inputMode: "tel",
         hint: "Вкажіть номер телефону, прив’язаний до WhatsApp",
+        iconActive:
+            "bg-green-50 text-green-600 ring-1 ring-green-200",
+        borderActive:
+            "border-green-200 shadow-sm",
+        checkboxColor: "accent-green-600",
     },
     {
         key: "facebook",
@@ -59,9 +79,28 @@ const CONTACT_TYPES = [
         type: "url",
         inputMode: "url",
         hint: "Вкажіть посилання на профіль Facebook",
+        iconActive:
+            "bg-blue-50 text-blue-600 ring-1 ring-blue-200",
+        borderActive:
+            "border-blue-200 shadow-sm",
+        checkboxColor: "accent-blue-600",
     },
+      {
+    key: "tiktok",
+    label: "TikTok",
+    placeholder:
+        "https://www.tiktok.com/@username",
+    icon: FaTiktok,
+    type: "url",
+    inputMode: "url",
+    hint: "Вкажіть посилання на профіль TikTok",
+    iconActive:
+        "bg-slate-100 text-slate-950 ring-1 ring-slate-300",
+    borderActive:
+        "border-slate-300 shadow-sm",
+    checkboxColor: "accent-slate-900",
+},
 ];
-
 export default function ListingContacts({
     value,
     onChange,
@@ -95,7 +134,7 @@ export default function ListingContacts({
 
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6">
+        <div className="rounded-2xl border border-blue-300 bg-blue-50 p-5 sm:p-6">
             <div>
                 <h3 className="text-base font-black text-slate-900">
                     Додатковий зв’язок із вами
@@ -116,8 +155,8 @@ export default function ListingContacts({
                     border
                     bg-white
                     transition
-                    ${hidePhone
-                        ? "border-blue-200 shadow-sm"
+                 ${hidePhone
+                        ? "border-red-300 shadow-sm"
                         : "border-slate-200"
                     }
                 `}
@@ -143,7 +182,7 @@ export default function ListingContacts({
                             }
                         }}
                         disabled={disabled}
-                        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-blue-600"
+                        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-red-500"
                     />
 
                     <span
@@ -156,8 +195,8 @@ export default function ListingContacts({
                             justify-center
                             rounded-xl
                             transition
-                            ${hidePhone
-                                ? "bg-blue-50 text-blue-600"
+${hidePhone
+                                ? "bg-red-50 text-red-500 ring-1 ring-red-200"
                                 : "bg-slate-100 text-slate-500"
                             }
                         `}
@@ -192,7 +231,7 @@ export default function ListingContacts({
             </div>
 
             {/* Додаткові контакти */}
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid items-start gap-3 sm:grid-cols-2">
                 {CONTACT_TYPES.map(
                     (contact) => {
                         const Icon =
@@ -209,7 +248,7 @@ export default function ListingContacts({
                                     contact.key
                                 }
                                 className={`rounded-2xl border bg-white transition ${contactState.enabled
-                                    ? "border-blue-200 shadow-sm"
+                                    ? contact.borderActive
                                     : "border-slate-200"
                                     }`}
                             >
@@ -232,13 +271,13 @@ export default function ListingContacts({
                                         disabled={
                                             disabled
                                         }
-                                        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-blue-600"
+                                        className={`h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 ${contact.checkboxColor}`}
                                     />
 
                                     <span
                                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${contactState.enabled
-                                            ? "bg-blue-50 text-blue-600"
-                                            : "bg-slate-100 text-slate-500"
+                                                ? contact.iconActive
+                                                : "bg-slate-100 text-slate-500"
                                             }`}
                                     >
                                         <Icon

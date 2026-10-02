@@ -17,6 +17,7 @@ import {
   FaTelegramPlane,
   FaViber,
   FaWhatsapp,
+  FaTiktok,
 } from "react-icons/fa";
 import { registerListingView } from "../../utils/listingViews";
 import Swal from "sweetalert2";
@@ -292,7 +293,11 @@ const getContactRows = (
       additional,
       "instagram"
     );
-
+  const tiktok =
+    getAdditionalContactValue(
+      additional,
+      "tiktok"
+    );
   const facebook =
     getAdditionalContactValue(
       additional,
@@ -355,7 +360,13 @@ const getContactRows = (
       "instagram"
     );
   }
-
+  if (tiktok) {
+    addLink(
+      "tiktok",
+      tiktok,
+      "tiktok"
+    );
+  }
   if (facebook) {
     addLink(
       "facebook",
@@ -608,7 +619,12 @@ const ListingDetailsModal = ({
             strokeWidth={2}
           />
         );
-
+      case "tiktok":
+        return (
+          <FaTiktok
+            size={size}
+          />
+        );
       case "main":
       default:
         return (
@@ -889,38 +905,65 @@ const ListingDetailsModal = ({
                               const serviceData = {
                                 email: {
                                   label: "Email",
-                                  title:
-                                    "Написати на Email",
+                                  title: "Написати на Email",
+                                  badgeClass:
+                                    "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100",
+                                  iconClass:
+                                    "bg-slate-100 text-slate-600",
                                 },
 
                                 telegram: {
                                   label: "Telegram",
-                                  title:
-                                    "Відкрити Telegram",
+                                  title: "Відкрити Telegram",
+                                  badgeClass:
+                                    "border-[#229ED9]/30 bg-[#229ED9]/10 text-[#168AC0] hover:border-[#229ED9]/50 hover:bg-[#229ED9]/15",
+                                  iconClass:
+                                    "bg-[#229ED9]/10 text-[#229ED9]",
                                 },
 
                                 instagram: {
                                   label: "Instagram",
-                                  title:
-                                    "Відкрити Instagram",
+                                  title: "Відкрити Instagram",
+                                  badgeClass:
+                                    "border-[#E4405F]/30 bg-[#E4405F]/10 text-[#E4405F] hover:border-[#E4405F]/50 hover:bg-[#E4405F]/15",
+                                  iconClass:
+                                    "bg-[#E4405F]/10 text-[#E4405F]",
+                                },
+
+                                tiktok: {
+                                  label: "TikTok",
+                                  title: "Відкрити TikTok",
+                                  badgeClass:
+                                    "border-slate-300 bg-slate-100 text-slate-950 hover:border-slate-400 hover:bg-slate-200",
+                                  iconClass:
+                                    "bg-white text-slate-950",
                                 },
 
                                 facebook: {
                                   label: "Facebook",
-                                  title:
-                                    "Відкрити Facebook",
+                                  title: "Відкрити Facebook",
+                                  badgeClass:
+                                    "border-[#1877F2]/30 bg-[#1877F2]/10 text-[#1877F2] hover:border-[#1877F2]/50 hover:bg-[#1877F2]/15",
+                                  iconClass:
+                                    "bg-[#1877F2]/10 text-[#1877F2]",
                                 },
 
                                 whatsapp: {
                                   label: "WhatsApp",
-                                  title:
-                                    "Відкрити WhatsApp",
+                                  title: "Відкрити WhatsApp",
+                                  badgeClass:
+                                    "border-[#25D366]/30 bg-[#25D366]/10 text-[#169C46] hover:border-[#25D366]/50 hover:bg-[#25D366]/15",
+                                  iconClass:
+                                    "bg-[#25D366]/10 text-[#25D366]",
                                 },
 
                                 viber: {
                                   label: "Viber",
-                                  title:
-                                    "Відкрити Viber",
+                                  title: "Відкрити Viber",
+                                  badgeClass:
+                                    "border-[#7360F2]/30 bg-[#7360F2]/10 text-[#6552E8] hover:border-[#7360F2]/50 hover:bg-[#7360F2]/15",
+                                  iconClass:
+                                    "bg-[#7360F2]/10 text-[#7360F2]",
                                 },
                               };
 
@@ -961,9 +1004,11 @@ const ListingDetailsModal = ({
                                   title={
                                     currentService.title
                                   }
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-bold transition ${currentService.badgeClass}`}
                                 >
-                                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+                                  <span
+                                    className={`flex h-6 w-6 items-center justify-center rounded-md ${currentService.iconClass}`}
+                                  >
                                     {getServiceIcon(
                                       contact.service,
                                       15

@@ -173,6 +173,8 @@ const createInitialAdditionalContacts = (
 
         facebook:
             getContact("facebook"),
+              tiktok:
+        getContact("tiktok"),
     };
 };
 const AdminEditListingForm = ({

@@ -192,6 +192,10 @@ const AdminCreateListingForm = ({
             enabled: false,
             value: "",
         },
+        tiktok: {
+            enabled: false,
+            value: "",
+        },
     });
     const validateForm = () => {
         const newErrors = {};

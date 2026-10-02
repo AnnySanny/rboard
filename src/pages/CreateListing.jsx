@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import CreateListingForm from "../components/listings/CreateListingForm";
@@ -12,7 +12,7 @@ const CreateListing = () => {
 
     return (
         <div className="min-h-screen bg-slate-100">
-           <Navbar />
+            <Navbar />
 
             <main className="px-4 py-8 sm:px-6 sm:py-12">
                 <div className="mx-auto max-w-3xl">
@@ -26,9 +26,15 @@ const CreateListing = () => {
                         </h1>
 
                         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-                            Заповніть інформацію про оголошення.
-                            Після надсилання воно потрапить на
-                            перевірку адміністратору.
+                            Заповніть інформацію про оголошення. Після надсилання воно
+                            потрапить на перевірку адміністратору. Якщо виникли проблеми,{" "}
+                            <Link
+                                to="/help"
+                                className="font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
+                            >
+                                перегляньте розділ допомоги
+                            </Link>
+                            .
                         </p>
                     </div>
 

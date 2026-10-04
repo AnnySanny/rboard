@@ -101,7 +101,7 @@ const initialAdditionalContacts = {
         enabled: false,
         value: "",
     },
-        tiktok: {
+    tiktok: {
         enabled: false,
         value: "",
     },
@@ -472,7 +472,7 @@ export default function CreateListingForm({
 
         return Object.keys(newErrors).length === 0;
     };
-        const handleChange = (event) => {
+    const handleChange = (event) => {
         const { name, value } = event.target;
 
         setForm((previousForm) => ({
@@ -984,7 +984,56 @@ export default function CreateListingForm({
             confirmButtonColor: "#2563eb",
         });
     };
+    const notifyAdminAboutListing = async (
+        listingId,
+        action = "created"
+    ) => {
+        try {
+            const response = await fetch(
+                "/.netlify/functions/notify-admin",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+                    body: JSON.stringify({
+                        action,
+                        listingId,
 
+                        title:
+                            form.title.trim(),
+
+                        author:
+                            form.authorName.trim(),
+
+                        isAuthenticated,
+
+                        description:
+                            form.comment.trim(),
+
+                        city:
+                            form.city?.name || "",
+
+                        type:
+                            form.type,
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                console.error(
+                    "Не вдалося надіслати Telegram-сповіщення:",
+                    response.status
+                );
+            }
+        } catch (error) {
+            console.error(
+                "Помилка Telegram-сповіщення:",
+                error
+            );
+        }
+    };
     const handleSubmit = async (event) => {
         event.preventDefault();
 
@@ -1004,7 +1053,10 @@ export default function CreateListingForm({
 
         try {
             const result = await saveListing();
-
+            await notifyAdminAboutListing(
+                result.listingId,
+                "created"
+            );
             images.forEach((image) => {
                 if (image.previewUrl) {
                     URL.revokeObjectURL(

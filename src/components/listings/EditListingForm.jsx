@@ -162,8 +162,8 @@ const createInitialAdditionalContacts = (
     return {
         instagram:
             getContact("instagram"),
-               tiktok:
-        getContact("tiktok"),
+        tiktok:
+            getContact("tiktok"),
 
         telegram:
             getContact("telegram"),
@@ -242,9 +242,9 @@ export default function EditListingForm({
     const [submitting, setSubmitting] =
         useState(false);
 
-const [hidePhone, setHidePhone] = useState(
-    listing.hidePhone === true
-);
+    const [hidePhone, setHidePhone] = useState(
+        listing.hidePhone === true
+    );
     const handleChange = (event) => {
         const { name, value } =
             event.target;
@@ -287,63 +287,63 @@ const [hidePhone, setHidePhone] = useState(
             form: "",
         }));
     };
-const getCleanAdditionalContacts = () => {
-    return Object.entries(
-        form.additionalContacts
-    ).reduce(
-        (result, [key, contact]) => {
-            const value =
-                contact.value.trim();
+    const getCleanAdditionalContacts = () => {
+        return Object.entries(
+            form.additionalContacts
+        ).reduce(
+            (result, [key, contact]) => {
+                const value =
+                    contact.value.trim();
 
-            if (
-                !contact.enabled ||
-                !value
-            ) {
-                return result;
-            }
-
-            if (
-                key === "viber" ||
-                key === "whatsapp"
-            ) {
-                result[key] =
-                    normalizeContact(value);
-
-                return result;
-            }
-
-            if (key === "telegram") {
                 if (
-                    value.startsWith("@")
+                    !contact.enabled ||
+                    !value
                 ) {
-                    result[key] = value;
-
                     return result;
                 }
 
                 if (
-                    /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
-                        value
-                    )
+                    key === "viber" ||
+                    key === "whatsapp"
                 ) {
-                    result[key] = value;
+                    result[key] =
+                        normalizeContact(value);
 
                     return result;
                 }
 
-                result[key] =
-                    normalizeContact(value);
+                if (key === "telegram") {
+                    if (
+                        value.startsWith("@")
+                    ) {
+                        result[key] = value;
+
+                        return result;
+                    }
+
+                    if (
+                        /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
+                            value
+                        )
+                    ) {
+                        result[key] = value;
+
+                        return result;
+                    }
+
+                    result[key] =
+                        normalizeContact(value);
+
+                    return result;
+                }
+
+                result[key] = value;
 
                 return result;
-            }
-
-            result[key] = value;
-
-            return result;
-        },
-        {}
-    );
-};
+            },
+            {}
+        );
+    };
     const validateForm = () => {
         const newErrors = {};
 
@@ -427,7 +427,7 @@ const getCleanAdditionalContacts = () => {
             newErrors.comment =
                 "Коментар не може перевищувати 1500 символів.";
         }
-                const enabledAdditionalContacts =
+        const enabledAdditionalContacts =
             Object.values(
                 form.additionalContacts
             ).filter(
@@ -451,7 +451,55 @@ const getCleanAdditionalContacts = () => {
             0
         );
     };
+    const notifyAdminAboutEdit = async () => {
+        try {
+            const response = await fetch(
+                "/.netlify/functions/notify-admin",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+                    body: JSON.stringify({
+                        action: "edited",
 
+                        listingId:
+                            listing.id,
+
+                        title:
+                            form.title.trim(),
+
+                        author:
+                            form.authorName.trim(),
+
+                        isAuthenticated: true,
+
+                        description:
+                            form.comment.trim(),
+
+                        city:
+                            form.city?.name || "",
+
+                        type:
+                            form.type,
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                console.error(
+                    "Не вдалося надіслати Telegram-сповіщення:",
+                    response.status
+                );
+            }
+        } catch (error) {
+            console.error(
+                "Помилка Telegram-сповіщення:",
+                error
+            );
+        }
+    };
     const handleSubmit = async (
         event
     ) => {
@@ -550,7 +598,7 @@ const getCleanAdditionalContacts = () => {
                         normalizeContact(
                             form.contact
                         ),
-                          hidePhone,
+                    hidePhone,
                     additionalContacts:
                         Object.keys(
                             additionalContacts
@@ -601,7 +649,7 @@ const getCleanAdditionalContacts = () => {
                     },
                 }
             );
-
+            await notifyAdminAboutEdit();
             /*
              * Звільняємо локальні blob URL
              * тільки для НОВИХ фото.
@@ -889,15 +937,15 @@ const getCleanAdditionalContacts = () => {
                 )}
             </div>
             {/* Додаткові контакти */}
-<ListingContacts
-    value={form.additionalContacts}
-    onChange={handleAdditionalContactsChange}
-    hidePhone={hidePhone}
-    onHidePhoneChange={(event) =>
-        setHidePhone(event.target.checked)
-    }
-    disabled={submitting}
-/>
+            <ListingContacts
+                value={form.additionalContacts}
+                onChange={handleAdditionalContactsChange}
+                hidePhone={hidePhone}
+                onHidePhoneChange={(event) =>
+                    setHidePhone(event.target.checked)
+                }
+                disabled={submitting}
+            />
 
             {errors.additionalContacts && (
                 <p className="-mt-4 text-sm font-medium text-red-600">

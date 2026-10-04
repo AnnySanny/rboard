@@ -21,42 +21,60 @@ exports.handler = async (event) => {
             );
         }
 
-        const body =
-            JSON.parse(event.body || "{}");
-
         const {
+            action,
             title,
-            type,
             author,
+            isAuthenticated,
+            description,
             city,
-        } = body;
+            type,
+        } = JSON.parse(event.body || "{}");
+
+        const actionTitle =
+            action === "edited"
+                ? "✏️ Відредаговано оголошення"
+                : "🆕 Додано оголошення";
+
+        const authorType =
+            isAuthenticated
+                ? "Авторизований"
+                : "Гість";
+
+        const shortDescription =
+            description?.trim()
+                ? description.trim().slice(0, 300)
+                : "Опис відсутній";
 
         const message = [
-            "🔔 Нове оголошення",
+            actionTitle,
             "",
             `📌 ${title || "Без назви"}`,
-            `Категорія: ${type || "Не вказано"}`,
-            `Автор: ${author || "Не вказано"}`,
-            `Місто: ${city || "Не вказано"}`,
             "",
-            "Очікує перевірки адміністратором.",
+            `👤 Автор: ${author || "Не вказано"}`,
+            `🔐 Тип автора: ${authorType}`,
+            "",
+            "📝 Опис:",
+            shortDescription,
+            "",
+            `📍 Місто: ${city || "Не вказано"}`,
+            `🏷 Категорія: ${type || "Не вказано"}`,
         ].join("\n");
 
-        const telegramResponse =
-            await fetch(
-                `https://api.telegram.org/bot${botToken}/sendMessage`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                    body: JSON.stringify({
-                        chat_id: chatId,
-                        text: message,
-                    }),
-                }
-            );
+        const telegramResponse = await fetch(
+            `https://api.telegram.org/bot${botToken}/sendMessage`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: message,
+                }),
+            }
+        );
 
         const telegramData =
             await telegramResponse.json();
@@ -88,7 +106,8 @@ exports.handler = async (event) => {
             statusCode: 500,
             body: JSON.stringify({
                 success: false,
-                error: "Не вдалося надіслати повідомлення",
+                error:
+                    "Не вдалося надіслати повідомлення",
             }),
         };
     }

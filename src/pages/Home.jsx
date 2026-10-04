@@ -9,9 +9,13 @@ import {
 } from "react-router-dom";
 import {
     collection,
-    onSnapshot,
+    getDocs,
+    limit,
+    orderBy,
     query,
+    startAfter,
     where,
+    Timestamp,
 } from "firebase/firestore";
 import {
     onAuthStateChanged,
@@ -134,7 +138,7 @@ const categorySlugs = Object.fromEntries(
         ]
     )
 );
-const LISTINGS_PER_PAGE = 24;
+const LISTINGS_PER_PAGE = 20;
 const isListingActive = (expiresAt) => {
     if (!expiresAt) {
         return false;
@@ -169,6 +173,19 @@ const Home = () => {
     const [currentUser, setCurrentUser] =
         useState(null);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] =
+        useState("");
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            setDebouncedSearch(
+                search.trim()
+            );
+        }, 500);
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    }, [search]);
     const [searchPlaceholder, setSearchPlaceholder] =
         useState("");
     useEffect(() => {
@@ -273,10 +290,17 @@ const Home = () => {
     const [loading, setLoading] =
         useState(true);
 
+    const [loadingMore, setLoadingMore] =
+        useState(false);
+
     const [loadError, setLoadError] =
         useState("");
-    const [visibleCount, setVisibleCount] =
-        useState(LISTINGS_PER_PAGE);
+
+    const [lastDocument, setLastDocument] =
+        useState(null);
+
+    const [hasMoreListings, setHasMoreListings] =
+        useState(true);
 
     const [showScrollTop, setShowScrollTop] =
         useState(false);
@@ -307,127 +331,413 @@ const Home = () => {
             behavior: "smooth",
         });
     };
-    useEffect(() => {
-        const approvedListingsQuery = query(
+
+
+    const mapListingDocument = (document) => {
+        const data = document.data();
+
+        return {
+            id: document.id,
+
+            title:
+                data.title || "",
+
+            description:
+                data.comment || "",
+
+            category:
+                data.type || "Інше",
+
+            city:
+                data.city?.name || "",
+
+            region:
+                data.city?.region || "",
+
+            district:
+                data.city?.district || "",
+
+            street:
+                data.street || "",
+
+            location: [
+                data.city?.name,
+                data.street,
+            ]
+                .filter(Boolean)
+                .join(", "),
+
+            contact:
+                data.contactOriginal ||
+                data.contact ||
+                "",
+
+            hidePhone:
+                data.hidePhone === true,
+
+            additionalContacts:
+                data.additionalContacts &&
+                    typeof data.additionalContacts === "object"
+                    ? data.additionalContacts
+                    : {},
+
+            authorName:
+                data.authorName || "",
+
+            author:
+                data.author &&
+                    typeof data.author === "object"
+                    ? data.author
+                    : null,
+
+            views:
+                Number(data.views ?? 0),
+
+            createdAt:
+                data.createdAt
+                    ?.toDate?.() ||
+                null,
+
+            expiresAt:
+                data.expiresAt
+                    ?.toDate?.() ||
+                null,
+
+            images:
+                Array.isArray(data.images)
+                    ? data.images
+                    : [],
+
+            favoriteUserIds:
+                Array.isArray(
+                    data.favoriteUserIds
+                )
+                    ? data.favoriteUserIds
+                    : [],
+        };
+    };
+    const getSortConfig = () => {
+        switch (sortOrder) {
+            case "oldest":
+                return {
+                    field: "createdAt",
+                    direction: "asc",
+                };
+
+            case "alphabetical-asc":
+                return {
+                    field: "title",
+                    direction: "asc",
+                };
+
+            case "alphabetical-desc":
+                return {
+                    field: "title",
+                    direction: "desc",
+                };
+
+            case "views-desc":
+                return {
+                    field: "views",
+                    direction: "desc",
+                };
+
+            case "views-asc":
+                return {
+                    field: "views",
+                    direction: "asc",
+                };
+
+            case "newest":
+            default:
+                return {
+                    field: "createdAt",
+                    direction: "desc",
+                };
+        }
+    };
+
+    const buildListingsQuery = (
+        lastVisibleDocument = null
+    ) => {
+        const constraints = [
+            where(
+                "status",
+                "==",
+                "approved"
+            ),
+            where(
+                "expiresAt",
+                ">",
+                Timestamp.now()
+            ),
+        ];
+
+        if (
+            activeCategory !== "Усі" &&
+            activeCategory !== "Обрані"
+        ) {
+            constraints.push(
+                where(
+                    "type",
+                    "==",
+                    activeCategory
+                )
+            );
+        }
+
+        if (
+            activeCategory === "Обрані" &&
+            currentUser?.uid
+        ) {
+            constraints.push(
+                where(
+                    "favoriteUserIds",
+                    "array-contains",
+                    currentUser.uid
+                )
+            );
+        }
+
+        const sortConfig =
+            getSortConfig();
+
+        constraints.push(
+            orderBy(
+                sortConfig.field,
+                sortConfig.direction
+            )
+        );
+
+        if (lastVisibleDocument) {
+            constraints.push(
+                startAfter(
+                    lastVisibleDocument
+                )
+            );
+        }
+
+        constraints.push(
+            limit(LISTINGS_PER_PAGE)
+        );
+
+        return query(
             collection(db, "listings"),
-            where("status", "==", "approved")
+            ...constraints
+        );
+    };
+    const buildSearchQuery = (
+        lastVisibleDocument = null
+    ) => {
+        const searchValue =
+            debouncedSearch.trim();
+
+        const constraints = [
+            where(
+                "status",
+                "==",
+                "approved"
+            ),
+            where(
+                "title",
+                ">=",
+                searchValue
+            ),
+            where(
+                "title",
+                "<=",
+                searchValue + "\uf8ff"
+            ),
+            orderBy(
+                "title",
+                "asc"
+            ),
+        ];
+
+        if (
+            activeCategory !== "Усі" &&
+            activeCategory !== "Обрані"
+        ) {
+            constraints.push(
+                where(
+                    "type",
+                    "==",
+                    activeCategory
+                )
+            );
+        }
+
+        if (
+            activeCategory === "Обрані" &&
+            currentUser?.uid
+        ) {
+            constraints.push(
+                where(
+                    "favoriteUserIds",
+                    "array-contains",
+                    currentUser.uid
+                )
+            );
+        }
+
+        if (lastVisibleDocument) {
+            constraints.push(
+                startAfter(
+                    lastVisibleDocument
+                )
+            );
+        }
+
+        constraints.push(
+            limit(LISTINGS_PER_PAGE)
         );
 
-        const unsubscribe = onSnapshot(
-            approvedListingsQuery,
-            (snapshot) => {
-                const receivedListings =
-                    snapshot.docs
-                        .filter((document) => {
-                            const data =
-                                document.data();
-
-                            return isListingActive(
-                                data.expiresAt
-                            );
-                        })
-                        .map((document) => {
-                            const data =
-                                document.data();
-
-                            return {
-                                id: document.id,
-
-                                title:
-                                    data.title || "",
-
-                                description:
-                                    data.comment || "",
-
-                                category:
-                                    data.type || "Інше",
-
-                                city:
-                                    data.city?.name || "",
-
-                                region:
-                                    data.city?.region || "",
-
-                                district:
-                                    data.city?.district || "",
-
-                                street:
-                                    data.street || "",
-
-                                location: [
-                                    data.city?.name,
-                                    data.street,
-                                ]
-                                    .filter(Boolean)
-                                    .join(", "),
-
-                                contact:
-                                    data.contactOriginal ||
-                                    data.contact ||
-                                    "",
-
-                                hidePhone:
-                                    data.hidePhone === true,
-
-                                additionalContacts:
-                                    data.additionalContacts &&
-                                        typeof data.additionalContacts === "object"
-                                        ? data.additionalContacts
-                                        : {},
-
-                                authorName:
-                                    data.authorName || "",
-
-                                author:
-                                    data.author &&
-                                        typeof data.author === "object"
-                                        ? data.author
-                                        : null,
-                                views:
-                                    Number(data.views ?? 0),
-                                createdAt:
-                                    data.createdAt
-                                        ?.toDate?.() ||
-                                    null,
-                                expiresAt:
-                                    data.expiresAt
-                                        ?.toDate?.() ||
-                                    null,
-                                images:
-                                    Array.isArray(data.images)
-                                        ? data.images
-                                        : [],
-                                favoriteUserIds:
-                                    Array.isArray(
-                                        data.favoriteUserIds
-                                    )
-                                        ? data.favoriteUserIds
-                                        : [],
-                            };
-                        });
-
-                setListings(receivedListings);
-                setLoading(false);
-                setLoadError("");
-            },
-            (error) => {
-                console.error(
-                    "Помилка завантаження оголошень:",
-                    error
-                );
-
-                setLoadError(
-                    "Не вдалося завантажити оголошення."
-                );
-
-                setLoading(false);
-            }
+        return query(
+            collection(db, "listings"),
+            ...constraints
         );
+    };
+    const loadListings = async () => {
+        setLoading(true);
+        setLoadError("");
 
-        return unsubscribe;
-    }, []);
-    const currentUserId =
-        currentUser?.uid || null;
+        try {
+            const listingsQuery =
+                debouncedSearch
+                    ? buildSearchQuery()
+                    : buildListingsQuery();
+
+            const snapshot =
+                await getDocs(
+                    listingsQuery
+                );
+
+            const receivedListings =
+                snapshot.docs
+                    .filter((document) => {
+                        const data =
+                            document.data();
+
+                        return isListingActive(
+                            data.expiresAt
+                        );
+                    })
+                    .map(
+                        mapListingDocument
+                    );
+
+            setListings(
+                receivedListings
+            );
+
+            const lastDoc =
+                snapshot.docs[
+                snapshot.docs.length - 1
+                ] || null;
+
+            setLastDocument(lastDoc);
+
+            setHasMoreListings(
+                snapshot.docs.length ===
+                LISTINGS_PER_PAGE
+            );
+        } catch (error) {
+            console.error(
+                "Помилка завантаження оголошень:",
+                error
+            );
+
+            setListings([]);
+
+            setLoadError(
+                "Не вдалося завантажити оголошення."
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadMoreListings = async () => {
+        if (
+            !lastDocument ||
+            loadingMore
+        ) {
+            return;
+        }
+
+        setLoadingMore(true);
+        setLoadError("");
+
+        try {
+            const listingsQuery =
+                debouncedSearch
+                    ? buildSearchQuery(
+                        lastDocument
+                    )
+                    : buildListingsQuery(
+                        lastDocument
+                    );
+
+            const snapshot =
+                await getDocs(
+                    listingsQuery
+                );
+
+            const receivedListings =
+                snapshot.docs
+                    .filter((document) => {
+                        const data =
+                            document.data();
+
+                        return isListingActive(
+                            data.expiresAt
+                        );
+                    })
+                    .map(
+                        mapListingDocument
+                    );
+
+            setListings(
+                (currentListings) => [
+                    ...currentListings,
+                    ...receivedListings,
+                ]
+            );
+
+            const lastDoc =
+                snapshot.docs[
+                snapshot.docs.length - 1
+                ] || null;
+
+            setLastDocument(lastDoc);
+
+            setHasMoreListings(
+                snapshot.docs.length ===
+                LISTINGS_PER_PAGE
+            );
+        } catch (error) {
+            console.error(
+                "Помилка завантаження наступних оголошень:",
+                error
+            );
+
+            setLoadError(
+                "Не вдалося завантажити наступні оголошення."
+            );
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    useEffect(() => {
+        loadListings();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        activeCategory,
+        sortOrder,
+        currentUser?.uid,
+        debouncedSearch,
+    ]);
     const selectedListing = useMemo(() => {
         if (!listingId) {
             return null;
@@ -699,143 +1009,8 @@ const Home = () => {
     const closeListing = () => {
         navigate("/");
     };
-    const filteredListings = useMemo(() => {
-        const normalizedSearch = search
-            .trim()
-            .toLowerCase();
 
-        const result = listings.filter(
-            (listing) => {
-                const matchesCategory =
-                    activeCategory === "Усі"
-                        ? true
-                        : activeCategory === "Обрані"
-                            ? Boolean(
-                                currentUserId &&
-                                listing.favoriteUserIds.includes(
-                                    currentUserId
-                                )
-                            )
-                            : listing.category ===
-                            activeCategory;
 
-                const searchableText = [
-                    listing.title,
-                    listing.description,
-                    listing.category,
-                    listing.city,
-                    listing.region,
-                    listing.district,
-                    listing.street,
-                    listing.location,
-                    listing.authorName,
-                    listing.contact,
-                ]
-                    .filter(Boolean)
-                    .join(" ")
-                    .toLowerCase();
-
-                const matchesSearch =
-                    !normalizedSearch ||
-                    searchableText.includes(
-                        normalizedSearch
-                    );
-
-                return (
-                    matchesCategory &&
-                    matchesSearch
-                );
-            }
-        );
-
-        result.sort(
-            (firstListing, secondListing) => {
-                const firstDate =
-                    firstListing.createdAt
-                        ?.getTime?.() || 0;
-
-                const secondDate =
-                    secondListing.createdAt
-                        ?.getTime?.() || 0;
-
-                const firstTitle =
-                    firstListing.title
-                        ?.trim()
-                        .toLowerCase() || "";
-
-                const secondTitle =
-                    secondListing.title
-                        ?.trim()
-                        .toLowerCase() || "";
-
-                switch (sortOrder) {
-                    case "oldest":
-                        return (
-                            firstDate -
-                            secondDate
-                        );
-
-                    case "alphabetical-asc":
-                        return firstTitle.localeCompare(
-                            secondTitle,
-                            "uk"
-                        );
-
-                    case "alphabetical-desc":
-                        return secondTitle.localeCompare(
-                            firstTitle,
-                            "uk"
-                        );
-
-                    case "views-desc":
-                        return (
-                            Number(secondListing.views ?? 0) -
-                            Number(firstListing.views ?? 0)
-                        );
-
-                    case "views-asc":
-                        return (
-                            Number(firstListing.views ?? 0) -
-                            Number(secondListing.views ?? 0)
-                        );
-
-                    case "newest":
-                    default:
-                        return (
-                            secondDate -
-                            firstDate
-                        );
-                }
-            }
-        );
-
-        return result;
-    }, [
-        listings,
-        search,
-        activeCategory,
-        sortOrder,
-        currentUserId,
-    ]);
-    useEffect(() => {
-        setVisibleCount(LISTINGS_PER_PAGE);
-    }, [
-        search,
-        activeCategory,
-        sortOrder,
-    ]);
-    const visibleListings = useMemo(() => {
-        return filteredListings.slice(
-            0,
-            visibleCount
-        );
-    }, [
-        filteredListings,
-        visibleCount,
-    ]);
-
-    const hasMoreListings =
-        visibleCount < filteredListings.length;
     return (
         <div className="flex min-h-screen flex-col bg-slate-100">
             <Navbar />
@@ -860,9 +1035,23 @@ const Home = () => {
                     />
 
                     {loading && (
-                        <div className="py-16 text-center text-slate-500">
-                            Завантаження
-                            оголошень...
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <div className="relative">
+                                <div className="h-11 w-11 rounded-full border-4 border-blue-100" />
+
+                                <div className="absolute inset-0 h-11 w-11 animate-spin rounded-full border-4 border-transparent border-t-blue-600" />
+                            </div>
+
+                            <p className="mt-5 text-sm font-semibold text-slate-700">
+                                Завантаження оголошень
+                                <span className="animate-pulse">
+                                    ...
+                                </span>
+                            </p>
+
+                            <p className="mt-1 text-xs text-slate-400">
+                                Зачекайте кілька секунд
+                            </p>
                         </div>
                     )}
 
@@ -871,23 +1060,11 @@ const Home = () => {
                             {loadError}
                         </div>
                     )}
-                    {filteredListings.length > 0 && (
-                        <div className="mt-8 text-center text-sm text-slate-500">
-                            Показано{" "}
-                            <span className="font-semibold text-slate-700">
-                                {visibleListings.length}
-                            </span>{" "}
-                            з{" "}
-                            <span className="font-semibold text-slate-700">
-                                {filteredListings.length}
-                            </span>{" "}
-                            оголошень
-                        </div>
-                    )}
+
                     {!loading && !loadError && (
                         <>
                             <ListingsSection
-                                listings={visibleListings}
+                                listings={listings}
                                 viewMode={viewMode}
                                 onListingClick={openListing}
                             />
@@ -896,16 +1073,13 @@ const Home = () => {
                                 <div className="mt-10 flex justify-center">
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            setVisibleCount(
-                                                (currentCount) =>
-                                                    currentCount +
-                                                    LISTINGS_PER_PAGE
-                                            )
-                                        }
-                                        className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                                        onClick={loadMoreListings}
+                                        disabled={loadingMore}
+                                        className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                        Завантажити ще
+                                        {loadingMore
+                                            ? "Завантаження..."
+                                            : "Завантажити ще"}
                                     </button>
                                 </div>
                             )}

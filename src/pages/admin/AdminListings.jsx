@@ -1,23 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect,  useState } from "react";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import {
     collection,
     doc,
-    onSnapshot,
+    getDocs,
+    limit,
+    orderBy,
+    query,
     serverTimestamp,
+    startAfter,
     updateDoc,
+    where,
     Timestamp,
 } from "firebase/firestore";
 
 import { db, auth } from "../../firebase";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
-
+import {
+    RAKHIV_DISTRICT_PLACES,
+} from "../../components/listings/CityAutocomplete";
 import {
     createAdminLog,
     ADMIN_LOG_ACTIONS,
 } from "../../utils/adminLogger";
-
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -105,6 +111,8 @@ const SHORTEN_OPTIONS = [
     },
 ];
 const LISTING_LIFETIME_DAYS = 7;
+const LISTINGS_PER_PAGE = 25;
+const EXPIRED_BATCH_SIZE = 100;
 const STATUS_OPTIONS = [
     {
         value: "pending",
@@ -219,11 +227,7 @@ const formatDate = (value) => {
     }).format(date);
 };
 
-const normalizeText = (value) => {
-    return String(value || "")
-        .trim()
-        .toLowerCase();
-};
+
 
 const calculateExtendedDate = (
     baseDate,
@@ -507,8 +511,29 @@ const AdminListings = () => {
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
+    const [loadingMore, setLoadingMore] =
+        useState(false);
 
+    const [lastDocument, setLastDocument] =
+        useState(null);
+
+    const [hasMoreListings, setHasMoreListings] =
+        useState(true);
+
+    const [debouncedSearch, setDebouncedSearch] =
+        useState("");
     const [search, setSearch] = useState("");
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            setDebouncedSearch(
+                search.trim()
+            );
+        }, 500);
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    }, [search]);
     const [typeFilter, setTypeFilter] = useState("all");
     const [statusFilter, setStatusFilter] =
         useState("all");
@@ -560,286 +585,501 @@ const AdminListings = () => {
                     ]
         );
     };
-    useEffect(() => {
-        const listingsCollection =
-            collection(
-                db,
-                "listings"
+
+    const getSortConfig = () => {
+        switch (sortOrder) {
+            case "oldest":
+                return {
+                    field: "createdAt",
+                    direction: "asc",
+                };
+
+            case "alphabetical-asc":
+                return {
+                    field: "title",
+                    direction: "asc",
+                };
+
+            case "alphabetical-desc":
+                return {
+                    field: "title",
+                    direction: "desc",
+                };
+
+            case "views-desc":
+                return {
+                    field: "views",
+                    direction: "desc",
+                };
+
+            case "views-asc":
+                return {
+                    field: "views",
+                    direction: "asc",
+                };
+
+            case "newest":
+            default:
+                return {
+                    field: "createdAt",
+                    direction: "desc",
+                };
+        }
+    };
+
+    const buildListingsQuery = (
+        lastVisibleDocument = null
+    ) => {
+        const constraints = [];
+
+        if (
+            statusFilter !== "all" &&
+            statusFilter !== "expired"
+        ) {
+            constraints.push(
+                where(
+                    "status",
+                    "==",
+                    statusFilter
+                )
+            );
+        }
+
+        if (statusFilter === "expired") {
+            constraints.push(
+                where(
+                    "status",
+                    "==",
+                    "expired"
+                )
+            );
+        }
+
+        if (typeFilter !== "all") {
+            constraints.push(
+                where(
+                    "type",
+                    "==",
+                    typeFilter
+                )
+            );
+        }
+
+        if (cityFilter !== "all") {
+            constraints.push(
+                where(
+                    "city.name",
+                    "==",
+                    cityFilter
+                )
+            );
+        }
+
+        if (
+            authorizationFilter ===
+            "authenticated"
+        ) {
+            constraints.push(
+                where(
+                    "author.isAuthenticated",
+                    "==",
+                    true
+                )
+            );
+        }
+
+        if (
+            authorizationFilter ===
+            "guest"
+        ) {
+            constraints.push(
+                where(
+                    "author.isAuthenticated",
+                    "==",
+                    false
+                )
+            );
+        }
+
+        const sortConfig =
+            getSortConfig();
+
+        constraints.push(
+            orderBy(
+                sortConfig.field,
+                sortConfig.direction
+            )
+        );
+
+        if (lastVisibleDocument) {
+            constraints.push(
+                startAfter(
+                    lastVisibleDocument
+                )
+            );
+        }
+
+        constraints.push(
+            limit(LISTINGS_PER_PAGE)
+        );
+
+        return query(
+            collection(db, "listings"),
+            ...constraints
+        );
+    };
+
+    const addSearchFilters = (
+        constraints
+    ) => {
+        if (
+            statusFilter !== "all" &&
+            statusFilter !== "expired"
+        ) {
+            constraints.push(
+                where(
+                    "status",
+                    "==",
+                    statusFilter
+                )
+            );
+        }
+
+        if (statusFilter === "expired") {
+            constraints.push(
+                where(
+                    "status",
+                    "==",
+                    "expired"
+                )
+            );
+        }
+
+        if (typeFilter !== "all") {
+            constraints.push(
+                where(
+                    "type",
+                    "==",
+                    typeFilter
+                )
+            );
+        }
+
+        if (cityFilter !== "all") {
+            constraints.push(
+                where(
+                    "city.name",
+                    "==",
+                    cityFilter
+                )
+            );
+        }
+
+        if (
+            authorizationFilter ===
+            "authenticated"
+        ) {
+            constraints.push(
+                where(
+                    "author.isAuthenticated",
+                    "==",
+                    true
+                )
+            );
+        }
+
+        if (
+            authorizationFilter ===
+            "guest"
+        ) {
+            constraints.push(
+                where(
+                    "author.isAuthenticated",
+                    "==",
+                    false
+                )
+            );
+        }
+
+        return constraints;
+    };
+
+    const buildSearchQuery = (
+        field
+    ) => {
+        const searchValue =
+            debouncedSearch.trim();
+
+        const constraints = [
+            where(
+                field,
+                ">=",
+                searchValue
+            ),
+            where(
+                field,
+                "<=",
+                searchValue + "\uf8ff"
+            ),
+            orderBy(
+                field,
+                "asc"
+            ),
+        ];
+
+        addSearchFilters(
+            constraints
+        );
+
+        constraints.push(
+            limit(LISTINGS_PER_PAGE)
+        );
+
+        return query(
+            collection(db, "listings"),
+            ...constraints
+        );
+    };
+
+    const expireOldListings = async () => {
+        try {
+            const expiredQuery = query(
+                collection(db, "listings"),
+                where(
+                    "status",
+                    "==",
+                    "approved"
+                ),
+                where(
+                    "expiresAt",
+                    "<=",
+                    Timestamp.now()
+                ),
+                orderBy(
+                    "expiresAt",
+                    "asc"
+                ),
+                limit(EXPIRED_BATCH_SIZE)
             );
 
-        const unsubscribe = onSnapshot(
-            listingsCollection,
-            async (snapshot) => {
-                const now = new Date();
+            const snapshot =
+                await getDocs(
+                    expiredQuery
+                );
 
-                const receivedListings =
-                    snapshot.docs.map(
-                        (listingDocument) => ({
-                            id:
-                                listingDocument.id,
-                            ...listingDocument.data(),
-                        })
-                    );
+            if (snapshot.empty) {
+                return;
+            }
 
-                const expiredListings =
-                    receivedListings.filter(
-                        (listing) => {
-                            if (
-                                listing.status !==
-                                "approved"
-                            ) {
-                                return false;
+            await Promise.all(
+                snapshot.docs.map(
+                    (listingDocument) =>
+                        updateDoc(
+                            doc(
+                                db,
+                                "listings",
+                                listingDocument.id
+                            ),
+                            {
+                                status:
+                                    "expired",
+                                updatedAt:
+                                    serverTimestamp(),
                             }
+                        )
+                )
+            );
+        } catch (error) {
+            console.error(
+                "Помилка автоматичного завершення оголошень:",
+                error
+            );
+        }
+    };
 
-                            const expiresAt =
-                                getDateFromFirestore(
-                                    listing.expiresAt
-                                );
+    const loadListings = async () => {
+        setLoading(true);
+        setLoadError("");
 
-                            return (
-                                expiresAt &&
-                                expiresAt.getTime() <=
-                                now.getTime()
-                            );
-                        }
-                    );
+        try {
+            await expireOldListings();
 
-                if (
-                    expiredListings.length > 0
-                ) {
-                    try {
-                        await Promise.all(
-                            expiredListings.map(
-                                (listing) =>
-                                    updateDoc(
-                                        doc(
-                                            db,
-                                            "listings",
-                                            listing.id
-                                        ),
-                                        {
-                                            status:
-                                                "expired",
+            if (debouncedSearch) {
+                const [
+                    titleSnapshot,
+                    authorSnapshot,
+                ] = await Promise.all([
+                    getDocs(
+                        buildSearchQuery(
+                            "title"
+                        )
+                    ),
+                    getDocs(
+                        buildSearchQuery(
+                            "authorName"
+                        )
+                    ),
+                ]);
 
-                                            updatedAt:
-                                                serverTimestamp(),
-                                        }
-                                    )
-                            )
-                        );
-                    } catch (error) {
-                        console.error(
-                            "Помилка автоматичного завершення оголошень:",
-                            error
+                const listingsMap =
+                    new Map();
+
+                [
+                    ...titleSnapshot.docs,
+                    ...authorSnapshot.docs,
+                ].forEach(
+                    (listingDocument) => {
+                        listingsMap.set(
+                            listingDocument.id,
+                            {
+                                id:
+                                    listingDocument.id,
+                                ...listingDocument.data(),
+                            }
                         );
                     }
-                }
+                );
+
+                const receivedListings =
+                    Array.from(
+                        listingsMap.values()
+                    ).slice(
+                        0,
+                        LISTINGS_PER_PAGE
+                    );
 
                 setListings(
-                    receivedListings.map(
-                        (listing) => {
-                            const expiresAt =
-                                getDateFromFirestore(
-                                    listing.expiresAt
-                                );
+                    receivedListings
+                );
 
-                            const expired =
-                                listing.status ===
-                                "approved" &&
-                                expiresAt &&
-                                expiresAt.getTime() <=
-                                now.getTime();
+                setLastDocument(null);
 
-                            return expired
-                                ? {
-                                    ...listing,
-                                    status:
-                                        "expired",
-                                }
-                                : listing;
-                        }
+                setHasMoreListings(
+                    false
+                );
+
+                return;
+            }
+
+            const snapshot =
+                await getDocs(
+                    buildListingsQuery()
+                );
+
+            const receivedListings =
+                snapshot.docs.map(
+                    (listingDocument) => ({
+                        id:
+                            listingDocument.id,
+                        ...listingDocument.data(),
+                    })
+                );
+
+            setListings(
+                receivedListings
+            );
+
+            setLastDocument(
+                snapshot.docs[
+                snapshot.docs.length - 1
+                ] || null
+            );
+
+            setHasMoreListings(
+                snapshot.docs.length ===
+                LISTINGS_PER_PAGE
+            );
+        } catch (error) {
+            console.error(
+                "Помилка завантаження оголошень:",
+                error
+            );
+
+            setListings([]);
+
+            setLoadError(
+                "Не вдалося завантажити оголошення."
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadMoreListings = async () => {
+        if (
+            !lastDocument ||
+            loadingMore ||
+            debouncedSearch
+        ) {
+            return;
+        }
+
+        setLoadingMore(true);
+
+        try {
+            const snapshot =
+                await getDocs(
+                    buildListingsQuery(
+                        lastDocument
                     )
                 );
 
-                setLoading(false);
-                setLoadError("");
-            },
-            (error) => {
-                console.error(
-                    "Помилка завантаження оголошень:",
-                    error
+            const receivedListings =
+                snapshot.docs.map(
+                    (listingDocument) => ({
+                        id:
+                            listingDocument.id,
+                        ...listingDocument.data(),
+                    })
                 );
 
-                setLoadError(
-                    "Не вдалося завантажити оголошення."
-                );
-
-                setLoading(false);
-            }
-        );
-
-        return unsubscribe;
-    }, []);
-
-    const cities = useMemo(() => {
-        const uniqueCities = new Set();
-
-        listings.forEach((listing) => {
-            const cityName =
-                listing.city?.name?.trim();
-
-            if (cityName) {
-                uniqueCities.add(cityName);
-            }
-        });
-
-        return Array.from(uniqueCities).sort(
-            (firstCity, secondCity) =>
-                firstCity.localeCompare(
-                    secondCity,
-                    "uk"
-                )
-        );
-    }, [listings]);
-
-    const filteredListings = useMemo(() => {
-        const normalizedSearch =
-            normalizeText(search);
-
-        const result = listings.filter(
-            (listing) => {
-                const isAuthenticated = Boolean(
-                    listing.author
-                        ?.isAuthenticated
-                );
-
-                const searchableValues = [
-                    listing.title,
-                    listing.comment,
-                    listing.authorName,
-                    listing.contact,
-                    listing.contactOriginal,
-                    listing.type,
-                    listing.city?.name,
-                    listing.city?.region,
-                    listing.city?.district,
-                    listing.street,
+            setListings(
+                (currentListings) => [
+                    ...currentListings,
+                    ...receivedListings,
                 ]
-                    .map(normalizeText)
-                    .join(" ");
-
-                const matchesSearch =
-                    !normalizedSearch ||
-                    searchableValues.includes(
-                        normalizedSearch
-                    );
-
-                const matchesType =
-                    typeFilter === "all" ||
-                    listing.type === typeFilter;
-
-                const expired =
-                    isListingExpired(listing);
-
-                const matchesStatus =
-                    statusFilter === "all" ||
-                    (statusFilter === "expired" &&
-                        expired) ||
-                    (statusFilter === "approved" &&
-                        listing.status === "approved" &&
-                        !expired) ||
-                    (statusFilter !== "expired" &&
-                        statusFilter !== "approved" &&
-                        listing.status ===
-                        statusFilter);
-
-                const matchesAuthorization =
-                    authorizationFilter === "all" ||
-                    (authorizationFilter ===
-                        "authenticated" &&
-                        isAuthenticated) ||
-                    (authorizationFilter ===
-                        "guest" &&
-                        !isAuthenticated);
-
-                const matchesCity =
-                    cityFilter === "all" ||
-                    listing.city?.name ===
-                    cityFilter;
-
-                return (
-                    matchesSearch &&
-                    matchesType &&
-                    matchesStatus &&
-                    matchesAuthorization &&
-                    matchesCity
-                );
-            }
-        );
-
-        result.sort((firstListing, secondListing) => {
-            const firstTitle = normalizeText(
-                firstListing.title
             );
 
-            const secondTitle = normalizeText(
-                secondListing.title
+            setLastDocument(
+                snapshot.docs[
+                snapshot.docs.length - 1
+                ] || null
             );
 
-            const firstDate =
-                getDateFromFirestore(
-                    firstListing.createdAt
-                )?.getTime() || 0;
+            setHasMoreListings(
+                snapshot.docs.length ===
+                LISTINGS_PER_PAGE
+            );
+        } catch (error) {
+            console.error(
+                "Помилка завантаження наступних оголошень:",
+                error
+            );
 
-            const secondDate =
-                getDateFromFirestore(
-                    secondListing.createdAt
-                )?.getTime() || 0;
+            setLoadError(
+                "Не вдалося завантажити наступні оголошення."
+            );
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
-            switch (sortOrder) {
-                case "oldest":
-                    return firstDate - secondDate;
-
-                case "alphabetical-asc":
-                    return firstTitle.localeCompare(
-                        secondTitle,
-                        "uk"
-                    );
-
-                case "alphabetical-desc":
-                    return secondTitle.localeCompare(
-                        firstTitle,
-                        "uk"
-                    );
-
-                case "views-desc":
-                    return (
-                        Number(secondListing.views ?? 0) -
-                        Number(firstListing.views ?? 0)
-                    );
-
-                case "views-asc":
-                    return (
-                        Number(firstListing.views ?? 0) -
-                        Number(secondListing.views ?? 0)
-                    );
-
-                case "newest":
-                default:
-                    return secondDate - firstDate;
-            }
-        });
-
-        return result;
+    useEffect(() => {
+        loadListings();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
-        listings,
-        search,
         typeFilter,
         statusFilter,
         authorizationFilter,
         cityFilter,
         sortOrder,
+        debouncedSearch,
     ]);
+
+    const filteredListings =
+        listings;
+
+
 
     const resetFilters = () => {
         setSearch("");
@@ -1661,7 +1901,7 @@ const AdminListings = () => {
                                                 .value
                                         )
                                     }
-                                    placeholder="Назва, автор, контакт, місто, вулиця..."
+                                    placeholder="Назва оголошення або автор..."
                                     className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-12 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                                 />
                             </div>
@@ -1801,14 +2041,16 @@ const AdminListings = () => {
                                     Усі міста
                                 </option>
 
-                                {cities.map((city) => (
-                                    <option
-                                        key={city}
-                                        value={city}
-                                    >
-                                        {city}
-                                    </option>
-                                ))}
+                                {RAKHIV_DISTRICT_PLACES.map(
+                                    (place) => (
+                                        <option
+                                            key={place.id}
+                                            value={place.name}
+                                        >
+                                            {place.name}
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
 
@@ -2511,6 +2753,23 @@ const AdminListings = () => {
                                 );
                             }
                         )}
+                    </div>
+                )}
+            {!loading &&
+                !loadError &&
+                hasMoreListings &&
+                !debouncedSearch && (
+                    <div className="mt-8 flex justify-center">
+                        <button
+                            type="button"
+                            onClick={loadMoreListings}
+                            disabled={loadingMore}
+                            className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {loadingMore
+                                ? "Завантаження..."
+                                : "Завантажити ще"}
+                        </button>
                     </div>
                 )}
         </section>

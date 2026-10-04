@@ -1,14 +1,17 @@
 import {
     useEffect,
-    useMemo,
     useState,
 } from "react";
 
 import {
     collection,
-    onSnapshot,
+    getDocs,
+    limit,
+    orderBy,
     query,
+    startAfter,
     where,
+    Timestamp,
 } from "firebase/firestore";
 
 import {
@@ -72,6 +75,22 @@ const AdminSite = () => {
 
     const [search, setSearch] =
         useState("");
+    const [
+        debouncedSearch,
+        setDebouncedSearch,
+    ] = useState("");
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            setDebouncedSearch(
+                search.trim()
+            );
+        }, 500);
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    }, [search]);
 
     const [
         searchPlaceholder,
@@ -109,11 +128,19 @@ const AdminSite = () => {
     ] = useState("");
 
     const [
-        visibleCount,
-        setVisibleCount,
-    ] = useState(
-        LISTINGS_PER_PAGE
-    );
+        loadingMore,
+        setLoadingMore,
+    ] = useState(false);
+
+    const [
+        lastDocument,
+        setLastDocument,
+    ] = useState(null);
+
+    const [
+        hasMoreListings,
+        setHasMoreListings,
+    ] = useState(true);
 
     const [
         selectedListing,
@@ -133,7 +160,7 @@ const AdminSite = () => {
         const typePhrase = () => {
             const currentPhrase =
                 searchPhrases[
-                    phraseIndex
+                phraseIndex
                 ];
 
             if (
@@ -189,367 +216,391 @@ const AdminSite = () => {
             );
         };
     }, []);
+    const mapListingDocument = (document) => {
+        const data = document.data();
 
+        return {
+            id: document.id,
 
-    /* ========================= */
-    /* ЗАВАНТАЖЕННЯ ОГОЛОШЕНЬ */
-    /* ========================= */
+            title:
+                data.title || "",
 
-    useEffect(() => {
-        const approvedListingsQuery =
-            query(
-                collection(
-                    db,
-                    "listings"
-                ),
+            description:
+                data.comment || "",
+
+            category:
+                data.type || "Інше",
+
+            city:
+                data.city?.name || "",
+
+            region:
+                data.city?.region || "",
+
+            district:
+                data.city?.district || "",
+
+            street:
+                data.street || "",
+
+            location: [
+                data.city?.name,
+                data.street,
+            ]
+                .filter(Boolean)
+                .join(", "),
+
+            contact:
+                data.contactOriginal ||
+                data.contact ||
+                "",
+
+            hidePhone:
+                data.hidePhone === true,
+
+            additionalContacts:
+                data.additionalContacts &&
+                    typeof data.additionalContacts === "object"
+                    ? data.additionalContacts
+                    : {},
+
+            authorName:
+                data.authorName || "",
+
+            author:
+                data.author &&
+                    typeof data.author === "object"
+                    ? data.author
+                    : null,
+
+            views:
+                Number(data.views ?? 0),
+
+            createdAt:
+                data.createdAt
+                    ?.toDate?.() ||
+                null,
+
+            expiresAt:
+                data.expiresAt
+                    ?.toDate?.() ||
+                null,
+
+            images:
+                Array.isArray(data.images)
+                    ? data.images
+                    : [],
+
+            favoriteUserIds:
+                Array.isArray(
+                    data.favoriteUserIds
+                )
+                    ? data.favoriteUserIds
+                    : [],
+        };
+    };
+
+    const getSortConfig = () => {
+        switch (sortOrder) {
+            case "oldest":
+                return {
+                    field: "createdAt",
+                    direction: "asc",
+                };
+
+            case "alphabetical-asc":
+                return {
+                    field: "title",
+                    direction: "asc",
+                };
+
+            case "alphabetical-desc":
+                return {
+                    field: "title",
+                    direction: "desc",
+                };
+
+            case "views-desc":
+                return {
+                    field: "views",
+                    direction: "desc",
+                };
+
+            case "views-asc":
+                return {
+                    field: "views",
+                    direction: "asc",
+                };
+
+            case "newest":
+            default:
+                return {
+                    field: "createdAt",
+                    direction: "desc",
+                };
+        }
+    };
+
+    const buildListingsQuery = (
+        lastVisibleDocument = null
+    ) => {
+        const constraints = [
+            where(
+                "status",
+                "==",
+                "approved"
+            ),
+            where(
+                "expiresAt",
+                ">",
+                Timestamp.now()
+            ),
+        ];
+
+        if (
+            activeCategory !== "Усі" &&
+            activeCategory !== "Обрані"
+        ) {
+            constraints.push(
                 where(
-                    "status",
+                    "type",
                     "==",
-                    "approved"
+                    activeCategory
                 )
             );
+        }
 
-        const unsubscribe =
-            onSnapshot(
-                approvedListingsQuery,
+        const sortConfig =
+            getSortConfig();
 
-                (snapshot) => {
-                    const receivedListings =
-                        snapshot.docs
-                            .filter(
-                                (
-                                    document
-                                ) => {
-                                    const data =
-                                        document.data();
+        constraints.push(
+            orderBy(
+                sortConfig.field,
+                sortConfig.direction
+            )
+        );
 
-                                    return (
-                                        isListingActive(
-                                            data.expiresAt
-                                        )
-                                    );
-                                }
-                            )
-                            .map(
-                                (
-                                    document
-                                ) => {
-                                    const data =
-                                        document.data();
-
-                                    return {
-                                        id:
-                                            document.id,
-
-                                        title:
-                                            data.title ||
-                                            "",
-
-                                        description:
-                                            data.comment ||
-                                            "",
-
-                                        category:
-                                            data.type ||
-                                            "Інше",
-
-                                        city:
-                                            data.city
-                                                ?.name ||
-                                            "",
-
-                                        region:
-                                            data.city
-                                                ?.region ||
-                                            "",
-
-                                        district:
-                                            data.city
-                                                ?.district ||
-                                            "",
-
-                                        street:
-                                            data.street ||
-                                            "",
-
-                                        location: [
-                                            data.city
-                                                ?.name,
-                                            data.street,
-                                        ]
-                                            .filter(
-                                                Boolean
-                                            )
-                                            .join(
-                                                ", "
-                                            ),
-
-                                        contact:
-                                            data.contactOriginal ||
-                                            data.contact ||
-                                            "",
-
-                                        hidePhone:
-                                            data.hidePhone ===
-                                            true,
-
-                                        additionalContacts:
-                                            data.additionalContacts &&
-                                            typeof data.additionalContacts ===
-                                                "object"
-                                                ? data.additionalContacts
-                                                : {},
-
-                                        authorName:
-                                            data.authorName ||
-                                            "",
-
-                                        author:
-                                            data.author &&
-                                            typeof data.author ===
-                                                "object"
-                                                ? data.author
-                                                : null,
-
-                                        views:
-                                            Number(
-                                                data.views ??
-                                                0
-                                            ),
-
-                                        createdAt:
-                                            data.createdAt
-                                                ?.toDate?.() ||
-                                            null,
-
-                                        expiresAt:
-                                            data.expiresAt
-                                                ?.toDate?.() ||
-                                            null,
-
-                                        images:
-                                            Array.isArray(
-                                                data.images
-                                            )
-                                                ? data.images
-                                                : [],
-
-                                        favoriteUserIds:
-                                            Array.isArray(
-                                                data.favoriteUserIds
-                                            )
-                                                ? data.favoriteUserIds
-                                                : [],
-                                    };
-                                }
-                            );
-
-                    setListings(
-                        receivedListings
-                    );
-
-                    setLoading(false);
-                    setLoadError("");
-                },
-
-                (error) => {
-                    console.error(
-                        "Помилка завантаження оголошень:",
-                        error
-                    );
-
-                    setLoadError(
-                        "Не вдалося завантажити оголошення."
-                    );
-
-                    setLoading(false);
-                }
+        if (lastVisibleDocument) {
+            constraints.push(
+                startAfter(
+                    lastVisibleDocument
+                )
             );
+        }
 
-        return unsubscribe;
-    }, []);
+        constraints.push(
+            limit(LISTINGS_PER_PAGE)
+        );
 
+        return query(
+            collection(db, "listings"),
+            ...constraints
+        );
+    };
 
-    /* ========================= */
-    /* ФІЛЬТРАЦІЯ + СОРТУВАННЯ */
-    /* ========================= */
+    const buildSearchQuery = (
+        lastVisibleDocument = null
+    ) => {
+        const searchValue =
+            debouncedSearch.trim();
 
-    const filteredListings =
-        useMemo(() => {
-            const normalizedSearch =
-                search
-                    .trim()
-                    .toLowerCase();
+        const constraints = [
+            where(
+                "status",
+                "==",
+                "approved"
+            ),
+            where(
+                "title",
+                ">=",
+                searchValue
+            ),
+            where(
+                "title",
+                "<=",
+                searchValue + "\uf8ff"
+            ),
+            orderBy(
+                "title",
+                "asc"
+            ),
+        ];
 
-            const result =
-                listings.filter(
-                    (listing) => {
-                        const matchesCategory =
-                            activeCategory ===
-                            "Усі"
-                                ? true
-                                : listing.category ===
-                                  activeCategory;
+        if (
+            activeCategory !== "Усі" &&
+            activeCategory !== "Обрані"
+        ) {
+            constraints.push(
+                where(
+                    "type",
+                    "==",
+                    activeCategory
+                )
+            );
+        }
 
-                        const searchableText =
-                            [
-                                listing.title,
-                                listing.description,
-                                listing.category,
-                                listing.city,
-                                listing.region,
-                                listing.district,
-                                listing.street,
-                                listing.location,
-                                listing.authorName,
-                                listing.contact,
-                            ]
-                                .filter(
-                                    Boolean
-                                )
-                                .join(" ")
-                                .toLowerCase();
+        if (lastVisibleDocument) {
+            constraints.push(
+                startAfter(
+                    lastVisibleDocument
+                )
+            );
+        }
 
-                        const matchesSearch =
-                            !normalizedSearch ||
-                            searchableText.includes(
-                                normalizedSearch
-                            );
+        constraints.push(
+            limit(LISTINGS_PER_PAGE)
+        );
 
-                        return (
-                            matchesCategory &&
-                            matchesSearch
-                        );
-                    }
+        return query(
+            collection(db, "listings"),
+            ...constraints
+        );
+    };
+
+    const loadListings = async () => {
+        setLoading(true);
+        setLoadError("");
+
+        try {
+            const listingsQuery =
+                debouncedSearch
+                    ? buildSearchQuery()
+                    : buildListingsQuery();
+
+            const snapshot =
+                await getDocs(
+                    listingsQuery
                 );
 
-            result.sort(
-                (
-                    firstListing,
-                    secondListing
-                ) => {
-                    const firstDate =
-                        firstListing.createdAt
-                            ?.getTime?.() ||
-                        0;
+            const receivedListings =
+                snapshot.docs
+                    .filter((document) => {
+                        const data =
+                            document.data();
 
-                    const secondDate =
-                        secondListing.createdAt
-                            ?.getTime?.() ||
-                        0;
+                        return isListingActive(
+                            data.expiresAt
+                        );
+                    })
+                    .map(
+                        mapListingDocument
+                    );
 
-                    const firstTitle =
-                        firstListing.title
-                            ?.trim()
-                            .toLowerCase() ||
-                        "";
-
-                    const secondTitle =
-                        secondListing.title
-                            ?.trim()
-                            .toLowerCase() ||
-                        "";
-
-                    switch (
-                        sortOrder
-                    ) {
-                        case "oldest":
-                            return (
-                                firstDate -
-                                secondDate
-                            );
-
-                        case "alphabetical-asc":
-                            return (
-                                firstTitle.localeCompare(
-                                    secondTitle,
-                                    "uk"
-                                )
-                            );
-
-                        case "alphabetical-desc":
-                            return (
-                                secondTitle.localeCompare(
-                                    firstTitle,
-                                    "uk"
-                                )
-                            );
-
-                        case "views-desc":
-                            return (
-                                Number(
-                                    secondListing.views ??
-                                    0
-                                ) -
-                                Number(
-                                    firstListing.views ??
-                                    0
-                                )
-                            );
-
-                        case "views-asc":
-                            return (
-                                Number(
-                                    firstListing.views ??
-                                    0
-                                ) -
-                                Number(
-                                    secondListing.views ??
-                                    0
-                                )
-                            );
-
-                        case "newest":
-                        default:
-                            return (
-                                secondDate -
-                                firstDate
-                            );
-                    }
-                }
+            setListings(
+                receivedListings
             );
 
-            return result;
-        }, [
-            listings,
-            search,
-            activeCategory,
-            sortOrder,
-        ]);
+            const lastDoc =
+                snapshot.docs[
+                snapshot.docs.length - 1
+                ] || null;
 
+            setLastDocument(
+                lastDoc
+            );
 
-    /* ========================= */
-    /* СКИДАЄМО ПАГІНАЦІЮ */
-    /* ========================= */
+            setHasMoreListings(
+                snapshot.docs.length ===
+                LISTINGS_PER_PAGE
+            );
+        } catch (error) {
+            console.error(
+                "Помилка завантаження оголошень:",
+                error
+            );
+
+            setListings([]);
+
+            setLoadError(
+                "Не вдалося завантажити оголошення."
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadMoreListings = async () => {
+        if (
+            !lastDocument ||
+            loadingMore
+        ) {
+            return;
+        }
+
+        setLoadingMore(true);
+        setLoadError("");
+
+        try {
+            const listingsQuery =
+                debouncedSearch
+                    ? buildSearchQuery(
+                        lastDocument
+                    )
+                    : buildListingsQuery(
+                        lastDocument
+                    );
+
+            const snapshot =
+                await getDocs(
+                    listingsQuery
+                );
+
+            const receivedListings =
+                snapshot.docs
+                    .filter((document) => {
+                        const data =
+                            document.data();
+
+                        return isListingActive(
+                            data.expiresAt
+                        );
+                    })
+                    .map(
+                        mapListingDocument
+                    );
+
+            setListings(
+                (currentListings) => [
+                    ...currentListings,
+                    ...receivedListings,
+                ]
+            );
+
+            const lastDoc =
+                snapshot.docs[
+                snapshot.docs.length - 1
+                ] || null;
+
+            setLastDocument(
+                lastDoc
+            );
+
+            setHasMoreListings(
+                snapshot.docs.length ===
+                LISTINGS_PER_PAGE
+            );
+        } catch (error) {
+            console.error(
+                "Помилка завантаження наступних оголошень:",
+                error
+            );
+
+            setLoadError(
+                "Не вдалося завантажити наступні оголошення."
+            );
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     useEffect(() => {
-        setVisibleCount(
-            LISTINGS_PER_PAGE
-        );
+        loadListings();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
-        search,
         activeCategory,
         sortOrder,
+        debouncedSearch,
     ]);
-
-
-    const visibleListings =
-        useMemo(() => {
-            return filteredListings.slice(
-                0,
-                visibleCount
-            );
-        }, [
-            filteredListings,
-            visibleCount,
-        ]);
-
-
-    const hasMoreListings =
-        visibleCount <
-        filteredListings.length;
-
-
     /* ========================= */
     /* ВІДКРИТТЯ ОГОЛОШЕННЯ */
     /* ========================= */
@@ -660,9 +711,6 @@ const AdminSite = () => {
                 />
 
 
-                {/* ========================= */}
-                {/* ЗАВАНТАЖЕННЯ */}
-                {/* ========================= */}
 
                 {loading && (
                     <div className="py-16 text-center text-slate-500">
@@ -671,10 +719,6 @@ const AdminSite = () => {
                 )}
 
 
-                {/* ========================= */}
-                {/* ПОМИЛКА */}
-                {/* ========================= */}
-
                 {loadError && (
                     <div className="my-8 rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-sm font-medium text-red-700">
                         {loadError}
@@ -682,71 +726,27 @@ const AdminSite = () => {
                 )}
 
 
-                {/* ========================= */}
-                {/* ЛІЧИЛЬНИК */}
-                {/* ========================= */}
-
-                {!loading &&
-                    !loadError &&
-                    filteredListings.length >
-                        0 && (
-                        <div className="mt-8 text-center text-sm text-slate-500">
-                            Показано{" "}
-
-                            <span className="font-semibold text-slate-700">
-                                {
-                                    visibleListings.length
-                                }
-                            </span>
-
-                            {" "}з{" "}
-
-                            <span className="font-semibold text-slate-700">
-                                {
-                                    filteredListings.length
-                                }
-                            </span>
-
-                            {" "}оголошень
-                        </div>
-                    )}
-
-
-                {/* ========================= */}
-                {/* ОГОЛОШЕННЯ */}
-                {/* ========================= */}
 
                 {!loading &&
                     !loadError && (
                         <>
                             <ListingsSection
-                                listings={
-                                    visibleListings
-                                }
-                                viewMode={
-                                    viewMode
-                                }
-                                onListingClick={
-                                    openListing
-                                }
+                                listings={listings}
+                                viewMode={viewMode}
+                                onListingClick={openListing}
                             />
 
                             {hasMoreListings && (
                                 <div className="mt-10 flex justify-center">
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            setVisibleCount(
-                                                (
-                                                    currentCount
-                                                ) =>
-                                                    currentCount +
-                                                    LISTINGS_PER_PAGE
-                                            )
-                                        }
-                                        className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                                        onClick={loadMoreListings}
+                                        disabled={loadingMore}
+                                        className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                        Завантажити ще
+                                        {loadingMore
+                                            ? "Завантаження..."
+                                            : "Завантажити ще"}
                                     </button>
                                 </div>
                             )}

@@ -33,7 +33,8 @@ const FavoriteButton = ({
 
     const [updating, setUpdating] =
         useState(false);
-
+const [localFavorite, setLocalFavorite] =
+    useState(null);
 
     useEffect(() => {
         const unsubscribe =
@@ -74,10 +75,15 @@ const FavoriteButton = ({
      * Тепер використовуємо
      * Firebase Authentication UID.
      */
-    const isFavorite =
+    const favoriteFromListing =
         favoriteUserIds.includes(
             currentUser.uid
         );
+
+    const isFavorite =
+        localFavorite !== null
+            ? localFavorite
+            : favoriteFromListing;
 
 
     const handleFavorite =
@@ -121,7 +127,7 @@ const FavoriteButton = ({
                                 ),
                         }
                     );
-
+                    setLocalFavorite(false);
                     await Swal.fire({
                         toast: true,
                         position:
@@ -152,7 +158,7 @@ const FavoriteButton = ({
                             ),
                     }
                 );
-
+                setLocalFavorite(true);
                 await Swal.fire({
                     toast: true,
                     position:

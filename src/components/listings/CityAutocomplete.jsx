@@ -4,7 +4,7 @@ import {
     useState,
 } from "react";
 
-const RAKHIV_DISTRICT_PLACES = [
+export const RAKHIV_DISTRICT_PLACES = [
     {
         id: "rakhiv",
         name: "Рахів",

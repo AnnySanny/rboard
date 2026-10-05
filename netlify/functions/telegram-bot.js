@@ -115,6 +115,39 @@ const getCityName = (listing) => {
  * Повертаємо всі коректні URL
  * фотографій оголошення.
  */
+const optimizeCloudinaryImage = (url) => {
+    if (!url) {
+        return null;
+    }
+
+    /*
+     * Оптимізацію застосовуємо
+     * тільки до Cloudinary.
+     */
+    if (
+        !url.includes(
+            "res.cloudinary.com"
+        )
+    ) {
+        return url;
+    }
+
+    /*
+     * Було:
+     *
+     * /image/upload/v123/...
+     *
+     * Стає:
+     *
+     * /image/upload/f_jpg,q_auto,w_1600/v123/...
+     */
+    return url.replace(
+        "/image/upload/",
+        "/image/upload/f_jpg,q_auto,w_1600/"
+    );
+};
+
+
 const getListingImages = (listing) => {
     if (
         !Array.isArray(listing.images) ||
@@ -125,24 +158,21 @@ const getListingImages = (listing) => {
 
     return listing.images
         .map((image) => {
-            /*
-             * Якщо масив містить
-             * просто URL.
-             */
+            let url = null;
+
             if (
                 typeof image === "string"
             ) {
-                return image;
+                url = image;
+            } else {
+                url =
+                    image?.imageUrl ||
+                    image?.url ||
+                    null;
             }
 
-            /*
-             * Якщо масив містить
-             * об'єкти.
-             */
-            return (
-                image?.imageUrl ||
-                image?.url ||
-                null
+            return optimizeCloudinaryImage(
+                url
             );
         })
         .filter(Boolean)
@@ -680,152 +710,16 @@ const sendListingPhotos = async (
         return;
     }
 
-    /*
-     * Перевіряємо, чи Telegram
-     * зможе завантажити фотографію.
-     *
-     * HEAD не використовуємо,
-     * бо деякі CDN його блокують.
-     */
-    const checkImage = async (url) => {
-        try {
-            const response =
-                await fetch(url, {
-                    method: "GET",
-
-                    headers: {
-                        Range:
-                            "bytes=0-1024",
-                    },
-
-                    signal:
-                        AbortSignal.timeout(
-                            5000
-                        ),
-                });
-
-            if (
-                !response.ok &&
-                response.status !== 206
-            ) {
-                console.warn(
-                    "Недоступне фото:",
-                    url,
-                    response.status
-                );
-
-                return false;
-            }
-
-            const contentType =
-                response.headers.get(
-                    "content-type"
-                ) || "";
-
-            if (
-                !contentType.startsWith(
-                    "image/"
-                )
-            ) {
-                console.warn(
-                    "URL не є фото:",
-                    url,
-                    contentType
-                );
-
-                return false;
-            }
-
-            return true;
-        } catch (error) {
-            console.warn(
-                "Помилка перевірки фото:",
-                url,
-                error.message
-            );
-
-            return false;
-        }
-    };
-
-
-    /*
-     * Перевіряємо всі фото
-     * паралельно.
-     */
-    const imageChecks =
-        await Promise.all(
-            images.map(
-                async (url) => ({
-                    url,
-
-                    valid:
-                        await checkImage(
-                            url
-                        ),
-                })
-            )
-        );
-
-
-    /*
-     * Залишаємо тільки доступні.
-     */
-    const validImages =
-        imageChecks
-            .filter(
-                (item) =>
-                    item.valid
-            )
-            .map(
-                (item) =>
-                    item.url
-            )
-            .slice(0, 10);
-
-
     console.log(
-        `Фото оголошення ${listing.id}: ${images.length} всього, ${validImages.length} доступно`
+        `Відправляємо ${images.length} фото оголошення ${listing.id}`
     );
 
-
-    /*
-     * Якщо після перевірки
-     * залишилося менше 2 фото,
-     * альбом не створюємо.
-     */
-    if (
-        validImages.length <= 1
-    ) {
-        await telegramRequest(
-            "sendMessage",
-            {
-                chat_id:
-                    chatId,
-
-                text:
-                    "Інші фотографії цього оголошення наразі недоступні.",
-            }
-        );
-
-        return;
-    }
-
-
-    /*
-     * Формуємо Telegram Media Group.
-     */
     const media =
-        validImages.map(
-            (
-                image,
-                index
-            ) => ({
-                type:
-                    "photo",
+        images.map(
+            (image, index) => ({
+                type: "photo",
 
-                media:
-                    image,
+                media: image,
 
                 ...(index === 0
                     ? {
@@ -842,26 +736,17 @@ const sendListingPhotos = async (
             })
         );
 
-
-    /*
-     * Надсилаємо альбом.
-     */
     const albumResponse =
         await telegramRequest(
             "sendMediaGroup",
             {
-                chat_id:
-                    chatId,
-
+                chat_id: chatId,
                 media,
             }
         );
 
-
     const sentMessages =
-        albumResponse.result ||
-        [];
-
+        albumResponse.result || [];
 
     if (
         sentMessages.length === 0
@@ -869,15 +754,10 @@ const sendListingPhotos = async (
         return;
     }
 
-
-    /*
-     * Повідомлення під альбомом.
-     */
     await telegramRequest(
         "sendMessage",
         {
-            chat_id:
-                chatId,
+            chat_id: chatId,
 
             text:
                 `Фото оголошення «${escapeHtml(
@@ -885,8 +765,7 @@ const sendListingPhotos = async (
                         "Без назви"
                 )}»`,
 
-            parse_mode:
-                "HTML",
+            parse_mode: "HTML",
 
             reply_markup: {
                 inline_keyboard: [

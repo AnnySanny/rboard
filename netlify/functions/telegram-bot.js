@@ -9,9 +9,11 @@ const {
     Timestamp,
 } = require("firebase-admin/firestore");
 
-/*
- * Firebase Admin
- */
+
+/* =========================================================
+   FIREBASE
+========================================================= */
+
 if (getApps().length === 0) {
     initializeApp({
         credential: cert({
@@ -32,9 +34,11 @@ if (getApps().length === 0) {
 
 const db = getFirestore();
 
-/*
- * Telegram
- */
+
+/* =========================================================
+   TELEGRAM
+========================================================= */
+
 const BOT_TOKEN =
     process.env.TELEGRAM_USER_BOT_TOKEN;
 
@@ -45,8 +49,17 @@ const SITE_URL =
     "https://rboard.netlify.app";
 
 /*
- * Захист HTML для Telegram.
+ * Стандартне фото для оголошень,
+ * які не мають власних фотографій.
  */
+const DEFAULT_IMAGE =
+    `${SITE_URL}/telegram-listing-placeholder.jpg`;
+
+
+/* =========================================================
+   ДОПОМІЖНІ ФУНКЦІЇ
+========================================================= */
+
 const escapeHtml = (value = "") => {
     return String(value)
         .replace(/&/g, "&amp;")
@@ -54,12 +67,10 @@ const escapeHtml = (value = "") => {
         .replace(/>/g, "&gt;");
 };
 
-/*
- * Скорочуємо опис оголошення.
- */
+
 const getShortDescription = (
     description,
-    maxLength = 220
+    maxLength = 260
 ) => {
     const text = String(
         description || ""
@@ -80,41 +91,9 @@ const getShortDescription = (
         .trim()}…`;
 };
 
-/*
- * Отримуємо активні оголошення.
- */
-const getListings = async () => {
-    const now = Timestamp.now();
-
-    const snapshot = await db
-        .collection("listings")
-        .where(
-            "status",
-            "==",
-            "approved"
-        )
-        .where(
-            "expiresAt",
-            ">",
-            now
-        )
-        .orderBy(
-            "expiresAt",
-            "asc"
-        )
-        .limit(50)
-        .get();
-
-    return snapshot.docs.map(
-        (document) => ({
-            id: document.id,
-            ...document.data(),
-        })
-    );
-};
 
 /*
- * Назва населеного пункту.
+ * Отримуємо назву міста/села.
  */
 const getCityName = (listing) => {
     if (
@@ -127,39 +106,335 @@ const getCityName = (listing) => {
     return listing.city || "";
 };
 
+
+/* =========================================================
+   ФОТО
+========================================================= */
+
 /*
- * Перше фото оголошення.
+ * Повертаємо всі коректні URL
+ * фотографій оголошення.
  */
-const getFirstImage = (listing) => {
+const getListingImages = (listing) => {
     if (
-        !Array.isArray(
-            listing.images
-        ) ||
+        !Array.isArray(listing.images) ||
         listing.images.length === 0
     ) {
+        return [];
+    }
+
+    return listing.images
+        .map((image) => {
+            /*
+             * Якщо масив містить
+             * просто URL.
+             */
+            if (
+                typeof image === "string"
+            ) {
+                return image;
+            }
+
+            /*
+             * Якщо масив містить
+             * об'єкти.
+             */
+            return (
+                image?.imageUrl ||
+                image?.url ||
+                null
+            );
+        })
+        .filter(Boolean)
+        .slice(0, 10);
+};
+
+
+/*
+ * Головне фото картки.
+ *
+ * Якщо фото немає —
+ * використовуємо placeholder.
+ */
+const getMainImage = (listing) => {
+    const images =
+        getListingImages(listing);
+
+    if (images.length > 0) {
+        return images[0];
+    }
+
+    return DEFAULT_IMAGE;
+};
+
+
+/* =========================================================
+   FIRESTORE
+========================================================= */
+
+const documentToListing = (
+    document
+) => {
+    if (!document?.exists) {
         return null;
     }
 
+    return {
+        id: document.id,
+        ...document.data(),
+    };
+};
+
+
+/*
+ * Перевіряємо, чи оголошення
+ * досі активне.
+ */
+const isListingActive = (
+    listing
+) => {
+    if (!listing) {
+        return false;
+    }
+
+    if (
+        listing.status !==
+        "approved"
+    ) {
+        return false;
+    }
+
+    if (!listing.expiresAt) {
+        return false;
+    }
+
     return (
-        listing.images[0]
-            ?.imageUrl ||
-        listing.images[0]?.url ||
-        null
+        listing.expiresAt.toMillis() >
+        Date.now()
     );
 };
 
+
 /*
- * Текст картки.
+ * Отримуємо конкретне
+ * оголошення за ID.
+ *
+ * 1 Firestore read.
  */
+const getListingById =
+    async (listingId) => {
+        const document =
+            await db
+                .collection("listings")
+                .doc(listingId)
+                .get();
+
+        return documentToListing(
+            document
+        );
+    };
+
+
+/*
+ * Перше активне оголошення.
+ *
+ * 1 Firestore read.
+ */
+const getFirstListing =
+    async () => {
+        const now =
+            Timestamp.now();
+
+        const snapshot =
+            await db
+                .collection("listings")
+                .where(
+                    "status",
+                    "==",
+                    "approved"
+                )
+                .where(
+                    "expiresAt",
+                    ">",
+                    now
+                )
+                .orderBy(
+                    "expiresAt",
+                    "asc"
+                )
+                .limit(1)
+                .get();
+
+        if (snapshot.empty) {
+            return null;
+        }
+
+        return {
+            id:
+                snapshot.docs[0].id,
+
+            ...snapshot.docs[0].data(),
+        };
+    };
+
+
+/*
+ * Останнє активне оголошення.
+ *
+ * Використовується коли
+ * користувач натискає "назад"
+ * на першому оголошенні.
+ */
+const getLastListing =
+    async () => {
+        const now =
+            Timestamp.now();
+
+        const snapshot =
+            await db
+                .collection("listings")
+                .where(
+                    "status",
+                    "==",
+                    "approved"
+                )
+                .where(
+                    "expiresAt",
+                    ">",
+                    now
+                )
+                .orderBy(
+                    "expiresAt",
+                    "desc"
+                )
+                .limit(1)
+                .get();
+
+        if (snapshot.empty) {
+            return null;
+        }
+
+        return {
+            id:
+                snapshot.docs[0].id,
+
+            ...snapshot.docs[0].data(),
+        };
+    };
+
+
+/*
+ * Наступне активне оголошення.
+ */
+const getNextListing =
+    async (currentListing) => {
+        const now =
+            Timestamp.now();
+
+        const snapshot =
+            await db
+                .collection("listings")
+                .where(
+                    "status",
+                    "==",
+                    "approved"
+                )
+                .where(
+                    "expiresAt",
+                    ">",
+                    currentListing.expiresAt
+                )
+                .where(
+                    "expiresAt",
+                    ">",
+                    now
+                )
+                .orderBy(
+                    "expiresAt",
+                    "asc"
+                )
+                .limit(1)
+                .get();
+
+        if (!snapshot.empty) {
+            return {
+                id:
+                    snapshot.docs[0].id,
+
+                ...snapshot.docs[0].data(),
+            };
+        }
+
+        /*
+         * Якщо дійшли до кінця —
+         * повертаємо перше.
+         */
+        return getFirstListing();
+    };
+
+
+/*
+ * Попереднє активне оголошення.
+ */
+const getPreviousListing =
+    async (currentListing) => {
+        const now =
+            Timestamp.now();
+
+        const snapshot =
+            await db
+                .collection("listings")
+                .where(
+                    "status",
+                    "==",
+                    "approved"
+                )
+                .where(
+                    "expiresAt",
+                    ">",
+                    now
+                )
+                .where(
+                    "expiresAt",
+                    "<",
+                    currentListing.expiresAt
+                )
+                .orderBy(
+                    "expiresAt",
+                    "desc"
+                )
+                .limit(1)
+                .get();
+
+        if (!snapshot.empty) {
+            return {
+                id:
+                    snapshot.docs[0].id,
+
+                ...snapshot.docs[0].data(),
+            };
+        }
+
+        /*
+         * Якщо це перше —
+         * переходимо на останнє.
+         */
+        return getLastListing();
+    };
+
+
+/* =========================================================
+   ТЕКСТ КАРТКИ
+========================================================= */
+
 const createCaption = (
-    listing,
-    index,
-    total
+    listing
 ) => {
-    const title = escapeHtml(
-        listing.title ||
-            "Без назви"
-    );
+    const title =
+        escapeHtml(
+            listing.title ||
+                "Без назви"
+        );
 
     const description =
         escapeHtml(
@@ -168,14 +443,17 @@ const createCaption = (
             )
         );
 
-    const city = escapeHtml(
-        getCityName(listing) ||
-            "Населений пункт не вказано"
-    );
+    const city =
+        escapeHtml(
+            getCityName(listing) ||
+                "Населений пункт не вказано"
+        );
 
-    const type = escapeHtml(
-        listing.type || "Інше"
-    );
+    const type =
+        escapeHtml(
+            listing.type ||
+                "Інше"
+        );
 
     return [
         `<b>${title}</b>`,
@@ -183,83 +461,103 @@ const createCaption = (
         description,
         "",
         `<i>${city}  •  ${type}</i>`,
-        "",
-        `${index + 1} з ${total}`,
     ].join("\n");
 };
 
-/*
- * Кнопки картки.
- */
-const createKeyboard = (
-    listing,
-    index,
-    total
-) => {
-    const previousIndex =
-        index <= 0
-            ? total - 1
-            : index - 1;
 
-    const nextIndex =
-        index >= total - 1
-            ? 0
-            : index + 1;
+/* =========================================================
+   КНОПКИ ОСНОВНОЇ КАРТКИ
+========================================================= */
+
+const createKeyboard = (
+    listing
+) => {
+    const images =
+        getListingImages(listing);
+
+    const keyboard = [
+        [
+            {
+                text: "‹",
+                callback_data:
+                    `prev:${listing.id}`,
+            },
+
+            {
+                text: "Оголошення",
+                callback_data:
+                    "noop",
+            },
+
+            {
+                text: "›",
+                callback_data:
+                    `next:${listing.id}`,
+            },
+        ],
+    ];
+
+
+    /*
+     * Якщо фотографій більше однієї —
+     * показуємо кнопку галереї.
+     */
+    if (images.length > 1) {
+        keyboard.push([
+            {
+                text:
+                    `Всі фото (${images.length})`,
+
+                callback_data:
+                    `photos:${listing.id}`,
+            },
+        ]);
+    }
+
+
+    keyboard.push([
+        {
+            text:
+                "Детальніше",
+
+            url:
+                `${SITE_URL}/listing/${listing.id}`,
+        },
+    ]);
+
 
     return {
-        inline_keyboard: [
-            [
-                {
-                    text: "‹",
-                    callback_data:
-                        `listing:${previousIndex}`,
-                },
-                {
-                    text:
-                        `${index + 1} / ${total}`,
-                    callback_data:
-                        "noop",
-                },
-                {
-                    text: "›",
-                    callback_data:
-                        `listing:${nextIndex}`,
-                },
-            ],
-            [
-                {
-                    text:
-                        "Детальніше",
-                    url:
-                        `${SITE_URL}/listing/${listing.id}`,
-                },
-            ],
-        ],
+        inline_keyboard:
+            keyboard,
     };
 };
 
-/*
- * Запит до Telegram API.
- */
+
+/* =========================================================
+   TELEGRAM API
+========================================================= */
+
 const telegramRequest = async (
     method,
     body
 ) => {
-    const response = await fetch(
-        `${TELEGRAM_API}/${method}`,
-        {
-            method: "POST",
+    const response =
+        await fetch(
+            `${TELEGRAM_API}/${method}`,
+            {
+                method: "POST",
 
-            headers: {
-                "Content-Type":
-                    "application/json",
-            },
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
 
-            body: JSON.stringify(
-                body
-            ),
-        }
-    );
+                body:
+                    JSON.stringify(
+                        body
+                    ),
+            }
+        );
 
     const data =
         await response.json();
@@ -281,240 +579,343 @@ const telegramRequest = async (
     return data;
 };
 
-/*
- * Надсилаємо картку.
- */
+
+/* =========================================================
+   ОСНОВНА КАРТКА
+========================================================= */
+
 const sendListing = async (
     chatId,
-    listing,
-    index,
-    total
+    listing
 ) => {
-    const image =
-        getFirstImage(listing);
-
-    const caption =
-        createCaption(
-            listing,
-            index,
-            total
-        );
-
-    const replyMarkup =
-        createKeyboard(
-            listing,
-            index,
-            total
-        );
-
-    /*
-     * Є фотографія.
-     */
-    if (image) {
-        return telegramRequest(
-            "sendPhoto",
-            {
-                chat_id:
-                    chatId,
-
-                photo:
-                    image,
-
-                caption,
-
-                parse_mode:
-                    "HTML",
-
-                reply_markup:
-                    replyMarkup,
-            }
-        );
-    }
-
-    /*
-     * Немає фотографії.
-     */
     return telegramRequest(
-        "sendMessage",
+        "sendPhoto",
         {
             chat_id:
                 chatId,
 
-            text:
-                caption,
+            photo:
+                getMainImage(
+                    listing
+                ),
+
+            caption:
+                createCaption(
+                    listing
+                ),
 
             parse_mode:
                 "HTML",
 
             reply_markup:
-                replyMarkup,
+                createKeyboard(
+                    listing
+                ),
         }
     );
 };
 
+
 /*
- * Редагуємо існуючу картку
- * при натисканні вперед/назад.
+ * Замінюємо вміст тієї самої
+ * Telegram-картки.
  */
 const editListing = async (
     callbackQuery,
-    listing,
-    index,
-    total
+    listing
 ) => {
-    const message =
-        callbackQuery.message;
+    return telegramRequest(
+        "editMessageMedia",
+        {
+            chat_id:
+                callbackQuery
+                    .message
+                    .chat
+                    .id,
 
-    const image =
-        getFirstImage(listing);
+            message_id:
+                callbackQuery
+                    .message
+                    .message_id,
 
-    const caption =
-        createCaption(
-            listing,
-            index,
-            total
-        );
+            media: {
+                type:
+                    "photo",
 
-    const replyMarkup =
-        createKeyboard(
-            listing,
-            index,
-            total
-        );
+                media:
+                    getMainImage(
+                        listing
+                    ),
 
-    /*
-     * Поточне повідомлення має фото
-     * і наступне оголошення теж має фото.
-     *
-     * Просто замінюємо фото,
-     * текст і кнопки.
-     */
-    if (
-        message.photo &&
-        image
-    ) {
-        return telegramRequest(
-            "editMessageMedia",
-            {
-                chat_id:
-                    message.chat.id,
+                caption:
+                    createCaption(
+                        listing
+                    ),
 
-                message_id:
-                    message.message_id,
+                parse_mode:
+                    "HTML",
+            },
 
-                media: {
+            reply_markup:
+                createKeyboard(
+                    listing
+                ),
+        }
+    );
+};
+
+
+/* =========================================================
+   ГАЛЕРЕЯ
+========================================================= */
+
+const sendListingPhotos =
+    async (
+        chatId,
+        listing
+    ) => {
+        const images =
+            getListingImages(
+                listing
+            );
+
+        /*
+         * Галерею відкриваємо
+         * тільки якщо фото >= 2.
+         */
+        if (images.length <= 1) {
+            return;
+        }
+
+
+        /*
+         * Telegram дозволяє
+         * максимум 10 фото
+         * в одному Media Group.
+         */
+        const media =
+            images.map(
+                (
+                    image,
+                    index
+                ) => ({
                     type:
                         "photo",
 
                     media:
                         image,
 
-                    caption,
+                    /*
+                     * Назву показуємо
+                     * тільки під
+                     * першим фото.
+                     */
+                    ...(index === 0
+                        ? {
+                              caption:
+                                  `<b>${escapeHtml(
+                                      listing.title ||
+                                          "Фото оголошення"
+                                  )}</b>`,
 
-                    parse_mode:
-                        "HTML",
-                },
+                              parse_mode:
+                                  "HTML",
+                          }
+                        : {}),
+                })
+            );
 
-                reply_markup:
-                    replyMarkup,
-            }
-        );
-    }
 
-    /*
-     * Поточне повідомлення текстове
-     * і наступне оголошення теж
-     * не має фотографії.
-     */
-    if (
-        !message.photo &&
-        !image
-    ) {
-        return telegramRequest(
-            "editMessageText",
+        /*
+         * Відправляємо альбом.
+         */
+        const albumResponse =
+            await telegramRequest(
+                "sendMediaGroup",
+                {
+                    chat_id:
+                        chatId,
+
+                    media,
+                }
+            );
+
+
+        /*
+         * Telegram повертає масив
+         * створених повідомлень.
+         */
+        const sentMessages =
+            albumResponse.result || [];
+
+
+        if (
+            sentMessages.length === 0
+        ) {
+            return;
+        }
+
+
+        /*
+         * Після альбому створюємо
+         * маленьке повідомлення
+         * із кнопкою закриття.
+         *
+         * Передаємо кількість фото.
+         */
+        await telegramRequest(
+            "sendMessage",
             {
                 chat_id:
-                    message.chat.id,
-
-                message_id:
-                    message.message_id,
+                    chatId,
 
                 text:
-                    caption,
+                    `Фото оголошення «${escapeHtml(
+                        listing.title ||
+                            "Без назви"
+                    )}»`,
 
                 parse_mode:
                     "HTML",
 
-                reply_markup:
-                    replyMarkup,
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            {
+                                text:
+                                    "✕ Закрити фото",
+
+                                callback_data:
+                                    `closephotos:${sentMessages.length}`,
+                            },
+                        ],
+                    ],
+                },
             }
         );
-    }
+    };
 
-    /*
-     * Якщо переходимо:
-     *
-     * фото -> без фото
-     * або
-     * без фото -> фото
-     *
-     * Telegram не дозволяє просто
-     * змінити тип повідомлення.
-     *
-     * Видаляємо стару картку
-     * і створюємо нову.
-     */
-    await telegramRequest(
-        "deleteMessage",
-        {
-            chat_id:
-                message.chat.id,
 
-            message_id:
-                message.message_id,
+/* =========================================================
+   ЗАКРИТТЯ ГАЛЕРЕЇ
+========================================================= */
+
+const closeListingPhotos =
+    async (
+        callbackQuery,
+        photoCount
+    ) => {
+        const chatId =
+            callbackQuery
+                .message
+                .chat
+                .id;
+
+        /*
+         * message_id цього повідомлення —
+         * це повідомлення
+         * "✕ Закрити фото".
+         */
+        const closeMessageId =
+            callbackQuery
+                .message
+                .message_id;
+
+
+        /*
+         * Фото альбому були
+         * відправлені безпосередньо
+         * перед повідомленням
+         * із кнопкою.
+         *
+         * Тому їх ID:
+         *
+         * closeMessageId - 1
+         * closeMessageId - 2
+         * ...
+         */
+        for (
+            let i = 1;
+            i <= photoCount;
+            i++
+        ) {
+            try {
+                await telegramRequest(
+                    "deleteMessage",
+                    {
+                        chat_id:
+                            chatId,
+
+                        message_id:
+                            closeMessageId -
+                            i,
+                    }
+                );
+            } catch (error) {
+                console.error(
+                    "Помилка видалення фото:",
+                    error
+                );
+            }
         }
-    );
 
-    return sendListing(
-        message.chat.id,
-        listing,
-        index,
-        total
-    );
-};
 
-/*
- * Прибираємо "завантаження"
- * після натискання inline-кнопки.
- */
-const answerCallback = async (
-    callbackQueryId
-) => {
-    try {
-        await telegramRequest(
-            "answerCallbackQuery",
-            {
-                callback_query_id:
-                    callbackQueryId,
-            }
-        );
-    } catch (error) {
-        console.error(
-            "Callback answer error:",
-            error
-        );
-    }
-};
+        /*
+         * Видаляємо саме повідомлення
+         * з кнопкою "Закрити фото".
+         */
+        try {
+            await telegramRequest(
+                "deleteMessage",
+                {
+                    chat_id:
+                        chatId,
 
-/*
- * Netlify Function
- */
+                    message_id:
+                        closeMessageId,
+                }
+            );
+        } catch (error) {
+            console.error(
+                "Помилка видалення кнопки закриття:",
+                error
+            );
+        }
+    };
+
+
+/* =========================================================
+   CALLBACK
+========================================================= */
+
+const answerCallback =
+    async (
+        callbackQueryId
+    ) => {
+        try {
+            await telegramRequest(
+                "answerCallbackQuery",
+                {
+                    callback_query_id:
+                        callbackQueryId,
+                }
+            );
+        } catch (error) {
+            console.error(
+                "Callback answer error:",
+                error
+            );
+        }
+    };
+
+
+/* =========================================================
+   NETLIFY FUNCTION
+========================================================= */
+
 exports.handler = async (
     event
 ) => {
-    /*
-     * Telegram надсилає POST.
-     */
     if (
         event.httpMethod !==
         "POST"
@@ -526,35 +927,36 @@ exports.handler = async (
         };
     }
 
+
     try {
         const update =
             JSON.parse(
                 event.body || "{}"
             );
 
-        /*
-         * Команда /start
-         */
+
+        /* =================================================
+           /START
+        ================================================= */
+
         if (
             update.message
-                ?.text ===
-            "/start"
+                ?.text
+                ?.startsWith(
+                    "/start"
+                )
         ) {
             const chatId =
                 update.message
-                    .chat.id;
+                    .chat
+                    .id;
 
-            const listings =
-                await getListings();
 
-            /*
-             * Немає активних
-             * оголошень.
-             */
-            if (
-                listings.length ===
-                0
-            ) {
+            const listing =
+                await getFirstListing();
+
+
+            if (!listing) {
                 await telegramRequest(
                     "sendMessage",
                     {
@@ -566,6 +968,7 @@ exports.handler = async (
                     }
                 );
 
+
                 return {
                     statusCode:
                         200,
@@ -575,15 +978,12 @@ exports.handler = async (
                 };
             }
 
-            /*
-             * Показуємо перше.
-             */
+
             await sendListing(
                 chatId,
-                listings[0],
-                0,
-                listings.length
+                listing
             );
+
 
             return {
                 statusCode: 200,
@@ -591,28 +991,32 @@ exports.handler = async (
             };
         }
 
-        /*
-         * Натискання inline-кнопок.
-         */
+
+        /* =================================================
+           CALLBACK QUERY
+        ================================================= */
+
         if (
             update.callback_query
         ) {
             const callbackQuery =
                 update.callback_query;
 
+
             const data =
                 callbackQuery.data ||
                 "";
+
 
             await answerCallback(
                 callbackQuery.id
             );
 
-            /*
-             * Кнопка з номером
-             * сторінки нічого
-             * не робить.
-             */
+
+            /* =============================================
+               NOOP
+            ============================================= */
+
             if (
                 data === "noop"
             ) {
@@ -625,29 +1029,134 @@ exports.handler = async (
                 };
             }
 
-            /*
-             * Перехід між
-             * оголошеннями.
-             */
+
+            /* =============================================
+               ВІДКРИТИ ВСІ ФОТО
+            ============================================= */
+
             if (
                 data.startsWith(
-                    "listing:"
+                    "photos:"
                 )
             ) {
-                const requestedIndex =
-                    Number(
-                        data.split(
-                            ":"
-                        )[1]
+                const listingId =
+                    data.substring(7);
+
+
+                const listing =
+                    await getListingById(
+                        listingId
                     );
 
-                const listings =
-                    await getListings();
 
                 if (
-                    listings.length ===
-                    0
+                    isListingActive(
+                        listing
+                    )
                 ) {
+                    await sendListingPhotos(
+                        callbackQuery
+                            .message
+                            .chat
+                            .id,
+
+                        listing
+                    );
+                }
+
+
+                return {
+                    statusCode:
+                        200,
+
+                    body:
+                        "OK",
+                };
+            }
+
+
+            /* =============================================
+               ЗАКРИТИ ФОТО
+            ============================================= */
+
+            if (
+                data.startsWith(
+                    "closephotos:"
+                )
+            ) {
+                const photoCount =
+                    Number(
+                        data.substring(
+                            12
+                        )
+                    );
+
+
+                if (
+                    Number.isInteger(
+                        photoCount
+                    ) &&
+                    photoCount > 0 &&
+                    photoCount <= 10
+                ) {
+                    await closeListingPhotos(
+                        callbackQuery,
+                        photoCount
+                    );
+                }
+
+
+                return {
+                    statusCode:
+                        200,
+
+                    body:
+                        "OK",
+                };
+            }
+
+
+            /* =============================================
+               НАСТУПНЕ ОГОЛОШЕННЯ
+            ============================================= */
+
+            if (
+                data.startsWith(
+                    "next:"
+                )
+            ) {
+                const listingId =
+                    data.substring(5);
+
+
+                const currentListing =
+                    await getListingById(
+                        listingId
+                    );
+
+
+                /*
+                 * Якщо поточне оголошення
+                 * вже неактивне —
+                 * просто відкриваємо перше.
+                 */
+                if (
+                    !isListingActive(
+                        currentListing
+                    )
+                ) {
+                    const firstListing =
+                        await getFirstListing();
+
+
+                    if (firstListing) {
+                        await editListing(
+                            callbackQuery,
+                            firstListing
+                        );
+                    }
+
+
                     return {
                         statusCode:
                             200,
@@ -657,34 +1166,103 @@ exports.handler = async (
                     };
                 }
 
-                /*
-                 * Захист від
-                 * некоректного індексу.
-                 */
-                const safeIndex =
-                    Number.isInteger(
-                        requestedIndex
-                    )
-                        ? Math.max(
-                              0,
-                              Math.min(
-                                  requestedIndex,
-                                  listings.length -
-                                      1
-                              )
-                          )
-                        : 0;
 
-                await editListing(
-                    callbackQuery,
-                    listings[
-                        safeIndex
-                    ],
-                    safeIndex,
-                    listings.length
-                );
+                const nextListing =
+                    await getNextListing(
+                        currentListing
+                    );
+
+
+                if (nextListing) {
+                    await editListing(
+                        callbackQuery,
+                        nextListing
+                    );
+                }
+
+
+                return {
+                    statusCode:
+                        200,
+
+                    body:
+                        "OK",
+                };
+            }
+
+
+            /* =============================================
+               ПОПЕРЕДНЄ ОГОЛОШЕННЯ
+            ============================================= */
+
+            if (
+                data.startsWith(
+                    "prev:"
+                )
+            ) {
+                const listingId =
+                    data.substring(5);
+
+
+                const currentListing =
+                    await getListingById(
+                        listingId
+                    );
+
+
+                if (
+                    !isListingActive(
+                        currentListing
+                    )
+                ) {
+                    const firstListing =
+                        await getFirstListing();
+
+
+                    if (firstListing) {
+                        await editListing(
+                            callbackQuery,
+                            firstListing
+                        );
+                    }
+
+
+                    return {
+                        statusCode:
+                            200,
+
+                        body:
+                            "OK",
+                    };
+                }
+
+
+                const previousListing =
+                    await getPreviousListing(
+                        currentListing
+                    );
+
+
+                if (
+                    previousListing
+                ) {
+                    await editListing(
+                        callbackQuery,
+                        previousListing
+                    );
+                }
+
+
+                return {
+                    statusCode:
+                        200,
+
+                    body:
+                        "OK",
+                };
             }
         }
+
 
         return {
             statusCode: 200,
@@ -696,11 +1274,11 @@ exports.handler = async (
             error
         );
 
+
         /*
-         * Повертаємо Telegram 200,
-         * щоб одна помилка не
-         * спричинила нескінченні
-         * повторні webhook-запити.
+         * Telegram повертаємо 200,
+         * щоб він не повторював
+         * webhook нескінченно.
          */
         return {
             statusCode: 200,

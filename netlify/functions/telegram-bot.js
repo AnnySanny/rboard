@@ -669,100 +669,134 @@ const editListing = async (
    ГАЛЕРЕЯ
 ========================================================= */
 
-const sendListingPhotos =
-    async (
-        chatId,
-        listing
-    ) => {
-        const images =
-            getListingImages(
-                listing
+const sendListingPhotos = async (
+    chatId,
+    listing
+) => {
+    const images =
+        getListingImages(listing);
+
+    if (images.length <= 1) {
+        return;
+    }
+
+    /*
+     * Перевіряємо, чи Telegram
+     * зможе завантажити фотографію.
+     *
+     * HEAD не використовуємо,
+     * бо деякі CDN його блокують.
+     */
+    const checkImage = async (url) => {
+        try {
+            const response =
+                await fetch(url, {
+                    method: "GET",
+
+                    headers: {
+                        Range:
+                            "bytes=0-1024",
+                    },
+
+                    signal:
+                        AbortSignal.timeout(
+                            5000
+                        ),
+                });
+
+            if (
+                !response.ok &&
+                response.status !== 206
+            ) {
+                console.warn(
+                    "Недоступне фото:",
+                    url,
+                    response.status
+                );
+
+                return false;
+            }
+
+            const contentType =
+                response.headers.get(
+                    "content-type"
+                ) || "";
+
+            if (
+                !contentType.startsWith(
+                    "image/"
+                )
+            ) {
+                console.warn(
+                    "URL не є фото:",
+                    url,
+                    contentType
+                );
+
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            console.warn(
+                "Помилка перевірки фото:",
+                url,
+                error.message
             );
 
-        /*
-         * Галерею відкриваємо
-         * тільки якщо фото >= 2.
-         */
-        if (images.length <= 1) {
-            return;
+            return false;
         }
+    };
 
 
-        /*
-         * Telegram дозволяє
-         * максимум 10 фото
-         * в одному Media Group.
-         */
-        const media =
+    /*
+     * Перевіряємо всі фото
+     * паралельно.
+     */
+    const imageChecks =
+        await Promise.all(
             images.map(
-                (
-                    image,
-                    index
-                ) => ({
-                    type:
-                        "photo",
+                async (url) => ({
+                    url,
 
-                    media:
-                        image,
-
-                    /*
-                     * Назву показуємо
-                     * тільки під
-                     * першим фото.
-                     */
-                    ...(index === 0
-                        ? {
-                              caption:
-                                  `<b>${escapeHtml(
-                                      listing.title ||
-                                          "Фото оголошення"
-                                  )}</b>`,
-
-                              parse_mode:
-                                  "HTML",
-                          }
-                        : {}),
+                    valid:
+                        await checkImage(
+                            url
+                        ),
                 })
-            );
+            )
+        );
 
 
-        /*
-         * Відправляємо альбом.
-         */
-        const albumResponse =
-            await telegramRequest(
-                "sendMediaGroup",
-                {
-                    chat_id:
-                        chatId,
-
-                    media,
-                }
-            );
-
-
-        /*
-         * Telegram повертає масив
-         * створених повідомлень.
-         */
-        const sentMessages =
-            albumResponse.result || [];
+    /*
+     * Залишаємо тільки доступні.
+     */
+    const validImages =
+        imageChecks
+            .filter(
+                (item) =>
+                    item.valid
+            )
+            .map(
+                (item) =>
+                    item.url
+            )
+            .slice(0, 10);
 
 
-        if (
-            sentMessages.length === 0
-        ) {
-            return;
-        }
+    console.log(
+        `Фото оголошення ${listing.id}: ${images.length} всього, ${validImages.length} доступно`
+    );
 
 
-        /*
-         * Після альбому створюємо
-         * маленьке повідомлення
-         * із кнопкою закриття.
-         *
-         * Передаємо кількість фото.
-         */
+    /*
+     * Якщо після перевірки
+     * залишилося менше 2 фото,
+     * альбом не створюємо.
+     */
+    if (
+        validImages.length <= 1
+    ) {
         await telegramRequest(
             "sendMessage",
             {
@@ -770,30 +804,106 @@ const sendListingPhotos =
                     chatId,
 
                 text:
-                    `Фото оголошення «${escapeHtml(
-                        listing.title ||
-                            "Без назви"
-                    )}»`,
-
-                parse_mode:
-                    "HTML",
-
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text:
-                                    "✕ Закрити фото",
-
-                                callback_data:
-                                    `closephotos:${sentMessages.length}`,
-                            },
-                        ],
-                    ],
-                },
+                    "Інші фотографії цього оголошення наразі недоступні.",
             }
         );
-    };
+
+        return;
+    }
+
+
+    /*
+     * Формуємо Telegram Media Group.
+     */
+    const media =
+        validImages.map(
+            (
+                image,
+                index
+            ) => ({
+                type:
+                    "photo",
+
+                media:
+                    image,
+
+                ...(index === 0
+                    ? {
+                          caption:
+                              `<b>${escapeHtml(
+                                  listing.title ||
+                                      "Фото оголошення"
+                              )}</b>`,
+
+                          parse_mode:
+                              "HTML",
+                      }
+                    : {}),
+            })
+        );
+
+
+    /*
+     * Надсилаємо альбом.
+     */
+    const albumResponse =
+        await telegramRequest(
+            "sendMediaGroup",
+            {
+                chat_id:
+                    chatId,
+
+                media,
+            }
+        );
+
+
+    const sentMessages =
+        albumResponse.result ||
+        [];
+
+
+    if (
+        sentMessages.length === 0
+    ) {
+        return;
+    }
+
+
+    /*
+     * Повідомлення під альбомом.
+     */
+    await telegramRequest(
+        "sendMessage",
+        {
+            chat_id:
+                chatId,
+
+            text:
+                `Фото оголошення «${escapeHtml(
+                    listing.title ||
+                        "Без назви"
+                )}»`,
+
+            parse_mode:
+                "HTML",
+
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text:
+                                "✕ Закрити фото",
+
+                            callback_data:
+                                `closephotos:${sentMessages.length}`,
+                        },
+                    ],
+                ],
+            },
+        }
+    );
+};
 
 
 /* =========================================================

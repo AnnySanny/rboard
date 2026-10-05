@@ -56,6 +56,58 @@ const DEFAULT_IMAGE =
     `${SITE_URL}/telegram-listing-placeholder.jpg`;
 
 
+
+
+/*
+ * Короткі ID категорій для callback_data.
+ *
+ * Не передаємо українські назви напряму,
+ * бо Telegram обмежує callback_data.
+ */
+const CATEGORY_CODES = {
+    sale: "Продаж",
+    buy: "Купівля",
+    rent: "Оренда",
+    service: "Послуга",
+    work: "Робота",
+    question: "Питання",
+    exchange: "Обмін",
+    free: "Віддам безкоштовно",
+    lost: "Загублено / знайдено",
+    event: "Подія",
+    community: "Оголошення громади",
+    other: "Інше",
+};
+
+
+const getCategoryCode = (category) => {
+    const entry =
+        Object.entries(
+            CATEGORY_CODES
+        ).find(
+            ([, value]) =>
+                value === category
+        );
+
+    return entry?.[0] || "all";
+};
+
+
+const getCategoryFromCode = (
+    code
+) => {
+    if (
+        !code ||
+        code === "all"
+    ) {
+        return null;
+    }
+
+    return (
+        CATEGORY_CODES[code] ||
+        null
+    );
+};
 /* =========================================================
    ДОПОМІЖНІ ФУНКЦІЇ
 ========================================================= */
@@ -270,42 +322,56 @@ const getListingById =
  *
  * 1 Firestore read.
  */
-const getFirstListing =
-    async () => {
-        const now =
-            Timestamp.now();
+const getFirstListing = async (
+    category = null
+) => {
+    const now =
+        Timestamp.now();
 
-        const snapshot =
-            await db
-                .collection("listings")
-                .where(
-                    "status",
-                    "==",
-                    "approved"
-                )
-                .where(
-                    "expiresAt",
-                    ">",
-                    now
-                )
-                .orderBy(
-                    "expiresAt",
-                    "asc"
-                )
-                .limit(1)
-                .get();
+    let query =
+        db
+            .collection("listings")
+            .where(
+                "status",
+                "==",
+                "approved"
+            )
+            .where(
+                "expiresAt",
+                ">",
+                now
+            );
 
-        if (snapshot.empty) {
-            return null;
-        }
+    if (category) {
+        query =
+            query.where(
+                "type",
+                "==",
+                category
+            );
+    }
 
-        return {
-            id:
-                snapshot.docs[0].id,
+    const snapshot =
+        await query
+            .orderBy(
+                "expiresAt",
+                "asc"
+            )
+            .limit(1)
+            .get();
 
-            ...snapshot.docs[0].data(),
-        };
+    if (snapshot.empty) {
+        return null;
+    }
+
+    return {
+        id:
+            snapshot.docs[0].id,
+
+        ...snapshot.docs[0].data(),
     };
+};
+
 
 
 /*
@@ -315,143 +381,179 @@ const getFirstListing =
  * користувач натискає "назад"
  * на першому оголошенні.
  */
-const getLastListing =
-    async () => {
-        const now =
-            Timestamp.now();
+const getLastListing = async (
+    category = null
+) => {
+    const now =
+        Timestamp.now();
 
-        const snapshot =
-            await db
-                .collection("listings")
-                .where(
-                    "status",
-                    "==",
-                    "approved"
-                )
-                .where(
-                    "expiresAt",
-                    ">",
-                    now
-                )
-                .orderBy(
-                    "expiresAt",
-                    "desc"
-                )
-                .limit(1)
-                .get();
+    let query =
+        db
+            .collection("listings")
+            .where(
+                "status",
+                "==",
+                "approved"
+            )
+            .where(
+                "expiresAt",
+                ">",
+                now
+            );
 
-        if (snapshot.empty) {
-            return null;
-        }
+    if (category) {
+        query =
+            query.where(
+                "type",
+                "==",
+                category
+            );
+    }
 
+    const snapshot =
+        await query
+            .orderBy(
+                "expiresAt",
+                "desc"
+            )
+            .limit(1)
+            .get();
+
+    if (snapshot.empty) {
+        return null;
+    }
+
+    return {
+        id:
+            snapshot.docs[0].id,
+
+        ...snapshot.docs[0].data(),
+    };
+};
+
+
+/*
+ * Наступне активне оголошення.
+ */
+const getNextListing = async (
+    currentListing,
+    category = null
+) => {
+    const now =
+        Timestamp.now();
+
+    let query =
+        db
+            .collection("listings")
+            .where(
+                "status",
+                "==",
+                "approved"
+            )
+            .where(
+                "expiresAt",
+                ">",
+                currentListing.expiresAt
+            )
+            .where(
+                "expiresAt",
+                ">",
+                now
+            );
+
+    if (category) {
+        query =
+            query.where(
+                "type",
+                "==",
+                category
+            );
+    }
+
+    const snapshot =
+        await query
+            .orderBy(
+                "expiresAt",
+                "asc"
+            )
+            .limit(1)
+            .get();
+
+    if (!snapshot.empty) {
         return {
             id:
                 snapshot.docs[0].id,
 
             ...snapshot.docs[0].data(),
         };
-    };
+    }
 
-
-/*
- * Наступне активне оголошення.
- */
-const getNextListing =
-    async (currentListing) => {
-        const now =
-            Timestamp.now();
-
-        const snapshot =
-            await db
-                .collection("listings")
-                .where(
-                    "status",
-                    "==",
-                    "approved"
-                )
-                .where(
-                    "expiresAt",
-                    ">",
-                    currentListing.expiresAt
-                )
-                .where(
-                    "expiresAt",
-                    ">",
-                    now
-                )
-                .orderBy(
-                    "expiresAt",
-                    "asc"
-                )
-                .limit(1)
-                .get();
-
-        if (!snapshot.empty) {
-            return {
-                id:
-                    snapshot.docs[0].id,
-
-                ...snapshot.docs[0].data(),
-            };
-        }
-
-        /*
-         * Якщо дійшли до кінця —
-         * повертаємо перше.
-         */
-        return getFirstListing();
-    };
+    return getFirstListing(
+        category
+    );
+};
 
 
 /*
  * Попереднє активне оголошення.
  */
-const getPreviousListing =
-    async (currentListing) => {
-        const now =
-            Timestamp.now();
+const getPreviousListing = async (
+    currentListing,
+    category = null
+) => {
+    const now =
+        Timestamp.now();
 
-        const snapshot =
-            await db
-                .collection("listings")
-                .where(
-                    "status",
-                    "==",
-                    "approved"
-                )
-                .where(
-                    "expiresAt",
-                    ">",
-                    now
-                )
-                .where(
-                    "expiresAt",
-                    "<",
-                    currentListing.expiresAt
-                )
-                .orderBy(
-                    "expiresAt",
-                    "desc"
-                )
-                .limit(1)
-                .get();
+    let query =
+        db
+            .collection("listings")
+            .where(
+                "status",
+                "==",
+                "approved"
+            )
+            .where(
+                "expiresAt",
+                ">",
+                now
+            )
+            .where(
+                "expiresAt",
+                "<",
+                currentListing.expiresAt
+            );
 
-        if (!snapshot.empty) {
-            return {
-                id:
-                    snapshot.docs[0].id,
+    if (category) {
+        query =
+            query.where(
+                "type",
+                "==",
+                category
+            );
+    }
 
-                ...snapshot.docs[0].data(),
-            };
-        }
+    const snapshot =
+        await query
+            .orderBy(
+                "expiresAt",
+                "desc"
+            )
+            .limit(1)
+            .get();
 
-        /*
-         * Якщо це перше —
-         * переходимо на останнє.
-         */
-        return getLastListing();
-    };
+    if (!snapshot.empty) {
+        return {
+            id:
+                snapshot.docs[0].id,
 
+            ...snapshot.docs[0].data(),
+        };
+    }
+
+    return getLastListing(
+        category
+    );
+};
 
 /* =========================================================
    ТЕКСТ КАРТКИ
@@ -500,38 +602,34 @@ const createCaption = (
 ========================================================= */
 
 const createKeyboard = (
-    listing
+    listing,
+    category = null
 ) => {
     const images =
         getListingImages(listing);
+
+    const categoryCode =
+        getCategoryCode(
+            category
+        );
 
     const keyboard = [
         [
             {
                 text: "‹",
                 callback_data:
-                    `prev:${listing.id}`,
-            },
-
-            {
-                text: "Оголошення",
-                callback_data:
-                    "noop",
+                    `prev:${listing.id}:${categoryCode}`,
             },
 
             {
                 text: "›",
                 callback_data:
-                    `next:${listing.id}`,
+                    `next:${listing.id}:${categoryCode}`,
             },
         ],
     ];
 
 
-    /*
-     * Якщо фотографій більше однієї —
-     * показуємо кнопку галереї.
-     */
     if (images.length > 1) {
         keyboard.push([
             {
@@ -552,6 +650,30 @@ const createKeyboard = (
 
             url:
                 `${SITE_URL}/listing/${listing.id}`,
+        },
+    ]);
+
+
+    keyboard.push([
+        {
+            text:
+                category
+                    ? `Категорія: ${category}`
+                    : "Обрати категорію",
+
+            callback_data:
+                "categories",
+        },
+    ]);
+
+
+    keyboard.push([
+        {
+            text:
+                "Оновити оголошення",
+
+            callback_data:
+                `refresh:${categoryCode}`,
         },
     ]);
 
@@ -616,7 +738,8 @@ const telegramRequest = async (
 
 const sendListing = async (
     chatId,
-    listing
+    listing,
+    category = null
 ) => {
     return telegramRequest(
         "sendPhoto",
@@ -639,12 +762,12 @@ const sendListing = async (
 
             reply_markup:
                 createKeyboard(
-                    listing
+                    listing,
+                    category
                 ),
         }
     );
 };
-
 
 /*
  * Замінюємо вміст тієї самої
@@ -652,7 +775,8 @@ const sendListing = async (
  */
 const editListing = async (
     callbackQuery,
-    listing
+    listing,
+    category = null
 ) => {
     return telegramRequest(
         "editMessageMedia",
@@ -688,7 +812,8 @@ const editListing = async (
 
             reply_markup:
                 createKeyboard(
-                    listing
+                    listing,
+                    category
                 ),
         }
     );
@@ -872,7 +997,137 @@ const closeListingPhotos =
         }
     };
 
+const createCategoriesKeyboard =
+    () => {
+        return {
+            inline_keyboard: [
+                [
+                    {
+                        text:
+                            "Усі оголошення",
+                        callback_data:
+                            "category:all",
+                    },
+                ],
 
+                [
+                    {
+                        text: "Продаж",
+                        callback_data:
+                            "category:sale",
+                    },
+                    {
+                        text: "Купівля",
+                        callback_data:
+                            "category:buy",
+                    },
+                ],
+
+                [
+                    {
+                        text: "Оренда",
+                        callback_data:
+                            "category:rent",
+                    },
+                    {
+                        text: "Послуга",
+                        callback_data:
+                            "category:service",
+                    },
+                ],
+
+                [
+                    {
+                        text: "Робота",
+                        callback_data:
+                            "category:work",
+                    },
+                    {
+                        text: "Питання",
+                        callback_data:
+                            "category:question",
+                    },
+                ],
+
+                [
+                    {
+                        text: "Обмін",
+                        callback_data:
+                            "category:exchange",
+                    },
+                    {
+                        text:
+                            "Віддам безкоштовно",
+                        callback_data:
+                            "category:free",
+                    },
+                ],
+
+                [
+                    {
+                        text:
+                            "Загублено / знайдено",
+                        callback_data:
+                            "category:lost",
+                    },
+                ],
+
+                [
+                    {
+                        text: "Подія",
+                        callback_data:
+                            "category:event",
+                    },
+                    {
+                        text:
+                            "Оголошення громади",
+                        callback_data:
+                            "category:community",
+                    },
+                ],
+
+                [
+                    {
+                        text: "Інше",
+                        callback_data:
+                            "category:other",
+                    },
+                ],
+            ],
+        };
+    };
+
+    const showCategories = async (
+    callbackQuery,
+    message = "Оберіть категорію оголошень:"
+) => {
+    return telegramRequest(
+        "editMessageCaption",
+        {
+            chat_id:
+                callbackQuery
+                    .message
+                    .chat
+                    .id,
+
+            message_id:
+                callbackQuery
+                    .message
+                    .message_id,
+
+            caption:
+                `<b>${escapeHtml(
+                    message
+                )}</b>`,
+
+            parse_mode:
+                "HTML",
+
+            reply_markup:
+                createCategoriesKeyboard(),
+        }
+    );
+};
 /* =========================================================
    CALLBACK
 ========================================================= */
@@ -1001,7 +1256,121 @@ exports.handler = async (
                 callbackQuery.id
             );
 
+if (
+    data === "categories"
+) {
+    await showCategories(
+        callbackQuery
+    );
 
+    return {
+        statusCode: 200,
+        body: "OK",
+    };
+}
+if (
+    data.startsWith(
+        "category:"
+    )
+) {
+    const categoryCode =
+        data.substring(9);
+
+    const category =
+        getCategoryFromCode(
+            categoryCode
+        );
+
+
+    const listing =
+        await getFirstListing(
+            category
+        );
+
+
+    /*
+     * У категорії нічого немає.
+     */
+    if (!listing) {
+        const categoryName =
+            category ||
+            "Усі оголошення";
+
+        await showCategories(
+            callbackQuery,
+            `У категорії «${categoryName}» наразі немає активних оголошень.\n\nОберіть іншу категорію:`
+        );
+
+        return {
+            statusCode: 200,
+            body: "OK",
+        };
+    }
+
+
+    /*
+     * Знайшли оголошення.
+     */
+    await editListing(
+        callbackQuery,
+        listing,
+        category
+    );
+
+
+    return {
+        statusCode: 200,
+        body: "OK",
+    };
+}
+if (
+    data.startsWith(
+        "refresh:"
+    )
+) {
+    const categoryCode =
+        data.substring(8);
+
+    const category =
+        getCategoryFromCode(
+            categoryCode
+        );
+
+
+    const listing =
+        await getFirstListing(
+            category
+        );
+
+
+    if (!listing) {
+        await showCategories(
+            callbackQuery,
+            category
+                ? `У категорії «${category}» наразі немає активних оголошень.\n\nОберіть іншу категорію:`
+                : "Наразі немає активних оголошень.\n\nСпробуйте обрати категорію:"
+        );
+
+
+        return {
+            statusCode: 200,
+            body: "OK",
+        };
+    }
+
+
+    await editListing(
+        callbackQuery,
+        listing,
+        category
+    );
+
+
+    return {
+        statusCode: 200,
+        body: "OK",
+    };
+}
             /* =============================================
                NOOP
             ============================================= */
@@ -1108,148 +1477,163 @@ exports.handler = async (
             /* =============================================
                НАСТУПНЕ ОГОЛОШЕННЯ
             ============================================= */
+/* =============================================
+   НАСТУПНЕ ОГОЛОШЕННЯ
+============================================= */
 
-            if (
-                data.startsWith(
-                    "next:"
-                )
-            ) {
-                const listingId =
-                    data.substring(5);
+if (
+    data.startsWith(
+        "next:"
+    )
+) {
+    const parts =
+        data.split(":");
 
+    const listingId =
+        parts[1];
 
-                const currentListing =
-                    await getListingById(
-                        listingId
-                    );
+    const categoryCode =
+        parts[2] ||
+        "all";
 
-
-                /*
-                 * Якщо поточне оголошення
-                 * вже неактивне —
-                 * просто відкриваємо перше.
-                 */
-                if (
-                    !isListingActive(
-                        currentListing
-                    )
-                ) {
-                    const firstListing =
-                        await getFirstListing();
+    const category =
+        getCategoryFromCode(
+            categoryCode
+        );
 
 
-                    if (firstListing) {
-                        await editListing(
-                            callbackQuery,
-                            firstListing
-                        );
-                    }
+    const currentListing =
+        await getListingById(
+            listingId
+        );
 
 
-                    return {
-                        statusCode:
-                            200,
-
-                        body:
-                            "OK",
-                    };
-                }
-
-
-                const nextListing =
-                    await getNextListing(
-                        currentListing
-                    );
+    if (
+        !isListingActive(
+            currentListing
+        )
+    ) {
+        const firstListing =
+            await getFirstListing(
+                category
+            );
 
 
-                if (nextListing) {
-                    await editListing(
-                        callbackQuery,
-                        nextListing
-                    );
-                }
+        if (firstListing) {
+            await editListing(
+                callbackQuery,
+                firstListing,
+                category
+            );
+        }
 
 
-                return {
-                    statusCode:
-                        200,
-
-                    body:
-                        "OK",
-                };
-            }
+        return {
+            statusCode: 200,
+            body: "OK",
+        };
+    }
 
 
-            /* =============================================
-               ПОПЕРЕДНЄ ОГОЛОШЕННЯ
-            ============================================= */
-
-            if (
-                data.startsWith(
-                    "prev:"
-                )
-            ) {
-                const listingId =
-                    data.substring(5);
+    const nextListing =
+        await getNextListing(
+            currentListing,
+            category
+        );
 
 
-                const currentListing =
-                    await getListingById(
-                        listingId
-                    );
+    if (nextListing) {
+        await editListing(
+            callbackQuery,
+            nextListing,
+            category
+        );
+    }
 
 
-                if (
-                    !isListingActive(
-                        currentListing
-                    )
-                ) {
-                    const firstListing =
-                        await getFirstListing();
+    return {
+        statusCode: 200,
+        body: "OK",
+    };
+}
+
+if (
+    data.startsWith(
+        "prev:"
+    )
+) {
+    const parts =
+        data.split(":");
+
+    const listingId =
+        parts[1];
+
+    const categoryCode =
+        parts[2] ||
+        "all";
+
+    const category =
+        getCategoryFromCode(
+            categoryCode
+        );
 
 
-                    if (firstListing) {
-                        await editListing(
-                            callbackQuery,
-                            firstListing
-                        );
-                    }
+    const currentListing =
+        await getListingById(
+            listingId
+        );
 
 
-                    return {
-                        statusCode:
-                            200,
-
-                        body:
-                            "OK",
-                    };
-                }
-
-
-                const previousListing =
-                    await getPreviousListing(
-                        currentListing
-                    );
+    if (
+        !isListingActive(
+            currentListing
+        )
+    ) {
+        const firstListing =
+            await getFirstListing(
+                category
+            );
 
 
-                if (
-                    previousListing
-                ) {
-                    await editListing(
-                        callbackQuery,
-                        previousListing
-                    );
-                }
+        if (firstListing) {
+            await editListing(
+                callbackQuery,
+                firstListing,
+                category
+            );
+        }
 
 
-                return {
-                    statusCode:
-                        200,
+        return {
+            statusCode: 200,
+            body: "OK",
+        };
+    }
 
-                    body:
-                        "OK",
-                };
-            }
+
+    const previousListing =
+        await getPreviousListing(
+            currentListing,
+            category
+        );
+
+
+    if (
+        previousListing
+    ) {
+        await editListing(
+            callbackQuery,
+            previousListing,
+            category
+        );
+    }
+
+
+    return {
+        statusCode: 200,
+        body: "OK",
+    };
+}
         }
 
 

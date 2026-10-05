@@ -16,7 +16,12 @@ import {
     User,
     Plus,
     Info,
+    Instagram,
 } from "lucide-react";
+
+import {
+    FaTelegramPlane,
+} from "react-icons/fa";
 
 import Modal from "./Modal";
 import LoginModal from "./auth/LoginModal";
@@ -46,14 +51,14 @@ const Navbar = () => {
     ] = useState(false);
 
     const [
-    hasSeenOnboarding,
-    setHasSeenOnboarding,
-] = useState(
-    () =>
-        localStorage.getItem(
-            "rboard_onboarding_seen"
-        ) === "true"
-);
+        hasSeenOnboarding,
+        setHasSeenOnboarding,
+    ] = useState(
+        () =>
+            localStorage.getItem(
+                "rboard_onboarding_seen"
+            ) === "true"
+    );
     const [showLogin, setShowLogin] =
         useState(false);
 
@@ -85,83 +90,83 @@ const Navbar = () => {
 
         return unsubscribe;
     }, []);
-useEffect(() => {
-    if (authLoading) {
-        return;
-    }
-
-    if (location.pathname !== "/") {
-        return;
-    }
-
-    if (hasSeenOnboarding) {
-        return;
-    }
-
-    getOnboardingImages().forEach((src) => {
-        const image = new Image();
-        image.src = src;
-    });
-
-    let timerId;
-
-    const startTimer = () => {
-        clearTimeout(timerId);
-
-        timerId = setTimeout(() => {
-            setIsOnboardingOpen(true);
-        }, 5000);
-    };
-
-    const handleActivity = () => {
-        if (isOnboardingOpen) {
+    useEffect(() => {
+        if (authLoading) {
             return;
         }
 
+        if (location.pathname !== "/") {
+            return;
+        }
+
+        if (hasSeenOnboarding) {
+            return;
+        }
+
+        getOnboardingImages().forEach((src) => {
+            const image = new Image();
+            image.src = src;
+        });
+
+        let timerId;
+
+        const startTimer = () => {
+            clearTimeout(timerId);
+
+            timerId = setTimeout(() => {
+                setIsOnboardingOpen(true);
+            }, 5000);
+        };
+
+        const handleActivity = () => {
+            if (isOnboardingOpen) {
+                return;
+            }
+
+            startTimer();
+        };
+
         startTimer();
-    };
 
-    startTimer();
-
-    window.addEventListener(
-        "click",
-        handleActivity
-    );
-
-    window.addEventListener(
-        "keydown",
-        handleActivity
-    );
-
-    window.addEventListener(
-        "touchstart",
-        handleActivity
-    );
-
-    return () => {
-        clearTimeout(timerId);
-
-        window.removeEventListener(
+        window.addEventListener(
             "click",
             handleActivity
         );
 
-        window.removeEventListener(
+        window.addEventListener(
             "keydown",
             handleActivity
         );
 
-        window.removeEventListener(
+        window.addEventListener(
             "touchstart",
             handleActivity
         );
-    };
-}, [
-    authLoading,
-    location.pathname,
-    hasSeenOnboarding,
-    isOnboardingOpen,
-]);
+
+        return () => {
+            clearTimeout(timerId);
+
+            window.removeEventListener(
+                "click",
+                handleActivity
+            );
+
+            window.removeEventListener(
+                "keydown",
+                handleActivity
+            );
+
+            window.removeEventListener(
+                "touchstart",
+                handleActivity
+            );
+        };
+    }, [
+        authLoading,
+        location.pathname,
+        hasSeenOnboarding,
+        isOnboardingOpen,
+    ]);
 
 
 
@@ -207,29 +212,29 @@ useEffect(() => {
 
         setIsOnboardingOpen(true);
     };
-const closeOnboarding = () => {
-    localStorage.setItem(
-        "rboard_onboarding_seen",
-        "true"
-    );
+    const closeOnboarding = () => {
+        localStorage.setItem(
+            "rboard_onboarding_seen",
+            "true"
+        );
 
-    setHasSeenOnboarding(true);
-    setIsOnboardingOpen(false);
-};
-const openRegisterFromOnboarding = () => {
-    localStorage.setItem(
-        "rboard_onboarding_seen",
-        "true"
-    );
+        setHasSeenOnboarding(true);
+        setIsOnboardingOpen(false);
+    };
+    const openRegisterFromOnboarding = () => {
+        localStorage.setItem(
+            "rboard_onboarding_seen",
+            "true"
+        );
 
-    setHasSeenOnboarding(true);
-    setIsOnboardingOpen(false);
-    setShowLogin(false);
+        setHasSeenOnboarding(true);
+        setIsOnboardingOpen(false);
+        setShowLogin(false);
 
-    setTimeout(() => {
-        setShowRegister(true);
-    }, 150);
-};
+        setTimeout(() => {
+            setShowRegister(true);
+        }, 150);
+    };
 
     useEffect(() => {
         const handleOpenRegister = () => {
@@ -291,6 +296,7 @@ const openRegisterFromOnboarding = () => {
                             />
                         </Link>
 
+                        {/* Інформація про RBoard */}
                         <button
                             type="button"
                             onClick={openOnboarding}
@@ -317,6 +323,67 @@ const openRegisterFromOnboarding = () => {
                                 strokeWidth={2.2}
                             />
                         </button>
+
+                        {/* Instagram */}
+                        <a
+                            href="https://www.instagram.com/rakhivboard?stkn=MWZxdmY5bDYzejBnag%3D%3D"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="RBoard в Instagram"
+                            title="Instagram RBoard"
+                            className="
+            flex h-8 w-8
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            border border-slate-200
+            bg-white
+            text-slate-500
+            transition
+            hover:border-pink-200
+            hover:bg-pink-50
+            hover:text-pink-600
+            hover:ring-1
+            hover:ring-pink-200
+            active:scale-95
+        "
+                        >
+                            <Instagram
+                                size={16}
+                                strokeWidth={2.2}
+                            />
+                        </a>
+
+                        {/* Telegram */}
+                        <a
+                            href="https://t.me/RBoard_Rakhiv_Bot"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="RBoard у Telegram"
+                            title="Telegram-бот RBoard"
+                            className="
+            flex h-8 w-8
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            border border-slate-200
+            bg-white
+            text-slate-500
+            transition
+            hover:border-sky-200
+            hover:bg-sky-50
+            hover:text-sky-500
+            hover:ring-1
+            hover:ring-sky-200
+            active:scale-95
+        "
+                        >
+                            <FaTelegramPlane
+                                size={15}
+                            />
+                        </a>
                     </div>
 
 

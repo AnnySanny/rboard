@@ -565,7 +565,7 @@ const createCaption = (
     const title =
         escapeHtml(
             listing.title ||
-                "Без назви"
+            "Без назви"
         );
 
     const description =
@@ -578,13 +578,13 @@ const createCaption = (
     const city =
         escapeHtml(
             getCityName(listing) ||
-                "Населений пункт не вказано"
+            "Населений пункт не вказано"
         );
 
     const type =
         escapeHtml(
             listing.type ||
-                "Інше"
+            "Інше"
         );
 
     return [
@@ -848,15 +848,15 @@ const sendListingPhotos = async (
 
                 ...(index === 0
                     ? {
-                          caption:
-                              `<b>${escapeHtml(
-                                  listing.title ||
-                                      "Фото оголошення"
-                              )}</b>`,
+                        caption:
+                            `<b>${escapeHtml(
+                                listing.title ||
+                                "Фото оголошення"
+                            )}</b>`,
 
-                          parse_mode:
-                              "HTML",
-                      }
+                        parse_mode:
+                            "HTML",
+                    }
                     : {}),
             })
         );
@@ -887,7 +887,7 @@ const sendListingPhotos = async (
             text:
                 `Фото оголошення «${escapeHtml(
                     listing.title ||
-                        "Без назви"
+                    "Без назви"
                 )}»`,
 
             parse_mode: "HTML",
@@ -1097,7 +1097,7 @@ const createCategoriesKeyboard =
         };
     };
 
-    const showCategories = async (
+const showCategories = async (
     callbackQuery,
     message = "Оберіть категорію оголошень:"
 ) => {
@@ -1195,7 +1195,38 @@ exports.handler = async (
                     .chat
                     .id;
 
+            /*
+             * Зберігаємо користувача,
+             * який запустив Telegram-бота.
+             */
+            await db
+                .collection("telegramSubscribers")
+                .doc(String(chatId))
+                .set(
+                    {
+                        chatId: chatId,
 
+                        username:
+                            update.message
+                                .from
+                                ?.username ||
+                            null,
+
+                        firstName:
+                            update.message
+                                .from
+                                ?.first_name ||
+                            null,
+
+                        active: true,
+
+                        updatedAt:
+                            Timestamp.now(),
+                    },
+                    {
+                        merge: true,
+                    }
+                );
             const listing =
                 await getFirstListing();
 
@@ -1256,121 +1287,121 @@ exports.handler = async (
                 callbackQuery.id
             );
 
-if (
-    data === "categories"
-) {
-    await showCategories(
-        callbackQuery
-    );
+            if (
+                data === "categories"
+            ) {
+                await showCategories(
+                    callbackQuery
+                );
 
-    return {
-        statusCode: 200,
-        body: "OK",
-    };
-}
-if (
-    data.startsWith(
-        "category:"
-    )
-) {
-    const categoryCode =
-        data.substring(9);
+                return {
+                    statusCode: 200,
+                    body: "OK",
+                };
+            }
+            if (
+                data.startsWith(
+                    "category:"
+                )
+            ) {
+                const categoryCode =
+                    data.substring(9);
 
-    const category =
-        getCategoryFromCode(
-            categoryCode
-        );
-
-
-    const listing =
-        await getFirstListing(
-            category
-        );
+                const category =
+                    getCategoryFromCode(
+                        categoryCode
+                    );
 
 
-    /*
-     * У категорії нічого немає.
-     */
-    if (!listing) {
-        const categoryName =
-            category ||
-            "Усі оголошення";
-
-        await showCategories(
-            callbackQuery,
-            `У категорії «${categoryName}» наразі немає активних оголошень.\n\nОберіть іншу категорію:`
-        );
-
-        return {
-            statusCode: 200,
-            body: "OK",
-        };
-    }
+                const listing =
+                    await getFirstListing(
+                        category
+                    );
 
 
-    /*
-     * Знайшли оголошення.
-     */
-    await editListing(
-        callbackQuery,
-        listing,
-        category
-    );
+                /*
+                 * У категорії нічого немає.
+                 */
+                if (!listing) {
+                    const categoryName =
+                        category ||
+                        "Усі оголошення";
+
+                    await showCategories(
+                        callbackQuery,
+                        `У категорії «${categoryName}» наразі немає активних оголошень.\n\nОберіть іншу категорію:`
+                    );
+
+                    return {
+                        statusCode: 200,
+                        body: "OK",
+                    };
+                }
 
 
-    return {
-        statusCode: 200,
-        body: "OK",
-    };
-}
-if (
-    data.startsWith(
-        "refresh:"
-    )
-) {
-    const categoryCode =
-        data.substring(8);
-
-    const category =
-        getCategoryFromCode(
-            categoryCode
-        );
+                /*
+                 * Знайшли оголошення.
+                 */
+                await editListing(
+                    callbackQuery,
+                    listing,
+                    category
+                );
 
 
-    const listing =
-        await getFirstListing(
-            category
-        );
+                return {
+                    statusCode: 200,
+                    body: "OK",
+                };
+            }
+            if (
+                data.startsWith(
+                    "refresh:"
+                )
+            ) {
+                const categoryCode =
+                    data.substring(8);
+
+                const category =
+                    getCategoryFromCode(
+                        categoryCode
+                    );
 
 
-    if (!listing) {
-        await showCategories(
-            callbackQuery,
-            category
-                ? `У категорії «${category}» наразі немає активних оголошень.\n\nОберіть іншу категорію:`
-                : "Наразі немає активних оголошень.\n\nСпробуйте обрати категорію:"
-        );
+                const listing =
+                    await getFirstListing(
+                        category
+                    );
 
 
-        return {
-            statusCode: 200,
-            body: "OK",
-        };
-    }
+                if (!listing) {
+                    await showCategories(
+                        callbackQuery,
+                        category
+                            ? `У категорії «${category}» наразі немає активних оголошень.\n\nОберіть іншу категорію:`
+                            : "Наразі немає активних оголошень.\n\nСпробуйте обрати категорію:"
+                    );
 
 
-    await editListing(
-        callbackQuery,
-        listing,
-        category
-    );
+                    return {
+                        statusCode: 200,
+                        body: "OK",
+                    };
+                }
 
 
-    return {
-        statusCode: 200,
-        body: "OK",
-    };
-}
+                await editListing(
+                    callbackQuery,
+                    listing,
+                    category
+                );
+
+
+                return {
+                    statusCode: 200,
+                    body: "OK",
+                };
+            }
             /* =============================================
                NOOP
             ============================================= */
@@ -1477,163 +1508,163 @@ if (
             /* =============================================
                НАСТУПНЕ ОГОЛОШЕННЯ
             ============================================= */
-/* =============================================
-   НАСТУПНЕ ОГОЛОШЕННЯ
-============================================= */
+            /* =============================================
+               НАСТУПНЕ ОГОЛОШЕННЯ
+            ============================================= */
 
-if (
-    data.startsWith(
-        "next:"
-    )
-) {
-    const parts =
-        data.split(":");
+            if (
+                data.startsWith(
+                    "next:"
+                )
+            ) {
+                const parts =
+                    data.split(":");
 
-    const listingId =
-        parts[1];
+                const listingId =
+                    parts[1];
 
-    const categoryCode =
-        parts[2] ||
-        "all";
+                const categoryCode =
+                    parts[2] ||
+                    "all";
 
-    const category =
-        getCategoryFromCode(
-            categoryCode
-        );
-
-
-    const currentListing =
-        await getListingById(
-            listingId
-        );
+                const category =
+                    getCategoryFromCode(
+                        categoryCode
+                    );
 
 
-    if (
-        !isListingActive(
-            currentListing
-        )
-    ) {
-        const firstListing =
-            await getFirstListing(
-                category
-            );
+                const currentListing =
+                    await getListingById(
+                        listingId
+                    );
 
 
-        if (firstListing) {
-            await editListing(
-                callbackQuery,
-                firstListing,
-                category
-            );
-        }
+                if (
+                    !isListingActive(
+                        currentListing
+                    )
+                ) {
+                    const firstListing =
+                        await getFirstListing(
+                            category
+                        );
 
 
-        return {
-            statusCode: 200,
-            body: "OK",
-        };
-    }
+                    if (firstListing) {
+                        await editListing(
+                            callbackQuery,
+                            firstListing,
+                            category
+                        );
+                    }
 
 
-    const nextListing =
-        await getNextListing(
-            currentListing,
-            category
-        );
+                    return {
+                        statusCode: 200,
+                        body: "OK",
+                    };
+                }
 
 
-    if (nextListing) {
-        await editListing(
-            callbackQuery,
-            nextListing,
-            category
-        );
-    }
+                const nextListing =
+                    await getNextListing(
+                        currentListing,
+                        category
+                    );
 
 
-    return {
-        statusCode: 200,
-        body: "OK",
-    };
-}
-
-if (
-    data.startsWith(
-        "prev:"
-    )
-) {
-    const parts =
-        data.split(":");
-
-    const listingId =
-        parts[1];
-
-    const categoryCode =
-        parts[2] ||
-        "all";
-
-    const category =
-        getCategoryFromCode(
-            categoryCode
-        );
+                if (nextListing) {
+                    await editListing(
+                        callbackQuery,
+                        nextListing,
+                        category
+                    );
+                }
 
 
-    const currentListing =
-        await getListingById(
-            listingId
-        );
+                return {
+                    statusCode: 200,
+                    body: "OK",
+                };
+            }
+
+            if (
+                data.startsWith(
+                    "prev:"
+                )
+            ) {
+                const parts =
+                    data.split(":");
+
+                const listingId =
+                    parts[1];
+
+                const categoryCode =
+                    parts[2] ||
+                    "all";
+
+                const category =
+                    getCategoryFromCode(
+                        categoryCode
+                    );
 
 
-    if (
-        !isListingActive(
-            currentListing
-        )
-    ) {
-        const firstListing =
-            await getFirstListing(
-                category
-            );
+                const currentListing =
+                    await getListingById(
+                        listingId
+                    );
 
 
-        if (firstListing) {
-            await editListing(
-                callbackQuery,
-                firstListing,
-                category
-            );
-        }
+                if (
+                    !isListingActive(
+                        currentListing
+                    )
+                ) {
+                    const firstListing =
+                        await getFirstListing(
+                            category
+                        );
 
 
-        return {
-            statusCode: 200,
-            body: "OK",
-        };
-    }
+                    if (firstListing) {
+                        await editListing(
+                            callbackQuery,
+                            firstListing,
+                            category
+                        );
+                    }
 
 
-    const previousListing =
-        await getPreviousListing(
-            currentListing,
-            category
-        );
+                    return {
+                        statusCode: 200,
+                        body: "OK",
+                    };
+                }
 
 
-    if (
-        previousListing
-    ) {
-        await editListing(
-            callbackQuery,
-            previousListing,
-            category
-        );
-    }
+                const previousListing =
+                    await getPreviousListing(
+                        currentListing,
+                        category
+                    );
 
 
-    return {
-        statusCode: 200,
-        body: "OK",
-    };
-}
+                if (
+                    previousListing
+                ) {
+                    await editListing(
+                        callbackQuery,
+                        previousListing,
+                        category
+                    );
+                }
+
+
+                return {
+                    statusCode: 200,
+                    body: "OK",
+                };
+            }
         }
 
 

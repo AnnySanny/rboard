@@ -10,10 +10,12 @@ exports.handler = async (event) => {
 
     try {
         const botToken =
-            process.env.TELEGRAM_ADMIN_BOT_TOKEN;
+            process.env
+                .TELEGRAM_ADMIN_BOT_TOKEN;
 
         const chatId =
-            process.env.TELEGRAM_ADMIN_CHAT_ID;
+            process.env
+                .TELEGRAM_ADMIN_CHAT_ID;
 
         if (!botToken || !chatId) {
             throw new Error(
@@ -29,57 +31,139 @@ exports.handler = async (event) => {
             description,
             city,
             type,
-        } = JSON.parse(event.body || "{}");
+        } = JSON.parse(
+            event.body || "{}"
+        );
 
-        const actionTitle =
-            action === "edited"
-                ? "✏️ Відредаговано оголошення"
-                : "🆕 Додано оголошення";
+
+        /*
+         * Екрануємо текст користувача,
+         * оскільки використовуємо HTML.
+         */
+        const escapeHtml = (
+            value = ""
+        ) => {
+            return String(value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        };
+
+
+        const safeTitle =
+            escapeHtml(
+                title || "Без назви"
+            );
+
+        const safeAuthor =
+            escapeHtml(
+                author || "Не вказано"
+            );
+
+        const safeCity =
+            escapeHtml(
+                city || "Не вказано"
+            );
+
+        const safeType =
+            escapeHtml(
+                type || "Не вказано"
+            );
+
 
         const authorType =
             isAuthenticated
                 ? "Авторизований"
                 : "Гість";
 
+
         const shortDescription =
             description?.trim()
-                ? description.trim().slice(0, 300)
+                ? escapeHtml(
+                    description
+                        .trim()
+                        .slice(0, 400)
+                )
                 : "Опис відсутній";
 
+
+        const isEdited =
+            action === "edited";
+
+
+        const actionTitle =
+            isEdited
+                ? "ОГОЛОШЕННЯ ВІДРЕДАГОВАНО"
+                : "НОВЕ ОГОЛОШЕННЯ";
+
+
+        const statusText =
+            isEdited
+                ? "Очікує на повторну перевірку"
+                : "Очікує на перевірку";
+
+
         const message = [
-            actionTitle,
+            `<b>${actionTitle}</b>`,
+
             "",
-            `📌 ${title || "Без назви"}`,
+
+            `<b>${safeTitle}</b>`,
+
             "",
-            `👤 Автор: ${author || "Не вказано"}`,
-            `🔐 Тип автора: ${authorType}`,
+
+            `<b>Категорія:</b> ${safeType}`,
+            `<b>Населений пункт:</b> ${safeCity}`,
+            `<b>Автор:</b> ${safeAuthor}`,
+            `<b>Тип автора:</b> ${authorType}`,
+
             "",
-            "📝 Опис:",
+
+            "<b>Опис</b>",
             shortDescription,
+
             "",
-            `📍 Місто: ${city || "Не вказано"}`,
-            `🏷 Категорія: ${type || "Не вказано"}`,
+
+            `<i>${statusText}</i>`,
         ].join("\n");
 
-        const telegramResponse = await fetch(
-            `https://api.telegram.org/bot${botToken}/sendMessage`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type":
-                        "application/json",
-                },
-                body: JSON.stringify({
-                    chat_id: chatId,
-                    text: message,
-                }),
-            }
-        );
+
+        const telegramResponse =
+            await fetch(
+                `https://api.telegram.org/bot${botToken}/sendMessage`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+
+                    body: JSON.stringify({
+                        chat_id:
+                            chatId,
+
+                        text:
+                            message,
+
+                        parse_mode:
+                            "HTML",
+
+                        disable_web_page_preview:
+                            true,
+                    }),
+                }
+            );
+
 
         const telegramData =
             await telegramResponse.json();
 
-        if (!telegramResponse.ok) {
+
+        if (
+            !telegramResponse.ok ||
+            !telegramData.ok
+        ) {
             console.error(
                 "Telegram error:",
                 telegramData
@@ -90,8 +174,10 @@ exports.handler = async (event) => {
             );
         }
 
+
         return {
             statusCode: 200,
+
             body: JSON.stringify({
                 success: true,
             }),
@@ -102,10 +188,13 @@ exports.handler = async (event) => {
             error
         );
 
+
         return {
             statusCode: 500,
+
             body: JSON.stringify({
                 success: false,
+
                 error:
                     "Не вдалося надіслати повідомлення",
             }),

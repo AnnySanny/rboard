@@ -1,4 +1,4 @@
-import { useEffect,  useState } from "react";
+import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import {
@@ -1089,7 +1089,52 @@ const AdminListings = () => {
         setCityFilter("all");
         setSortOrder("newest");
     };
+    const notifyTelegramUsers = async (
+        listingId
+    ) => {
+        try {
+            const response =
+                await fetch(
+                    "/.netlify/functions/notify-users",
+                    {
+                        method: "POST",
 
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body:
+                            JSON.stringify({
+                                listingId,
+                            }),
+                    }
+                );
+
+            const result =
+                await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    "Помилка Telegram-розсилки:",
+                    result
+                );
+
+                return;
+            }
+
+            console.log(
+                "Telegram-розсилка:",
+                result
+            );
+        } catch (error) {
+
+            console.error(
+                "Не вдалося надіслати Telegram-сповіщення:",
+                error
+            );
+        }
+    };
     const handleStatusChange = async (
         listing,
         newStatus
@@ -1209,6 +1254,19 @@ const AdminListings = () => {
                 listingRef,
                 updateData
             );
+            /*
+ * Якщо оголошення щойно
+ * опубліковано — повідомляємо
+ * користувачів Telegram-бота.
+ */
+            if (
+                newStatus === "approved" &&
+                listing.status !== "approved"
+            ) {
+                await notifyTelegramUsers(
+                    listing.id
+                );
+            }
             let logAction =
                 ADMIN_LOG_ACTIONS.LISTING_UPDATED;
 

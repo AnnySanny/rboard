@@ -1,8 +1,20 @@
-const admin = require("firebase-admin");
+const {
+    initializeApp,
+    cert,
+    getApps,
+} = require("firebase-admin/app");
 
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert({
+const {
+    getFirestore,
+    Timestamp,
+} = require("firebase-admin/firestore");
+
+/*
+ * Firebase Admin
+ */
+if (getApps().length === 0) {
+    initializeApp({
+        credential: cert({
             projectId:
                 process.env.FIREBASE_PROJECT_ID,
 
@@ -18,8 +30,11 @@ if (!admin.apps.length) {
     });
 }
 
-const db = admin.firestore();
+const db = getFirestore();
 
+/*
+ * Telegram
+ */
 const BOT_TOKEN =
     process.env.TELEGRAM_USER_BOT_TOKEN;
 
@@ -29,6 +44,9 @@ const TELEGRAM_API =
 const SITE_URL =
     "https://rboard.netlify.app";
 
+/*
+ * Захист HTML для Telegram.
+ */
 const escapeHtml = (value = "") => {
     return String(value)
         .replace(/&/g, "&amp;")
@@ -36,14 +54,18 @@ const escapeHtml = (value = "") => {
         .replace(/>/g, "&gt;");
 };
 
+/*
+ * Скорочуємо опис оголошення.
+ */
 const getShortDescription = (
     description,
     maxLength = 220
 ) => {
-    const text =
-        String(description || "")
-            .trim()
-            .replace(/\s+/g, " ");
+    const text = String(
+        description || ""
+    )
+        .trim()
+        .replace(/\s+/g, " ");
 
     if (!text) {
         return "Без додаткового опису.";
@@ -53,27 +75,47 @@ const getShortDescription = (
         return text;
     }
 
-    return `${text.slice(0, maxLength).trim()}…`;
+    return `${text
+        .slice(0, maxLength)
+        .trim()}…`;
 };
 
+/*
+ * Отримуємо активні оголошення.
+ */
 const getListings = async () => {
-    const now =
-        admin.firestore.Timestamp.now();
+    const now = Timestamp.now();
 
     const snapshot = await db
         .collection("listings")
-        .where("status", "==", "approved")
-        .where("expiresAt", ">", now)
-        .orderBy("expiresAt", "asc")
+        .where(
+            "status",
+            "==",
+            "approved"
+        )
+        .where(
+            "expiresAt",
+            ">",
+            now
+        )
+        .orderBy(
+            "expiresAt",
+            "asc"
+        )
         .limit(50)
         .get();
 
-    return snapshot.docs.map((document) => ({
-        id: document.id,
-        ...document.data(),
-    }));
+    return snapshot.docs.map(
+        (document) => ({
+            id: document.id,
+            ...document.data(),
+        })
+    );
 };
 
+/*
+ * Назва населеного пункту.
+ */
 const getCityName = (listing) => {
     if (
         listing.city &&
@@ -85,30 +127,39 @@ const getCityName = (listing) => {
     return listing.city || "";
 };
 
+/*
+ * Перше фото оголошення.
+ */
 const getFirstImage = (listing) => {
     if (
-        !Array.isArray(listing.images) ||
+        !Array.isArray(
+            listing.images
+        ) ||
         listing.images.length === 0
     ) {
         return null;
     }
 
     return (
-        listing.images[0]?.imageUrl ||
+        listing.images[0]
+            ?.imageUrl ||
         listing.images[0]?.url ||
         null
     );
 };
 
+/*
+ * Текст картки.
+ */
 const createCaption = (
     listing,
     index,
     total
 ) => {
-    const title =
-        escapeHtml(
-            listing.title || "Без назви"
-        );
+    const title = escapeHtml(
+        listing.title ||
+            "Без назви"
+    );
 
     const description =
         escapeHtml(
@@ -117,16 +168,14 @@ const createCaption = (
             )
         );
 
-    const city =
-        escapeHtml(
-            getCityName(listing) ||
-                "Населений пункт не вказано"
-        );
+    const city = escapeHtml(
+        getCityName(listing) ||
+            "Населений пункт не вказано"
+    );
 
-    const type =
-        escapeHtml(
-            listing.type || "Інше"
-        );
+    const type = escapeHtml(
+        listing.type || "Інше"
+    );
 
     return [
         `<b>${title}</b>`,
@@ -139,6 +188,9 @@ const createCaption = (
     ].join("\n");
 };
 
+/*
+ * Кнопки картки.
+ */
 const createKeyboard = (
     listing,
     index,
@@ -165,7 +217,8 @@ const createKeyboard = (
                 {
                     text:
                         `${index + 1} / ${total}`,
-                    callback_data: "noop",
+                    callback_data:
+                        "noop",
                 },
                 {
                     text: "›",
@@ -175,7 +228,8 @@ const createKeyboard = (
             ],
             [
                 {
-                    text: "Детальніше",
+                    text:
+                        "Детальніше",
                     url:
                         `${SITE_URL}/listing/${listing.id}`,
                 },
@@ -184,6 +238,9 @@ const createKeyboard = (
     };
 };
 
+/*
+ * Запит до Telegram API.
+ */
 const telegramRequest = async (
     method,
     body
@@ -192,17 +249,25 @@ const telegramRequest = async (
         `${TELEGRAM_API}/${method}`,
         {
             method: "POST",
+
             headers: {
                 "Content-Type":
                     "application/json",
             },
-            body: JSON.stringify(body),
+
+            body: JSON.stringify(
+                body
+            ),
         }
     );
 
-    const data = await response.json();
+    const data =
+        await response.json();
 
-    if (!response.ok || !data.ok) {
+    if (
+        !response.ok ||
+        !data.ok
+    ) {
         console.error(
             `Telegram ${method} error:`,
             data
@@ -216,6 +281,9 @@ const telegramRequest = async (
     return data;
 };
 
+/*
+ * Надсилаємо картку.
+ */
 const sendListing = async (
     chatId,
     listing,
@@ -239,32 +307,55 @@ const sendListing = async (
             total
         );
 
+    /*
+     * Є фотографія.
+     */
     if (image) {
         return telegramRequest(
             "sendPhoto",
             {
-                chat_id: chatId,
-                photo: image,
+                chat_id:
+                    chatId,
+
+                photo:
+                    image,
+
                 caption,
-                parse_mode: "HTML",
+
+                parse_mode:
+                    "HTML",
+
                 reply_markup:
                     replyMarkup,
             }
         );
     }
 
+    /*
+     * Немає фотографії.
+     */
     return telegramRequest(
         "sendMessage",
         {
-            chat_id: chatId,
-            text: caption,
-            parse_mode: "HTML",
+            chat_id:
+                chatId,
+
+            text:
+                caption,
+
+            parse_mode:
+                "HTML",
+
             reply_markup:
                 replyMarkup,
         }
     );
 };
 
+/*
+ * Редагуємо існуючу картку
+ * при натисканні вперед/назад.
+ */
 const editListing = async (
     callbackQuery,
     listing,
@@ -292,9 +383,11 @@ const editListing = async (
         );
 
     /*
-     * Якщо поточне повідомлення вже
-     * містить фотографію і наступне
-     * оголошення також має фото.
+     * Поточне повідомлення має фото
+     * і наступне оголошення теж має фото.
+     *
+     * Просто замінюємо фото,
+     * текст і кнопки.
      */
     if (
         message.photo &&
@@ -310,10 +403,16 @@ const editListing = async (
                     message.message_id,
 
                 media: {
-                    type: "photo",
-                    media: image,
+                    type:
+                        "photo",
+
+                    media:
+                        image,
+
                     caption,
-                    parse_mode: "HTML",
+
+                    parse_mode:
+                        "HTML",
                 },
 
                 reply_markup:
@@ -323,12 +422,47 @@ const editListing = async (
     }
 
     /*
-     * Telegram не дозволяє нормально
-     * перетворити photo-message у
-     * звичайний text-message і навпаки.
+     * Поточне повідомлення текстове
+     * і наступне оголошення теж
+     * не має фотографії.
+     */
+    if (
+        !message.photo &&
+        !image
+    ) {
+        return telegramRequest(
+            "editMessageText",
+            {
+                chat_id:
+                    message.chat.id,
+
+                message_id:
+                    message.message_id,
+
+                text:
+                    caption,
+
+                parse_mode:
+                    "HTML",
+
+                reply_markup:
+                    replyMarkup,
+            }
+        );
+    }
+
+    /*
+     * Якщо переходимо:
      *
-     * Тому в такому випадку видаляємо
-     * стару картку і надсилаємо нову.
+     * фото -> без фото
+     * або
+     * без фото -> фото
+     *
+     * Telegram не дозволяє просто
+     * змінити тип повідомлення.
+     *
+     * Видаляємо стару картку
+     * і створюємо нову.
      */
     await telegramRequest(
         "deleteMessage",
@@ -349,6 +483,10 @@ const editListing = async (
     );
 };
 
+/*
+ * Прибираємо "завантаження"
+ * після натискання inline-кнопки.
+ */
 const answerCallback = async (
     callbackQueryId
 ) => {
@@ -368,11 +506,23 @@ const answerCallback = async (
     }
 };
 
-exports.handler = async (event) => {
-    if (event.httpMethod !== "POST") {
+/*
+ * Netlify Function
+ */
+exports.handler = async (
+    event
+) => {
+    /*
+     * Telegram надсилає POST.
+     */
+    if (
+        event.httpMethod !==
+        "POST"
+    ) {
         return {
             statusCode: 405,
-            body: "Method Not Allowed",
+            body:
+                "Method Not Allowed",
         };
     }
 
@@ -383,36 +533,51 @@ exports.handler = async (event) => {
             );
 
         /*
-         * /start
+         * Команда /start
          */
         if (
-            update.message?.text ===
+            update.message
+                ?.text ===
             "/start"
         ) {
             const chatId =
-                update.message.chat.id;
+                update.message
+                    .chat.id;
 
             const listings =
                 await getListings();
 
+            /*
+             * Немає активних
+             * оголошень.
+             */
             if (
-                listings.length === 0
+                listings.length ===
+                0
             ) {
                 await telegramRequest(
                     "sendMessage",
                     {
-                        chat_id: chatId,
+                        chat_id:
+                            chatId,
+
                         text:
                             "Наразі немає активних оголошень.",
                     }
                 );
 
                 return {
-                    statusCode: 200,
-                    body: "OK",
+                    statusCode:
+                        200,
+
+                    body:
+                        "OK",
                 };
             }
 
+            /*
+             * Показуємо перше.
+             */
             await sendListing(
                 chatId,
                 listings[0],
@@ -427,26 +592,43 @@ exports.handler = async (event) => {
         }
 
         /*
-         * Inline-кнопки.
+         * Натискання inline-кнопок.
          */
-        if (update.callback_query) {
+        if (
+            update.callback_query
+        ) {
             const callbackQuery =
                 update.callback_query;
 
             const data =
-                callbackQuery.data || "";
+                callbackQuery.data ||
+                "";
 
             await answerCallback(
                 callbackQuery.id
             );
 
-            if (data === "noop") {
+            /*
+             * Кнопка з номером
+             * сторінки нічого
+             * не робить.
+             */
+            if (
+                data === "noop"
+            ) {
                 return {
-                    statusCode: 200,
-                    body: "OK",
+                    statusCode:
+                        200,
+
+                    body:
+                        "OK",
                 };
             }
 
+            /*
+             * Перехід між
+             * оголошеннями.
+             */
             if (
                 data.startsWith(
                     "listing:"
@@ -454,21 +636,31 @@ exports.handler = async (event) => {
             ) {
                 const requestedIndex =
                     Number(
-                        data.split(":")[1]
+                        data.split(
+                            ":"
+                        )[1]
                     );
 
                 const listings =
                     await getListings();
 
                 if (
-                    listings.length === 0
+                    listings.length ===
+                    0
                 ) {
                     return {
-                        statusCode: 200,
-                        body: "OK",
+                        statusCode:
+                            200,
+
+                        body:
+                            "OK",
                     };
                 }
 
+                /*
+                 * Захист від
+                 * некоректного індексу.
+                 */
                 const safeIndex =
                     Number.isInteger(
                         requestedIndex
@@ -485,7 +677,9 @@ exports.handler = async (event) => {
 
                 await editListing(
                     callbackQuery,
-                    listings[safeIndex],
+                    listings[
+                        safeIndex
+                    ],
                     safeIndex,
                     listings.length
                 );
@@ -503,9 +697,10 @@ exports.handler = async (event) => {
         );
 
         /*
-         * Telegram краще повернути 200,
-         * щоб він не повторював одну
-         * й ту саму подію багато разів.
+         * Повертаємо Telegram 200,
+         * щоб одна помилка не
+         * спричинила нескінченні
+         * повторні webhook-запити.
          */
         return {
             statusCode: 200,

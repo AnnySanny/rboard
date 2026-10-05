@@ -14,7 +14,9 @@ import {
     where,
     Timestamp,
 } from "firebase/firestore";
-
+import {
+    FaTelegramPlane,
+} from "react-icons/fa";
 import {
     ArrowRight,
     CalendarDays,
@@ -99,8 +101,13 @@ const Dashboard = () => {
         useState({
             listings: 0,
             newListings: 0,
+
             users: 0,
             newUsers: 0,
+
+            telegramUsers: 0,
+            newTelegramUsers: 0,
+
             feedback: 0,
             pendingListings: 0,
         });
@@ -157,7 +164,11 @@ const Dashboard = () => {
                         db,
                         "users"
                     );
-
+                const telegramUsersRef =
+                    collection(
+                        db,
+                        "telegramSubscribers"
+                    );
                 const feedbackRef =
                     collection(
                         db,
@@ -173,8 +184,13 @@ const Dashboard = () => {
                 const [
                     listingsSnapshot,
                     newListingsSnapshot,
+
+                    telegramUsersSnapshot,
+                    newTelegramUsersSnapshot,
+
                     usersSnapshot,
                     newUsersSnapshot,
+
                     feedbackSnapshot,
                     pendingSnapshot,
                 ] = await Promise.all([
@@ -198,7 +214,28 @@ const Dashboard = () => {
                             )
                         )
                     ),
+                    /*
+                     * Всього користувачів,
+                     * які запустили Telegram-бота
+                     */
+                    getCountFromServer(
+                        telegramUsersRef
+                    ),
 
+                    /*
+                     * Нові користувачі
+                     * Telegram сьогодні
+                     */
+                    getCountFromServer(
+                        query(
+                            telegramUsersRef,
+                            where(
+                                "createdAt",
+                                ">=",
+                                startOfToday
+                            )
+                        )
+                    ),
                     /*
                      * Всього користувачів
                      */
@@ -270,7 +307,15 @@ const Dashboard = () => {
                         newUsersSnapshot
                             .data()
                             .count,
+                    telegramUsers:
+                        telegramUsersSnapshot
+                            .data()
+                            .count,
 
+                    newTelegramUsers:
+                        newTelegramUsersSnapshot
+                            .data()
+                            .count,
                     feedback:
                         feedbackSnapshot
                             .data()
@@ -360,7 +405,7 @@ const Dashboard = () => {
             path: "/dashboard/statistics",
             icon: BarChart3,
         },
-                {
+        {
             title: "Логи системи",
             description:
                 "Показ дій адміністрасторів в систем RBoard.",
@@ -677,76 +722,174 @@ const Dashboard = () => {
                         {/* Користувачі */}
 
                         <div className="
-                            rounded-2xl
-                            border border-slate-200
-                            bg-white
-                            p-5
-                            shadow-sm
-                        ">
-                            <div className="
-                                flex
-                                items-start
-                                justify-between
-                                gap-4
-                            ">
-                                <div>
-                                    <p className="
-                                        text-sm
-                                        font-semibold
-                                        text-slate-500
-                                    ">
-                                        Користувачі
-                                    </p>
+    rounded-2xl
+    border border-slate-200
+    bg-white
+    p-5
+    shadow-sm
+">
+                            <p className="
+        text-sm
+        font-semibold
+        text-slate-500
+    ">
+                                Користувачі
+                            </p>
 
-                                    <p className="
-                                        mt-2
-                                        text-3xl
-                                        font-black
-                                        text-slate-950
-                                    ">
-                                        {statisticsLoading
-                                            ? "—"
-                                            : statistics.users}
-                                    </p>
-                                </div>
-
-                                <div className="
-                                    flex h-11 w-11
-                                    items-center
-                                    justify-center
-                                    rounded-xl
-                                    bg-blue-50
-                                    text-blue-600
-                                ">
-                                    <Users
-                                        size={21}
-                                    />
-                                </div>
-                            </div>
 
                             <div className="
-                                mt-4
-                                flex
-                                items-center
-                                gap-2
-                                text-sm
-                            ">
-                                <span className="
-                                    rounded-lg
-                                    bg-emerald-50
-                                    px-2 py-1
-                                    font-bold
-                                    text-emerald-600
-                                ">
-                                    +
-                                    {statistics.newUsers}
-                                </span>
+        mt-4
+        grid
+        grid-cols-2
+        divide-x
+        divide-slate-100
+    ">
 
-                                <span className="
-                                    text-slate-500
-                                ">
-                                    сьогодні
-                                </span>
+                                {/* Сайт */}
+
+                                <div className="pr-4">
+
+                                    <div className="
+                flex
+                items-center
+                justify-between
+                gap-3
+            ">
+                                        <div>
+                                            <p className="
+                        text-xs
+                        font-semibold
+                        text-slate-400
+                    ">
+                                                Сайт
+                                            </p>
+
+                                            <p className="
+                        mt-1
+                        text-3xl
+                        font-black
+                        text-slate-950
+                    ">
+                                                {statisticsLoading
+                                                    ? "—"
+                                                    : statistics.users}
+                                            </p>
+                                        </div>
+
+
+                                        <div className="
+                    flex h-10 w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-blue-50
+                    text-blue-600
+                ">
+                                            <Users size={20} />
+                                        </div>
+                                    </div>
+
+
+                                    <div className="
+                mt-3
+                flex
+                items-center
+                gap-1.5
+                text-xs
+            ">
+                                        <span className="
+                    rounded-md
+                    bg-emerald-50
+                    px-1.5 py-0.5
+                    font-bold
+                    text-emerald-600
+                ">
+                                            +{statistics.newUsers}
+                                        </span>
+
+                                        <span className="
+                    text-slate-400
+                ">
+                                            сьогодні
+                                        </span>
+                                    </div>
+
+                                </div>
+
+
+                                {/* Telegram */}
+
+                                <div className="pl-4">
+
+                                    <div className="
+                flex
+                items-center
+                justify-between
+                gap-3
+            ">
+                                        <div>
+                                            <p className="
+                        text-xs
+                        font-semibold
+                        text-slate-400
+                    ">
+                                                Telegram
+                                            </p>
+
+                                            <p className="
+                        mt-1
+                        text-3xl
+                        font-black
+                        text-slate-950
+                    ">
+                                                {statisticsLoading
+                                                    ? "—"
+                                                    : statistics.telegramUsers}
+                                            </p>
+                                        </div>
+
+
+                                        <div className="
+                    flex h-10 w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-sky-50
+                    text-sky-500
+                ">
+                                            <FaTelegramPlane
+                                                size={19}
+                                            />
+                                        </div>
+                                    </div>
+
+
+                                    <div className="
+                mt-3
+                flex
+                items-center
+                gap-1.5
+                text-xs
+            ">
+                                        <span className="
+                    rounded-md
+                    bg-emerald-50
+                    px-1.5 py-0.5
+                    font-bold
+                    text-emerald-600
+                ">
+                                            +{statistics.newTelegramUsers}
+                                        </span>
+
+                                        <span className="
+                    text-slate-400
+                ">
+                                            сьогодні
+                                        </span>
+                                    </div>
+
+                                </div>
+
                             </div>
                         </div>
 

@@ -128,6 +128,40 @@ const uploadToCloudinary = async (file) => {
     };
 };
 
+const notifyUsersAboutListing = async (
+    listingId
+) => {
+    try {
+        const response = await fetch(
+            "/.netlify/functions/notify-users",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+
+                body: JSON.stringify({
+                    listingId,
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            console.error(
+                "Не вдалося надіслати Telegram-сповіщення користувачам"
+            );
+        }
+    } catch (error) {
+        console.error(
+            "Помилка Telegram-сповіщення:",
+            error
+        );
+    }
+};
+
+
 const AdminCreateListingForm = ({
     onSuccess,
 }) => {
@@ -462,6 +496,18 @@ const AdminCreateListingForm = ({
                         hidePhone,
                     }
                 );
+
+            /*
+* Надсилаємо Telegram-сповіщення
+* користувачам про нове оголошення.
+*
+* Не використовуємо await, щоб
+* адміністратор не чекав завершення
+* всієї Telegram-розсилки.
+*/
+            notifyUsersAboutListing(
+                createdListingRef.id
+            );
             await createAdminLog({
                 action:
                     ADMIN_LOG_ACTIONS.LISTING_CREATED,

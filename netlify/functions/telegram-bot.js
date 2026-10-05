@@ -1199,34 +1199,56 @@ exports.handler = async (
              * Зберігаємо користувача,
              * який запустив Telegram-бота.
              */
-            await db
-                .collection("telegramSubscribers")
-                .doc(String(chatId))
-                .set(
-                    {
-                        chatId: chatId,
+            const subscriberRef =
+                db
+                    .collection(
+                        "telegramSubscribers"
+                    )
+                    .doc(
+                        String(chatId)
+                    );
 
-                        username:
-                            update.message
-                                .from
-                                ?.username ||
-                            null,
+            const subscriberSnapshot =
+                await subscriberRef.get();
 
-                        firstName:
-                            update.message
-                                .from
-                                ?.first_name ||
-                            null,
+            const subscriberData = {
+                chatId,
 
-                        active: true,
+                username:
+                    update.message
+                        .from
+                        ?.username ||
+                    null,
 
-                        updatedAt:
-                            Timestamp.now(),
-                    },
-                    {
-                        merge: true,
-                    }
-                );
+                firstName:
+                    update.message
+                        .from
+                        ?.first_name ||
+                    null,
+
+                active: true,
+
+                updatedAt:
+                    Timestamp.now(),
+            };
+
+
+            /*
+             * createdAt записуємо
+             * тільки при першому запуску бота.
+             */
+            if (!subscriberSnapshot.exists) {
+                subscriberData.createdAt =
+                    Timestamp.now();
+            }
+
+
+            await subscriberRef.set(
+                subscriberData,
+                {
+                    merge: true,
+                }
+            );
             const listing =
                 await getFirstListing();
 

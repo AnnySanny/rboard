@@ -290,7 +290,7 @@ const Navbar = () => {
                             className="flex shrink-0 items-center"
                         >
                             <img
-                                src="/logo.png"
+                                src="/logo.webp"
                                 alt="RBoard"
                                 className="h-16 w-auto object-contain"
                             />

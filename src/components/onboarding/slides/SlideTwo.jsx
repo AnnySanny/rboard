@@ -40,7 +40,7 @@ const SlideTwo = () => {
 
             <div className="relative h-full w-full md:hidden">
                 <img
-                    src="/images/mobile/slide-2.png"
+                    src="/images/mobile/slide-2.webp"
                     alt="Пошук та фільтрація оголошень RBoard"
                     className="absolute inset-0 h-full w-full object-cover object-center"
                 />
@@ -314,7 +314,7 @@ const SlideTwo = () => {
             xl:rounded-[32%_0_0_32%/50%_0_0_50%]
         ">
             <img
-                src="/images/slide-2.png"
+                src="/images/slide-2.webp"
                 alt="Пошук та фільтрація оголошень RBoard"
                 className="
                     h-full

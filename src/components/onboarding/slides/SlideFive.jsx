@@ -14,7 +14,7 @@ const SlideFive = ({
             <div className="relative h-full w-full md:hidden">
                 <div className="absolute inset-0 overflow-hidden">
                     <img
-                        src="/images/mobile/slide-5.png"
+                        src="/images/mobile/slide-5.webp"
                         alt="Приєднуйтесь до RBoard"
                         className="
                             absolute
@@ -377,7 +377,7 @@ const SlideFive = ({
                 xl:rounded-[32%_0_0_32%/50%_0_0_50%]
             ">
                 <img
-                    src="/images/slide-5.png"
+                    src="/images/slide-5.webp"
                     alt="Приєднуйтесь до RBoard"
                     className="
                         h-full

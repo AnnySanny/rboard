@@ -24,16 +24,16 @@ const slides = [
     SlideFive,
 ];
 const onboardingImages = [
-    "/images/slide-1.png",
-    "/images/slide-2.png",
-    "/images/slide-3.png",
-    "/images/slide-4.png",
-    "/images/slide-5.png",
-    "/images/mobile/slide-1.png",
-    "/images/mobile/slide-2.png",
-    "/images/mobile/slide-3.png",
-    "/images/mobile/slide-4.png",
-    "/images/mobile/slide-5.png",
+    "/images/slide-1.webp",
+    "/images/slide-2.webp",
+    "/images/slide-3.webp",
+    "/images/slide-4.webp",
+    "/images/slide-5.webp",
+    "/images/mobile/slide-1.webp",
+    "/images/mobile/slide-2.webp",
+    "/images/mobile/slide-3.webp",
+    "/images/mobile/slide-4.webp",
+    "/images/mobile/slide-5.webp",
 ];
 const OnboardingModal = ({
     isOpen,
@@ -272,7 +272,7 @@ const OnboardingModal = ({
                     onTouchEnd={handleTouchEnd}
                 >
                     <img
-                        src="/logo.png"
+                        src="/logo.webp"
                         alt="RBoard"
 className="
     absolute

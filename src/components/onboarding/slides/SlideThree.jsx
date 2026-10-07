@@ -43,7 +43,7 @@ const SlideThree = () => {
                 <div className="relative h-full w-full md:hidden">
     <div className="absolute inset-0 overflow-hidden">
         <img
-            src="/images/mobile/slide-3.png"
+            src="/images/mobile/slide-3.webp"
             alt="Створення оголошення на RBoard"
             className="
                 absolute
@@ -418,7 +418,7 @@ const SlideThree = () => {
             xl:rounded-[32%_0_0_32%/50%_0_0_50%]
         ">
             <img
-                src="/images/slide-3.png"
+                src="/images/slide-3.webp"
                 alt="Створення оголошення на RBoard"
                 className="
                     h-full

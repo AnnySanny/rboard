@@ -54,7 +54,7 @@ const SlideFour = () => {
         <div className="relative h-full w-full md:hidden">
             <div className="absolute inset-0 overflow-hidden">
                 <img
-                    src="/images/mobile/slide-4.png"
+                    src="/images/mobile/slide-4.webp"
                     alt="Можливості облікового запису RBoard"
                     className="
                         absolute
@@ -361,7 +361,7 @@ const SlideFour = () => {
                 xl:rounded-[32%_0_0_32%/50%_0_0_50%]
             ">
                 <img
-                    src="/images/slide-4.png"
+                    src="/images/slide-4.webp"
                     alt="Можливості облікового запису RBoard"
                     className="
                         h-full

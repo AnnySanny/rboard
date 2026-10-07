@@ -51,7 +51,7 @@ const SlideOne = () => {
         <section className="relative h-full w-full overflow-hidden bg-white">
             <div className="relative h-full w-full md:hidden">
                 <img
-                    src="/images/mobile/slide-1.png"
+                    src="/images/mobile/slide-1.webp"
                     alt="RBoard — оголошення Рахівщини"
                     className="absolute inset-0 h-full w-full object-cover object-center"
                 />
@@ -293,7 +293,7 @@ const SlideOne = () => {
                 xl:rounded-[42%_0_0_42%/50%_0_0_50%]
             ">
                             <img
-                                src="/images/slide-1.png"
+                                src="/images/slide-1.webp"
                                 alt="RBoard — оголошення Рахівщини"
                                 className="
                         h-full

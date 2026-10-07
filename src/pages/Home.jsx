@@ -9,6 +9,8 @@ import {
 } from "react-router-dom";
 import {
     collection,
+    doc,
+    getDoc,
     getDocs,
     limit,
     orderBy,
@@ -286,7 +288,8 @@ const Home = () => {
 
     const [listings, setListings] =
         useState([]);
-
+    const [directListing, setDirectListing] =
+        useState(null);
     const [loading, setLoading] =
         useState(true);
 
@@ -738,6 +741,59 @@ const Home = () => {
         currentUser?.uid,
         debouncedSearch,
     ]);
+    useEffect(() => {
+        if (!listingId) {
+            setDirectListing(null);
+            return;
+        }
+
+        const existingListing = listings.find(
+            (listing) => listing.id === listingId
+        );
+
+        if (existingListing) {
+            setDirectListing(null);
+            return;
+        }
+
+        const loadDirectListing = async () => {
+            try {
+                const listingRef = doc(
+                    db,
+                    "listings",
+                    listingId
+                );
+
+                const snapshot = await getDoc(listingRef);
+
+                if (!snapshot.exists()) {
+                    return;
+                }
+
+                const data = snapshot.data();
+
+                if (
+                    data.status !== "approved" ||
+                    !isListingActive(data.expiresAt)
+                ) {
+                    return;
+                }
+
+                setDirectListing(
+                    mapListingDocument(snapshot)
+                );
+            } catch (error) {
+                console.error(
+                    "Помилка завантаження оголошення:",
+                    error
+                );
+            }
+        };
+
+        loadDirectListing();
+    }, [listingId, listings]);
+
+
     const selectedListing = useMemo(() => {
         if (!listingId) {
             return null;
@@ -747,9 +803,15 @@ const Home = () => {
             listings.find(
                 (listing) =>
                     listing.id === listingId
-            ) || null
+            ) ||
+            directListing ||
+            null
         );
-    }, [listings, listingId]);
+    }, [
+        listings,
+        listingId,
+        directListing,
+    ]);
 
 
     useEffect(() => {

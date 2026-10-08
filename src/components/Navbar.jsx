@@ -21,6 +21,7 @@ import {
 
 import {
     FaTelegramPlane,
+    FaFacebookF,
 } from "react-icons/fa";
 
 import Modal from "./Modal";
@@ -383,6 +384,33 @@ const Navbar = () => {
                             <FaTelegramPlane
                                 size={15}
                             />
+                        </a>
+                        {/* Facebook */}
+                        <a
+                            href="https://www.facebook.com/profile.php?id=61595151419973"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="RBoard у Facebook"
+                            title="Facebook RBoard"
+                            className="
+        flex h-8 w-8
+        shrink-0
+        items-center
+        justify-center
+        rounded-full
+        border border-slate-200
+        bg-white
+        text-slate-500
+        transition
+        hover:border-blue-200
+        hover:bg-blue-50
+        hover:text-blue-600
+        hover:ring-1
+        hover:ring-blue-200
+        active:scale-95
+    "
+                        >
+                            <FaFacebookF size={15} />
                         </a>
                     </div>
 

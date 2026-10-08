@@ -38,7 +38,18 @@ const Footer = () => {
     >
       Правила
     </Link>
-
+    <Link
+      to="/contacts"
+      className="transition hover:text-blue-600"
+    >
+      Контакти
+    </Link>
+        <Link
+      to="/help"
+      className="transition hover:text-blue-600"
+    >
+      Допомога
+    </Link>
     <a
       href="mailto:rakhivboardinfo@gmail.com"
       className="transition hover:text-blue-600"

@@ -14,7 +14,8 @@ import {
     where,
     Timestamp,
 } from "firebase/firestore";
-
+import { FaFacebookF } from "react-icons/fa";
+import FacebookPostModal from "../../components/admin/FacebookPostModal";
 import { db, auth } from "../../firebase";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
 import {
@@ -509,6 +510,7 @@ const getRemainingTime = (expiresAt) => {
 const AdminListings = () => {
     const navigate = useNavigate();
     const [listings, setListings] = useState([]);
+    const [facebookListing, setFacebookListing] = useState(null);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [loadingMore, setLoadingMore] =
@@ -2728,6 +2730,23 @@ const AdminListings = () => {
                                                 </select>
                                                 <div className="flex shrink-0 items-center gap-2">
                                                     {/* Редагувати */}
+                                                    {/* Facebook — тільки для активних оголошень */}
+                                                    {listing.status === "approved" && !isExpired && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFacebookListing(listing)}
+                                                            disabled={
+                                                                isUpdating ||
+                                                                isDeleting ||
+                                                                isExtending
+                                                            }
+                                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 transition hover:border-blue-300 hover:bg-blue-100 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            title="Створити допис для Facebook"
+                                                            aria-label="Створити допис для Facebook"
+                                                        >
+                                                            <FaFacebookF size={17} />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         type="button"
                                                         onClick={() =>
@@ -2830,6 +2849,12 @@ const AdminListings = () => {
                         </button>
                     </div>
                 )}
+
+            <FacebookPostModal
+                isOpen={Boolean(facebookListing)}
+                onClose={() => setFacebookListing(null)}
+                listing={facebookListing}
+            />
         </section>
     );
 };

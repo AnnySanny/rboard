@@ -289,7 +289,12 @@ const Navbar = () => {
         <>
             <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md">
 
-                <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+                <div
+                    className={`
+        mx-auto flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6
+        ${userMode ? "max-w-[1600px]" : "max-w-6xl"}
+    `}
+                >
 
 
                     <div className="flex items-center gap-2">
@@ -422,7 +427,12 @@ const Navbar = () => {
                     </div>
 
 
-                    <nav className="hidden items-center gap-7 md:flex">
+                    <nav
+                        className={`
+        hidden items-center md:flex
+        ${userMode ? "gap-4 xl:gap-5" : "gap-7"}
+    `}
+                    >
                         {userMode ? (
                             <>
                                 <NavLink
@@ -460,6 +470,12 @@ const Navbar = () => {
                                     className={navLinkClass}
                                 >
                                     Допомога
+                                </NavLink>
+                                <NavLink
+                                    to="/fundraisers"
+                                    className={fundraiserNavClass}
+                                >
+                                    Збір для ЗСУ
                                 </NavLink>
                             </>
                         ) : (
@@ -660,6 +676,12 @@ const Navbar = () => {
                                         className={mobileNavLinkClass}
                                     >
                                         Допомога
+                                    </NavLink>
+                                    <NavLink
+                                        to="/fundraisers"
+                                        className={fundraiserNavClass}
+                                    >
+                                        Збір для ЗСУ
                                     </NavLink>
                                     <NavLink
                                         to="/user/profile"

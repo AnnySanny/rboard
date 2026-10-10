@@ -34,7 +34,10 @@ const adminPages = {
         path: "/dashboard/contacts",
         title: "Зв’язок",
     },
-
+    fundraisers: {
+        path: "/dashboard/fundraisers",
+        title: "Збори",
+    },
     news: {
         path: "/dashboard/news",
         title: "Новини",

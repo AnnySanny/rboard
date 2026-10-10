@@ -276,3 +276,95 @@ code {
         transform: none;
     }
 }
+/* ========================================
+   RBoard — кнопка благодійних зборів
+======================================== */
+
+.fundraiser-link {
+    position: relative;
+    z-index: 1;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 10px 16px;
+    border-radius: 9px;
+
+    background: transparent;
+    color: #475569;
+
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+    text-decoration: none;
+
+    overflow: hidden;
+    isolation: isolate;
+
+    transition:
+        color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+/* Синя лінія знизу */
+/* Синя лінія, яка плавно перетворюється на заливку */
+.fundraiser-link::before {
+    content: "";
+    position: absolute;
+
+    bottom: 0;
+    left: 0;
+    right: 0;
+
+    width: 100%;
+    height: 2px;
+
+    background-color: #2563eb;
+
+    z-index: -1;
+
+    transition: height 0.35s ease;
+}
+
+/* Наведення — заливка піднімається знизу */
+.fundraiser-link:hover {
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
+.fundraiser-link:hover::before {
+    height: 100%;
+}
+
+/* Активна сторінка */
+.fundraiser-link--active {
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
+.fundraiser-link--active::before {
+    height: 100%;
+}
+
+/* Доступність */
+.fundraiser-link:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+}
+
+/* Мобільне меню */
+.fundraiser-link--mobile {
+    display: flex;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+}
+
+/* Менше анімації за системним налаштуванням */
+@media (prefers-reduced-motion: reduce) {
+    .fundraiser-link,
+    .fundraiser-link::before {
+        transition: none;
+    }
+}

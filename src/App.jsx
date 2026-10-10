@@ -41,7 +41,9 @@ const Rules = lazy(() =>
 const Help = lazy(() =>
   import("./pages/Help")
 );
-
+const Fundraisers = lazy(() =>
+  import("./pages/Fundraisers")
+);
 // Сторінки користувача
 const UserHome = lazy(() =>
   import("./pages/user/UserHome")
@@ -80,7 +82,9 @@ const AdminUsers = lazy(() =>
 const AdminContacts = lazy(() =>
   import("./pages/admin/AdminContacts")
 );
-
+const AdminFundraisers = lazy(() =>
+  import("./pages/admin/AdminFundraisers")
+);
 const AdminCreateListing = lazy(() =>
   import("./pages/admin/AdminCreateListing")
 );
@@ -153,7 +157,10 @@ const App = () => {
             path="/help"
             element={<Help />}
           />
-
+          <Route
+            path="/fundraisers"
+            element={<Fundraisers />}
+          />
           <Route
             path="/create-listing"
             element={<CreateListing />}
@@ -240,7 +247,12 @@ const App = () => {
             />
 
             {/* Логи */}
+            {/* Збори */}
 
+            <Route
+              path="fundraisers"
+              element={<AdminFundraisers />}
+            />
             <Route
               path="logs"
               element={<AdminLogs />}

@@ -184,7 +184,14 @@ const Navbar = () => {
             : "text-slate-700 hover:bg-slate-100 hover:text-blue-600"
         }`;
 
+    // Збори — десктопне меню
+    const fundraiserNavClass = ({ isActive }) =>
+        `fundraiser-link ${isActive ? "fundraiser-link--active" : ""}`;
 
+    // Збори — мобільне меню
+    const fundraiserMobileClass = ({ isActive }) =>
+        `fundraiser-link fundraiser-link--mobile ${isActive ? "fundraiser-link--active" : ""
+        }`;
 
 
     const closeMobileMenu = () => {
@@ -416,10 +423,8 @@ const Navbar = () => {
 
 
                     <nav className="hidden items-center gap-7 md:flex">
-
                         {userMode ? (
                             <>
-
                                 <NavLink
                                     to="/"
                                     end
@@ -427,6 +432,7 @@ const Navbar = () => {
                                 >
                                     Головна
                                 </NavLink>
+
                                 <NavLink
                                     to="/user"
                                     end
@@ -435,7 +441,6 @@ const Navbar = () => {
                                     Особистий кабінет
                                 </NavLink>
 
-
                                 <NavLink
                                     to="/create-listing"
                                     className={navLinkClass}
@@ -443,14 +448,13 @@ const Navbar = () => {
                                     Додати оголошення
                                 </NavLink>
 
-
-
                                 <NavLink
                                     to="/user/listings"
                                     className={navLinkClass}
                                 >
                                     Мої оголошення
                                 </NavLink>
+
                                 <NavLink
                                     to="/help"
                                     className={navLinkClass}
@@ -481,17 +485,23 @@ const Navbar = () => {
                                 >
                                     Контакти
                                 </NavLink>
+
                                 <NavLink
                                     to="/help"
                                     className={navLinkClass}
                                 >
                                     Допомога
                                 </NavLink>
+                                <NavLink
+                                    to="/fundraisers"
+                                    className={fundraiserNavClass}
+                                >
+                                    Збір для ЗСУ
+                                </NavLink>
                             </>
                         )}
 
                     </nav>
-
 
                     <div className="hidden items-center gap-3 md:flex">
 
@@ -720,6 +730,13 @@ const Navbar = () => {
                                     >
                                         Допомога
                                     </NavLink>
+                                    <NavLink
+                                        to="/fundraisers"
+                                        onClick={closeMobileMenu}
+                                        className={fundraiserMobileClass}
+                                    >
+                                        Збір для ЗСУ
+                                    </NavLink>
                                 </nav>
 
                                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
@@ -748,7 +765,7 @@ const Navbar = () => {
                     </div>
                 </div>
 
-            </header>
+            </header >
 
             {!userMode && (
                 <>
@@ -770,7 +787,8 @@ const Navbar = () => {
                         <RegisterModal />
                     </Modal>
                 </>
-            )}
+            )
+            }
             <OnboardingModal
                 isOpen={isOnboardingOpen}
                 onClose={closeOnboarding}

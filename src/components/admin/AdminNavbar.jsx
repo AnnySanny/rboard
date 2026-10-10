@@ -16,6 +16,7 @@ import {
     MapPinned,
     ChartNoAxesCombined,
     House,
+    HandCoins,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
@@ -58,6 +59,12 @@ const menuItems = [
         to: "/dashboard/contacts",
         title: "Зв’язок",
         icon: MessageSquare,
+    },
+    {
+        key: "fundraisers",
+        to: "/dashboard/fundraisers",
+        title: "Збір",
+        icon: HandCoins,
     },
     {
         key: "news",
@@ -175,8 +182,8 @@ const AdminNavbar = ({ onOpenTab }) => {
                                         )
                                     }
                                     className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${active
-                                            ? "bg-blue-600 text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                                        ? "bg-blue-600 text-white shadow-sm"
+                                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
                                         }`}
                                 >
                                     <Icon className="h-5 w-5 shrink-0" />
@@ -265,8 +272,8 @@ const AdminNavbar = ({ onOpenTab }) => {
                                         )
                                     }
                                     className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${active
-                                            ? "bg-blue-600 text-white"
-                                            : "text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+                                        ? "bg-blue-600 text-white"
+                                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-950"
                                         }`}
                                 >
                                     <Icon className="h-5 w-5 shrink-0" />

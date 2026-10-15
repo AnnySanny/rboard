@@ -50,7 +50,7 @@ const TELEGRAM_API =
 const COLLECTION_NAME = "siteNews";
 const SUBSCRIBERS_COLLECTION = "telegramSubscribers";
 
-const TEST_CHAT_ID = 795778377;
+const TEST_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
 
 const BATCH_SIZE = 20;
 const BATCH_DELAY = 1100;

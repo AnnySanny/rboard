@@ -23,6 +23,7 @@ import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
 import ListingContacts from "./ListingContacts";
 import GuestContactInput from "./GuestContactInput";
+import ListingQualityProgress from "./ListingQualityProgress";
 const MAX_GUEST_LISTINGS = 3;
 const LIMIT_PERIOD_DAYS = 7;
 const CLOUDINARY_CLOUD_NAME =
@@ -1110,6 +1111,20 @@ export default function CreateListingForm({
             : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
             }`;
     };
+    const isProgressContactValid = (() => {
+        const contact = form.contact.trim();
+
+        if (!contact) return false;
+
+        if (isAuthenticated) {
+            return (
+                emailRegex.test(contact) ||
+                phoneRegex.test(contact)
+            );
+        }
+
+        return isValidGuestContact(contact);
+    })();
     if (authLoading) {
         return (
             <div className="flex min-h-40 items-center justify-center">
@@ -1127,6 +1142,13 @@ export default function CreateListingForm({
             className="space-y-6"
             noValidate
         >
+            <ListingQualityProgress
+                form={form}
+                images={images}
+                isAuthenticated={isAuthenticated}
+                contactValid={isProgressContactValid}
+                onOpenRegister={onOpenRegister}
+            />
             {errors.form && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                     {errors.form}
@@ -1443,32 +1465,6 @@ export default function CreateListingForm({
                     "Надіслати на перевірку"
                 )}
             </button>
-            {!isAuthenticated && (
-                <div className="rounded-2xl bg-slate-50 px-5 py-5 text-center">
-                    <p className="text-sm leading-6 text-slate-600">
-                        Зареєструйтеся, щоб переглядати
-                        власні оголошення, відстежувати
-                        їхній статус, редагувати їх,
-                        додавати фотографії та зручно
-                        керувати оголошеннями зі свого
-                        профілю.
-                    </p>
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            window.dispatchEvent(
-                                new CustomEvent(
-                                    "rboard:open-register"
-                                )
-                            );
-                        }}
-                        className="mt-2 text-sm font-bold text-blue-600 transition hover:text-blue-700 hover:underline"
-                    >
-                        Створити обліковий запис
-                    </button>
-                </div>
-            )}
         </form>
     );
 }

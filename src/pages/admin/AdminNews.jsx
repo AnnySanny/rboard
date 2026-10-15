@@ -955,7 +955,7 @@ const AdminNews = () => {
 
                             <div className="space-y-3 p-4">
                                 <div className="break-words font-bold text-slate-900">
-                                    📢 {form.title || "Заголовок новини"}
+                                    📰 {form.title || "Заголовок новини"}
                                 </div>
 
                                 <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700">

@@ -508,7 +508,7 @@ const AdminNews = () => {
             const token = await user.getIdToken();
 
             const response = await fetch(
-                "/.netlify/functions/send-news-background",
+                "/.netlify/functions/send-news",
                 {
                     method: "POST",
 

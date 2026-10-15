@@ -149,7 +149,7 @@ const buildMessage = (news) => {
     );
 
     return [
-        `📢 <b>${title}</b>`,
+        `📰 <b>${title}</b>`,
         "",
         description,
     ].join("\n");

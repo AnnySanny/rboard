@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Phone,
   Instagram,
@@ -22,6 +22,7 @@ import {
 import { registerListingView } from "../../utils/listingViews";
 import Swal from "sweetalert2";
 import ListingImageGallery from "./ListingImageGallery";
+import RelatedListings from "./RelatedListings";
 const formatDate = (value) => {
   if (!value) {
     return "Не вказано";
@@ -451,11 +452,19 @@ const getSafeUrl = (value) => {
 const ListingDetailsModal = ({
   listing,
   onClose,
+  onSelectRelated,
 }) => {
   const [currentTime, setCurrentTime] =
     useState(Date.now());
+  const modalRef = useRef(null);
+  useEffect(() => {
+    if (!listing?.id) return;
 
-
+    modalRef.current?.scrollTo({
+      top: 0,
+      behavior: "instant",
+    });
+  }, [listing?.id]);
 
   useEffect(() => {
     const interval = setInterval(
@@ -642,6 +651,7 @@ const ListingDetailsModal = ({
       role="presentation"
     >
       <article
+        ref={modalRef}
         className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl"
         onMouseDown={(event) =>
           event.stopPropagation()
@@ -1033,6 +1043,10 @@ const ListingDetailsModal = ({
             </div>
           </aside>
         </div>
+        <RelatedListings
+          listing={listing}
+          onSelect={onSelectRelated}
+        />
       </article>
     </div>
   );

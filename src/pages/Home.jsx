@@ -29,6 +29,7 @@ import SearchFilters from "../components/SearchFilters";
 import ListingsSection from "../components/listings/ListingsSection";
 import AddListingButton from "../components/listings/AddListingButton";
 import ListingDetailsModal from "../components/listings/ListingDetailsModal";
+import { mapListingDocument } from "../utils/listingMapper";
 import {
     auth,
     db,
@@ -333,91 +334,6 @@ const Home = () => {
             top: 0,
             behavior: "smooth",
         });
-    };
-
-
-    const mapListingDocument = (document) => {
-        const data = document.data();
-
-        return {
-            id: document.id,
-
-            title:
-                data.title || "",
-
-            description:
-                data.comment || "",
-
-            category:
-                data.type || "Інше",
-
-            city:
-                data.city?.name || "",
-
-            region:
-                data.city?.region || "",
-
-            district:
-                data.city?.district || "",
-
-            street:
-                data.street || "",
-
-            location: [
-                data.city?.name,
-                data.street,
-            ]
-                .filter(Boolean)
-                .join(", "),
-
-            contact:
-                data.contactOriginal ||
-                data.contact ||
-                "",
-
-            hidePhone:
-                data.hidePhone === true,
-
-            additionalContacts:
-                data.additionalContacts &&
-                    typeof data.additionalContacts === "object"
-                    ? data.additionalContacts
-                    : {},
-
-            authorName:
-                data.authorName || "",
-
-            author:
-                data.author &&
-                    typeof data.author === "object"
-                    ? data.author
-                    : null,
-
-            views:
-                Number(data.views ?? 0),
-
-            createdAt:
-                data.createdAt
-                    ?.toDate?.() ||
-                null,
-
-            expiresAt:
-                data.expiresAt
-                    ?.toDate?.() ||
-                null,
-
-            images:
-                Array.isArray(data.images)
-                    ? data.images
-                    : [],
-
-            favoriteUserIds:
-                Array.isArray(
-                    data.favoriteUserIds
-                )
-                    ? data.favoriteUserIds
-                    : [],
-        };
     };
     const getSortConfig = () => {
         switch (sortOrder) {
@@ -741,6 +657,7 @@ const Home = () => {
         currentUser?.uid,
         debouncedSearch,
     ]);
+
     useEffect(() => {
         if (!listingId) {
             setDirectListing(null);
@@ -748,13 +665,17 @@ const Home = () => {
         }
 
         const existingListing = listings.find(
-            (listing) => listing.id === listingId
+            (item) => item.id === listingId
         );
 
-        if (existingListing) {
-            setDirectListing(null);
+        if (
+            existingListing ||
+            directListing?.id === listingId
+        ) {
             return;
         }
+
+        let active = true;
 
         const loadDirectListing = async () => {
             try {
@@ -766,7 +687,10 @@ const Home = () => {
 
                 const snapshot = await getDoc(listingRef);
 
+                if (!active) return;
+
                 if (!snapshot.exists()) {
+                    setDirectListing(null);
                     return;
                 }
 
@@ -776,6 +700,7 @@ const Home = () => {
                     data.status !== "approved" ||
                     !isListingActive(data.expiresAt)
                 ) {
+                    setDirectListing(null);
                     return;
                 }
 
@@ -783,35 +708,41 @@ const Home = () => {
                     mapListingDocument(snapshot)
                 );
             } catch (error) {
-                console.error(
-                    "Помилка завантаження оголошення:",
-                    error
-                );
+                if (active) {
+                    console.error(
+                        "Помилка завантаження оголошення:",
+                        error
+                    );
+                }
             }
         };
 
         loadDirectListing();
-    }, [listingId, listings]);
+
+        return () => {
+            active = false;
+        };
+    }, [listingId, listings, directListing]);
+
 
 
     const selectedListing = useMemo(() => {
-        if (!listingId) {
-            return null;
+        if (!listingId) return null;
+
+        const existingListing = listings.find(
+            (item) => item.id === listingId
+        );
+
+        if (existingListing) {
+            return existingListing;
         }
 
-        return (
-            listings.find(
-                (listing) =>
-                    listing.id === listingId
-            ) ||
-            directListing ||
-            null
-        );
-    }, [
-        listings,
-        listingId,
-        directListing,
-    ]);
+        if (directListing?.id === listingId) {
+            return directListing;
+        }
+
+        return null;
+    }, [listings, listingId, directListing]);
 
 
     useEffect(() => {
@@ -1067,7 +998,18 @@ const Home = () => {
             }
         );
     };
+    const openRelatedListing = (listing) => {
+        if (!listing?.id) return;
 
+
+        setDirectListing(listing);
+
+        navigate(`/listing/${listing.id}`, {
+            state: {
+                fromHome: true,
+            },
+        });
+    };
     const closeListing = () => {
         navigate("/");
     };
@@ -1153,6 +1095,7 @@ const Home = () => {
             <ListingDetailsModal
                 listing={selectedListing}
                 onClose={closeListing}
+                onSelectRelated={openRelatedListing}
             />
             <Footer />
             {showScrollTop && (

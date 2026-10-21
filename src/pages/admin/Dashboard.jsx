@@ -81,6 +81,8 @@ const Dashboard = () => {
         users: 0,
         newUsers: 0,
         telegramUsers: 0,
+        telegramActive: 0,
+        telegramInactive: 0,
         newTelegramUsers: 0,
         feedback: 0,
         pendingListings: 0,
@@ -168,6 +170,7 @@ const Dashboard = () => {
                     listingsSnapshot,
                     newListingsSnapshot,
                     telegramUsersSnapshot,
+                    telegramActiveSnapshot,
                     newTelegramUsersSnapshot,
                     usersSnapshot,
                     newUsersSnapshot,
@@ -184,7 +187,12 @@ const Dashboard = () => {
                     ),
 
                     getCountFromServer(telegramUsersRef),
-
+                    getCountFromServer(
+                        query(
+                            telegramUsersRef,
+                            where("active", "==", true)
+                        )
+                    ),
                     getCountFromServer(
                         query(
                             telegramUsersRef,
@@ -226,6 +234,10 @@ const Dashboard = () => {
                     telegramUsers: telegramUsersSnapshot.data().count,
                     newTelegramUsers:
                         newTelegramUsersSnapshot.data().count,
+                    telegramActive: telegramActiveSnapshot.data().count,
+                    telegramInactive:
+                        telegramUsersSnapshot.data().count -
+                        telegramActiveSnapshot.data().count,
                     feedback: feedbackSnapshot.data().count,
                     pendingListings: pendingSnapshot.data().count,
                 });
@@ -385,8 +397,8 @@ const Dashboard = () => {
     const changeBadge = (value) => (
         <span
             className={`rounded-md px-1.5 py-0.5 text-xs font-bold ${value >= 0
-                    ? "bg-emerald-50 text-emerald-600"
-                    : "bg-red-50 text-red-600"
+                ? "bg-emerald-50 text-emerald-600"
+                : "bg-red-50 text-red-600"
                 }`}
         >
             {value > 0 ? "+" : ""}
@@ -620,7 +632,34 @@ const Dashboard = () => {
                                                         item.count
                                                     )}
                                             </p>
+                                            {item.key === "telegram" && !statisticsLoading && (
+                                                <div className="mt-3 space-y-2">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
+                                                        <span className="text-emerald-600">
+                                                            {statistics.telegramActive} активних
+                                                        </span>
 
+                                                        <span className="text-slate-400">
+                                                            {statistics.telegramInactive} неактивних
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                                                        <div
+                                                            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                                                            style={{
+                                                                width: `${statistics.telegramUsers > 0
+                                                                    ? (
+                                                                        statistics.telegramActive /
+                                                                        statistics.telegramUsers
+                                                                    ) * 100
+                                                                    : 0
+                                                                    }%`,
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                 {changeBadge(item.change)}
                                                 <span className="text-xs text-slate-400">
@@ -628,6 +667,7 @@ const Dashboard = () => {
                                                 </span>
                                             </div>
                                         </div>
+
                                     ))}
                                 </div>
                             </div>
@@ -773,8 +813,8 @@ const Dashboard = () => {
                             <div className="flex items-center gap-3">
                                 <div
                                     className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${socialModal === "instagram"
-                                            ? "bg-pink-50 text-pink-600"
-                                            : "bg-blue-50 text-blue-600"
+                                        ? "bg-pink-50 text-pink-600"
+                                        : "bg-blue-50 text-blue-600"
                                         }`}
                                 >
                                     {socialModal === "instagram" ? (

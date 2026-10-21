@@ -192,8 +192,6 @@ const Home = () => {
         };
     }, [search]);
     const [isReelsOpen, setIsReelsOpen] = useState(false);
-    const [openedFromReels, setOpenedFromReels] = useState(false);
-    const reelsReturnPathRef = useRef("/");
     const [searchPlaceholder, setSearchPlaceholder] =
         useState("");
     const loadingMoreRef = useRef(false);
@@ -998,8 +996,6 @@ const Home = () => {
     }, [selectedListing]);
 
     const openListing = (listing) => {
-        setOpenedFromReels(false);
-
         navigate(`/listing/${listing.id}`, {
             state: {
                 fromHome: true,
@@ -1019,12 +1015,6 @@ const Home = () => {
         });
     };
     const closeListing = () => {
-        if (openedFromReels) {
-            setOpenedFromReels(false);
-            navigate(reelsReturnPathRef.current);
-            return;
-        }
-
         navigate("/");
     };
 
@@ -1051,12 +1041,7 @@ const Home = () => {
                         viewMode={viewMode}
                         setViewMode={setViewMode}
                         onOpenReels={() => {
-                            if (!loading && listings.length > 0) {
-                                reelsReturnPathRef.current =
-                                    window.location.pathname +
-                                    window.location.search;
-
-                                setOpenedFromReels(false);
+                            if (!loading && !loadError && listings.length > 0) {
                                 setIsReelsOpen(true);
                             }
                         }}
@@ -1124,24 +1109,10 @@ const Home = () => {
             {isReelsOpen && (
                 <ListingReels
                     listings={listings}
-                    onClose={() => {
-                        setIsReelsOpen(false);
-                        setOpenedFromReels(false);
-                    }}
-                    onOpenListing={(listing) => {
-                        setOpenedFromReels(true);
-
-                        navigate(`/listing/${listing.id}`, {
-                            state: {
-                                fromHome: true,
-                                fromReels: true,
-                            },
-                        });
-                    }}
+                    onClose={() => setIsReelsOpen(false)}
                     onLoadMore={loadMoreListings}
                     hasMoreListings={hasMoreListings}
                     loadingMore={loadingMore}
-                    detailsOpen={openedFromReels && Boolean(listingId)}
                 />
             )}
             <Footer />

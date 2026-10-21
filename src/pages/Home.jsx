@@ -1,6 +1,7 @@
 import {
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from "react";
 import {
@@ -30,6 +31,7 @@ import ListingsSection from "../components/listings/ListingsSection";
 import AddListingButton from "../components/listings/AddListingButton";
 import ListingDetailsModal from "../components/listings/ListingDetailsModal";
 import { mapListingDocument } from "../utils/listingMapper";
+import ListingReels from "../components/listings/ListingReels";
 import {
     auth,
     db,
@@ -189,8 +191,12 @@ const Home = () => {
             clearTimeout(timeoutId);
         };
     }, [search]);
+    const [isReelsOpen, setIsReelsOpen] = useState(false);
+    const [openedFromReels, setOpenedFromReels] = useState(false);
+    const reelsReturnPathRef = useRef("/");
     const [searchPlaceholder, setSearchPlaceholder] =
         useState("");
+    const loadingMoreRef = useRef(false);
     useEffect(() => {
         const unsubscribe =
             onAuthStateChanged(
@@ -579,11 +585,13 @@ const Home = () => {
     const loadMoreListings = async () => {
         if (
             !lastDocument ||
-            loadingMore
+            loadingMoreRef.current ||
+            loading ||
+            !hasMoreListings
         ) {
             return;
         }
-
+        loadingMoreRef.current = true;
         setLoadingMore(true);
         setLoadError("");
 
@@ -645,6 +653,7 @@ const Home = () => {
             );
         } finally {
             setLoadingMore(false);
+            loadingMoreRef.current = false;
         }
     };
 
@@ -989,14 +998,13 @@ const Home = () => {
     }, [selectedListing]);
 
     const openListing = (listing) => {
-        navigate(
-            `/listing/${listing.id}`,
-            {
-                state: {
-                    fromHome: true,
-                },
-            }
-        );
+        setOpenedFromReels(false);
+
+        navigate(`/listing/${listing.id}`, {
+            state: {
+                fromHome: true,
+            },
+        });
     };
     const openRelatedListing = (listing) => {
         if (!listing?.id) return;
@@ -1011,6 +1019,12 @@ const Home = () => {
         });
     };
     const closeListing = () => {
+        if (openedFromReels) {
+            setOpenedFromReels(false);
+            navigate(reelsReturnPathRef.current);
+            return;
+        }
+
         navigate("/");
     };
 
@@ -1036,6 +1050,16 @@ const Home = () => {
                         setSortOrder={setSortOrder}
                         viewMode={viewMode}
                         setViewMode={setViewMode}
+                        onOpenReels={() => {
+                            if (!loading && listings.length > 0) {
+                                reelsReturnPathRef.current =
+                                    window.location.pathname +
+                                    window.location.search;
+
+                                setOpenedFromReels(false);
+                                setIsReelsOpen(true);
+                            }
+                        }}
                     />
 
                     {loading && (
@@ -1097,6 +1121,29 @@ const Home = () => {
                 onClose={closeListing}
                 onSelectRelated={openRelatedListing}
             />
+            {isReelsOpen && (
+                <ListingReels
+                    listings={listings}
+                    onClose={() => {
+                        setIsReelsOpen(false);
+                        setOpenedFromReels(false);
+                    }}
+                    onOpenListing={(listing) => {
+                        setOpenedFromReels(true);
+
+                        navigate(`/listing/${listing.id}`, {
+                            state: {
+                                fromHome: true,
+                                fromReels: true,
+                            },
+                        });
+                    }}
+                    onLoadMore={loadMoreListings}
+                    hasMoreListings={hasMoreListings}
+                    loadingMore={loadingMore}
+                    detailsOpen={openedFromReels && Boolean(listingId)}
+                />
+            )}
             <Footer />
             {showScrollTop && (
                 <button

@@ -38,6 +38,7 @@ const SearchFilters = ({
   setSortOrder,
   viewMode,
   setViewMode,
+  onOpenReels,
 }) => {
   const [currentUser, setCurrentUser] =
     useState(null);
@@ -254,6 +255,35 @@ const SearchFilters = ({
             </button>
           );
         })}
+      </div>
+      {/* Кнопка Reels — тільки мобільна версія */}
+      {/* Кнопка Reels — тільки мобільна версія */}
+      <div className="mt-3 sm:hidden">
+        <button
+          type="button"
+          onClick={onOpenReels}
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#E1306C] to-[#F77737] px-4 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98]"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="4" />
+            <path d="M3 9h18" />
+            <path d="m8 3 3 6" />
+            <path d="m15 3 3 6" />
+            <path d="m10 12 5 3-5 3z" />
+          </svg>
+
+          <span>Режим Reels</span>
+        </button>
       </div>
     </section>
   );

@@ -56,7 +56,9 @@ const UserListings = lazy(() =>
 const UserProfile = lazy(() =>
   import("./pages/user/UserProfile")
 );
-
+const UserSettings = lazy(() =>
+  import("./pages/user/UserSettings")
+);
 const EditListing = lazy(() =>
   import("./pages/user/EditListing")
 );
@@ -192,9 +194,22 @@ const App = () => {
             element={<UserListings />}
           />
 
+          {/* Власний профіль */}
           <Route
             path="/user/profile"
             element={<UserProfile />}
+          />
+
+          {/* Публічний профіль за UID */}
+          <Route
+            path="/user/:uid"
+            element={<UserProfile />}
+          />
+
+          {/* Налаштування акаунта */}
+          <Route
+            path="/user/settings"
+            element={<UserSettings />}
           />
 
           <Route

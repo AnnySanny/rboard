@@ -133,9 +133,7 @@ export default function UserProfile() {
             ? profile.city
             : profile?.city?.name || "";
 
-    const showCity =
-        isOwner ||
-        !profile?.privacy?.hideCity;
+    const showCity = !profile?.privacy?.hideCity;
 
     const handleProfileSaved = async () => {
         try {

@@ -70,6 +70,7 @@ export const cleanContacts = (contacts) => {
   return result;
 };
 
+
 export const createPublicProfile = (
   data,
   createdAt = null
@@ -78,12 +79,15 @@ export const createPublicProfile = (
     login: data.login,
     avatarUrl: data.avatarUrl || "",
     bio: data.bio || "",
+
     city: data.privacy.hideCity
       ? ""
       : data.city || "",
+
     additionalContacts: data.privacy.hideContacts
       ? {}
-      : cleanContacts(data.additionalContacts),
+      : data.additionalContacts || {},
+
     updatedAt: data.updatedAt,
   };
 
@@ -97,3 +101,4 @@ export const createPublicProfile = (
 
   return publicProfile;
 };
+

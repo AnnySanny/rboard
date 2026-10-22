@@ -46,7 +46,7 @@ const CLOUD_NAME = "djjhf64uc";
 
 // Створи окремий unsigned preset для аватарів.
 // Він має використовувати папку user_photo.
-const UPLOAD_PRESET = "profile_avatars";
+const UPLOAD_PRESET = "user_photos";
 
 const CONTACT_OPTIONS = [
   {

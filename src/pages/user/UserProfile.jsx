@@ -16,8 +16,8 @@ import {
     MapPin,
     CalendarDays,
     Pencil,
-    Settings,
     LoaderCircle,
+    ArrowLeft,
 } from "lucide-react";
 
 import Navbar from "../../components/Navbar";
@@ -175,149 +175,158 @@ export default function UserProfile() {
                                 size={28}
                             />
                         </div>
+
                     ) : error ? (
-                        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-                            <UserRound
-                                className="mx-auto mb-4 text-slate-400"
-                                size={36}
-                            />
+                        <div className="flex min-h-[65vh] items-center justify-center">
+                            <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm sm:px-10 sm:py-14">
 
-                            <h1 className="text-xl font-bold text-slate-900">
-                                {error}
-                            </h1>
+                                {/* Іконка */}
+                                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-50 ring-1 ring-blue-100">
+                                    <UserRound
+                                        size={38}
+                                        strokeWidth={1.8}
+                                        className="text-blue-600"
+                                    />
+                                </div>
 
-                            <Link
-                                to="/"
-                                className="mt-5 inline-block text-sm font-semibold text-blue-600 hover:underline"
-                            >
-                                На головну
-                            </Link>
+                                {/* Заголовок */}
+                                <h1 className="mt-6 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
+                                    {error === "Увійдіть, щоб переглянути свій профіль."
+                                        ? "Потрібна авторизація"
+                                        : "Не вдалося відкрити профіль"}
+                                </h1>
+
+                                {/* Опис */}
+                                <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
+                                    {error === "Увійдіть, щоб переглянути свій профіль."
+                                        ? "Увійдіть у свій акаунт RBoard, щоб переглядати та редагувати особистий профіль."
+                                        : error}
+                                </p>
+
+                                {/* Кнопка */}
+                                <Link
+                                    to="/"
+                                    className="mx-auto mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-7 py-3.5 text-sm font-bold text-white shadow-sm transition duration-200 hover:bg-blue-700 hover:shadow-md active:scale-[0.98] sm:w-auto"
+                                >
+                                    <ArrowLeft size={18} />
+                                    На головну
+                                </Link>
+
+                            </div>
                         </div>
                     ) : (
+
                         <div className="space-y-6">
-
-                            {/* Основна інформація */}
-                            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-
-                                <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-
-                                    <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-blue-50 bg-slate-100 sm:mx-0 sm:h-32 sm:w-32">
-
-                                        {profile.avatarUrl ? (
-                                            <img
-                                                src={profile.avatarUrl}
-                                                alt="Фото профілю"
-                                                className="h-full w-full object-cover"
-                                            />
-                                        ) : (
-                                            <UserRound
-                                                size={52}
-                                                className="text-slate-400"
-                                            />
-                                        )}
-                                    </div>
-
-                                    <div className="min-w-0 flex-1 text-center sm:text-left">
-
-                                        <h1 className="break-words text-2xl font-black text-slate-950 sm:text-3xl">
-                                            {profile.login || "Користувач RBoard"}
-                                        </h1>
-
-                                        {cityName && showCity && (
-                                            <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500 sm:justify-start">
-                                                <MapPin size={17} />
-                                                <span>{cityName}</span>
-                                            </div>
-                                        )}
-
-                                        {getJoinedDate(profile.createdAt) && (
-                                            <div className="mt-2 flex items-center justify-center gap-2 text-sm text-slate-400 sm:justify-start">
-                                                <CalendarDays size={16} />
-                                                <span>
-                                                    На RBoard з {getJoinedDate(profile.createdAt)}
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        {isOwner && (
-                                            <div className="mt-5 flex flex-wrap justify-center gap-3 sm:justify-start">
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsEditing(true)}
-                                                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
-                                                >
-                                                    <Pencil size={16} />
-                                                    Редагувати профіль
-                                                </button>
-
-                                                <Link
-                                                    to="/user/settings"
-                                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                                                >
-                                                    <Settings size={17} />
-                                                    Налаштування
-                                                </Link>
-
-                                            </div>
-                                        )}
-
-                                    </div>
-                                </div>
-                            </section>
-
-                            {/* Інформація про користувача */}
-                            {profile.bio && (
-                                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-                                    <h2 className="text-lg font-black text-slate-950">
-                                        Про мене
-                                    </h2>
-
-                                    <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-slate-600">
-                                        {profile.bio}
-                                    </p>
-                                </section>
-                            )}
-
                             {!isEditing && (
-                                <ProfileContacts
-                                    profile={
-                                        isOwner
-                                            ? {
-                                                ...profile,
-                                                city: profile.privacy?.hideCity
-                                                    ? ""
-                                                    : profile.city,
-                                                phone: profile.privacy?.hidePhone
-                                                    ? ""
-                                                    : profile.phone,
-                                                additionalContacts:
-                                                    profile.privacy?.hideContacts
-                                                        ? {}
-                                                        : Object.fromEntries(
-                                                            Object.entries(
-                                                                profile.additionalContacts || {}
-                                                            ).map(([key, value]) => [
-                                                                key,
-                                                                typeof value === "string"
-                                                                    ? value
-                                                                    : value?.enabled
-                                                                        ? value.value || ""
-                                                                        : "",
-                                                            ])
-                                                        ),
-                                            }
-                                            : profile
-                                    }
-                                />
+                                <>
+                                    {/* Основна інформація */}
+                                    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+
+                                        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+
+                                            <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-blue-50 bg-slate-100 sm:mx-0 sm:h-32 sm:w-32">
+
+                                                {profile.avatarUrl ? (
+                                                    <img
+                                                        src={profile.avatarUrl}
+                                                        alt="Фото профілю"
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <UserRound
+                                                        size={52}
+                                                        className="text-slate-400"
+                                                    />
+                                                )}
+                                            </div>
+
+                                            <div className="min-w-0 flex-1 text-center sm:text-left">
+
+                                                <h1 className="break-words text-2xl font-black text-slate-950 sm:text-3xl">
+                                                    {profile.login || "Користувач RBoard"}
+                                                </h1>
+
+                                                {cityName && showCity && (
+                                                    <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500 sm:justify-start">
+                                                        <MapPin size={17} />
+                                                        <span>{cityName}</span>
+                                                    </div>
+                                                )}
+
+                                                {getJoinedDate(profile.createdAt) && (
+                                                    <div className="mt-2 flex items-center justify-center gap-2 text-sm text-slate-400 sm:justify-start">
+                                                        <CalendarDays size={16} />
+                                                        <span>
+                                                            На RBoard з {getJoinedDate(profile.createdAt)}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {isOwner && (
+                                                    <div className="mt-5 flex flex-wrap justify-center gap-3 sm:justify-start">
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsEditing(true)}
+                                                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+                                                        >
+                                                            <Pencil size={16} />
+                                                            Редагувати профіль
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* Інформація про користувача */}
+                                    {profile.bio && (
+                                        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+                                            <h2 className="text-lg font-black text-slate-950">
+                                                Про мене
+                                            </h2>
+
+                                            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-slate-600">
+                                                {profile.bio}
+                                            </p>
+                                        </section>
+                                    )}
+
+
+                                    <ProfileContacts
+                                        profile={
+                                            isOwner
+                                                ? {
+                                                    ...profile,
+                                                    city: profile.privacy?.hideCity
+                                                        ? ""
+                                                        : profile.city,
+                                                    phone: profile.privacy?.hidePhone
+                                                        ? ""
+                                                        : profile.phone,
+                                                    additionalContacts:
+                                                        profile.privacy?.hideContacts
+                                                            ? {}
+                                                            : Object.fromEntries(
+                                                                Object.entries(
+                                                                    profile.additionalContacts || {}
+                                                                ).map(([key, value]) => [
+                                                                    key,
+                                                                    typeof value === "string"
+                                                                        ? value
+                                                                        : value?.enabled
+                                                                            ? value.value || ""
+                                                                            : "",
+                                                                ])
+                                                            ),
+                                                }
+                                                : profile
+                                        }
+                                    />
+
+                                </>
                             )}
-
-                            {/* Наступні компоненти:
-                  ProfileEditor
-                  ProfileContacts
-                  ProfileListings
-              */}
-
 
                             {isOwner && isEditing && (
                                 <section className="rounded-3xl border border-blue-200 bg-white p-5 shadow-sm sm:p-8">

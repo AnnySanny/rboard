@@ -16,13 +16,17 @@ import {
   Save,
   X,
   EyeOff,
+  CircleAlert,
+  MessageCircle,
+  Settings,
 } from "lucide-react";
 
 import { auth, db } from "../../firebase";
 
 import ProfileAvatar from "./ProfileAvatar";
 import ProfileCityInput from "./ProfileCityInput";
-
+import ProfileAccordion from "./ProfileAccordion";
+import ProfileAccountSettings from "./ProfileAccountSettings";
 import {
   CONTACT_TYPES,
   createProfileForm,
@@ -48,44 +52,155 @@ const CLOUD_NAME = "djjhf64uc";
 // Він має використовувати папку user_photo.
 const UPLOAD_PRESET = "user_photos";
 
+
 const CONTACT_OPTIONS = [
   {
     key: "instagram",
     label: "Instagram",
     Icon: Instagram,
     placeholder: "https://instagram.com/username",
+    iconActive: "bg-pink-50 text-pink-600 ring-1 ring-pink-200",
+    borderActive: "border-pink-200 shadow-sm",
+    checkboxColor: "accent-pink-600",
   },
   {
     key: "telegram",
     label: "Telegram",
     Icon: FaTelegramPlane,
     placeholder: "https://t.me/username або @username",
+    iconActive: "bg-sky-50 text-sky-500 ring-1 ring-sky-200",
+    borderActive: "border-sky-200 shadow-sm",
+    checkboxColor: "accent-sky-500",
   },
   {
     key: "viber",
     label: "Viber",
     Icon: FaViber,
     placeholder: "+380...",
+    iconActive: "bg-violet-50 text-violet-600 ring-1 ring-violet-200",
+    borderActive: "border-violet-200 shadow-sm",
+    checkboxColor: "accent-violet-600",
   },
   {
     key: "whatsapp",
     label: "WhatsApp",
     Icon: FaWhatsapp,
     placeholder: "+380...",
+    iconActive: "bg-green-50 text-green-600 ring-1 ring-green-200",
+    borderActive: "border-green-200 shadow-sm",
+    checkboxColor: "accent-green-600",
   },
   {
     key: "facebook",
     label: "Facebook",
     Icon: Facebook,
     placeholder: "https://facebook.com/username",
+    iconActive: "bg-blue-50 text-blue-600 ring-1 ring-blue-200",
+    borderActive: "border-blue-200 shadow-sm",
+    checkboxColor: "accent-blue-600",
   },
   {
     key: "tiktok",
     label: "TikTok",
     Icon: FaTiktok,
     placeholder: "https://tiktok.com/@username",
+    iconActive: "bg-slate-100 text-slate-950 ring-1 ring-slate-300",
+    borderActive: "border-slate-300 shadow-sm",
+    checkboxColor: "accent-slate-900",
   },
 ];
+
+
+const validateContact = (key, rawValue) => {
+  const value = rawValue.trim();
+
+  if (!value) {
+    return "Поле не може бути порожнім.";
+  }
+
+  // Viber та WhatsApp — номер телефону
+  if (key === "viber" || key === "whatsapp") {
+    const digits = value.replace(/\D/g, "");
+
+    if (
+      !/^\+?[\d\s()-]+$/.test(value) ||
+      digits.length < 10 ||
+      digits.length > 15
+    ) {
+      return "Введіть коректний номер телефону у міжнародному форматі, наприклад +380XXXXXXXXX.";
+    }
+
+    return null;
+  }
+
+  // Telegram — @username або посилання
+  if (key === "telegram") {
+    if (/^@[a-zA-Z0-9_]{5,32}$/.test(value)) {
+      return null;
+    }
+
+    try {
+      const url = new URL(value);
+      const host = url.hostname.toLowerCase();
+
+      if (
+        url.protocol === "https:" &&
+        ["t.me", "telegram.me"].includes(host) &&
+        /^\/[a-zA-Z0-9_]{5,32}\/?$/.test(url.pathname) &&
+        !url.search &&
+        !url.hash
+      ) {
+        return null;
+      }
+    } catch {
+      // Не є коректним URL
+    }
+
+    return "Вкажіть @username або посилання https://t.me/username.";
+  }
+
+  // Instagram, Facebook та TikTok — посилання
+  const domains = {
+    instagram: ["instagram.com"],
+    facebook: ["facebook.com", "fb.com", "fb.me"],
+    tiktok: ["tiktok.com"],
+  };
+
+  if (domains[key]) {
+    try {
+      const url = new URL(value);
+      const host = url.hostname.toLowerCase();
+
+      const validHost = domains[key].some(
+        (domain) =>
+          host === domain ||
+          host.endsWith(`.${domain}`)
+      );
+
+      if (
+        url.protocol !== "https:" ||
+        !validHost ||
+        url.username ||
+        url.password ||
+        url.pathname === "/"
+      ) {
+        throw new Error("Invalid profile URL");
+      }
+
+      return null;
+    } catch {
+      const examples = {
+        instagram: "https://instagram.com/username",
+        facebook: "https://facebook.com/username",
+        tiktok: "https://www.tiktok.com/@username",
+      };
+
+      return `Вкажіть коректне посилання, наприклад ${examples[key]}.`;
+    }
+  }
+
+  return "Невідомий тип контакту.";
+};
 
 const uploadToCloudinary = async (file) => {
   const formData = new FormData();
@@ -164,7 +279,7 @@ export default function ProfileEditor({
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
-
+  const [fieldErrors, setFieldErrors] = useState({});
   const changeField = (key, value) => {
     setForm((previous) => ({
       ...previous,
@@ -182,6 +297,7 @@ export default function ProfileEditor({
     }));
   };
 
+
   const changeContact = (key, patch) => {
     setForm((previous) => ({
       ...previous,
@@ -193,7 +309,36 @@ export default function ProfileEditor({
         },
       },
     }));
+
+    // При вимкненні контакту прибираємо помилку.
+    if (patch.enabled === false) {
+      setFieldErrors((previous) => {
+        const next = { ...previous };
+        delete next[key];
+        return next;
+      });
+    }
+
+    // Якщо користувач виправляє значення,
+    // перевіряємо його повторно.
+    if (typeof patch.value === "string") {
+      setFieldErrors((previous) => {
+        if (!previous[key]) return previous;
+
+        const error = validateContact(key, patch.value);
+        const next = { ...previous };
+
+        if (error) {
+          next[key] = error;
+        } else {
+          delete next[key];
+        }
+
+        return next;
+      });
+    }
   };
+
 
   const removeAvatar = () => {
     setAvatarFile(null);
@@ -205,31 +350,45 @@ export default function ProfileEditor({
     }));
   };
 
+
   const validate = () => {
+    const errors = {};
+
     const login = form.login.trim();
 
     if (login.length < 2 || login.length > 80) {
-      return "Ім'я повинно містити від 2 до 80 символів.";
+      errors.login =
+        "Ім'я повинно містити від 2 до 80 символів.";
     }
 
     if (form.bio.trim().length > 500) {
-      return "Опис не може перевищувати 500 символів.";
+      errors.bio =
+        "Опис не може перевищувати 500 символів.";
     }
 
     if (form.city.trim().length > 100) {
-      return "Назва міста занадто довга.";
+      errors.city = "Назва міста занадто довга.";
     }
 
+    // Окремо перевіряємо кожен активний контакт.
     for (const key of CONTACT_TYPES) {
       const contact = form.additionalContacts[key];
 
-      if (contact.enabled && !contact.value.trim()) {
-        return "Заповніть усі вибрані контакти або вимкніть їх.";
+      if (!contact?.enabled) continue;
+
+      const error = validateContact(
+        key,
+        contact.value || ""
+      );
+
+      if (error) {
+        errors[key] = error;
       }
     }
 
-    return null;
+    return errors;
   };
+
 
   const cleanupAvatar = async () => {
     const user = auth.currentUser;
@@ -267,17 +426,41 @@ export default function ProfileEditor({
 
     if (saving) return;
 
-    const validationError = validate();
 
-    if (validationError) {
-      await Swal.fire({
+    const errors = validate();
+
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      Swal.fire({
+        toast: true,
+        position: "top-end",
         icon: "warning",
-        title: "Перевірте дані",
-        text: validationError,
-        confirmButtonColor: "#2563eb",
+        title: "Перевірте заповнені поля",
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
       });
+
+      // Прокручуємо до першого поля з помилкою.
+      const firstErrorKey = Object.keys(errors)[0];
+
+      requestAnimationFrame(() => {
+        const field = document.getElementById(
+          `profile-field-${firstErrorKey}`
+        );
+
+        field?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        field?.focus({ preventScroll: true });
+      });
+
       return;
     }
+
 
     const user = auth.currentUser;
 
@@ -401,7 +584,7 @@ export default function ProfileEditor({
           error?.code === "permission-denied"
             ? "Немає дозволу на запис. Перевірте правила Firestore."
             : error.message ||
-              "Спробуйте ще раз.",
+            "Спробуйте ще раз.",
         confirmButtonColor: "#2563eb",
       });
     } finally {
@@ -529,38 +712,46 @@ export default function ProfileEditor({
             rows={5}
             disabled={saving}
             placeholder="Розкажіть трохи про себе..."
-            className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="h-20 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 sm:h-auto sm:min-h-[140px]"
           />
         </div>
       </div>
 
+
       {/* Додаткові контакти */}
-      <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:p-6">
-        <h3 className="text-base font-black text-slate-900">
-          Додаткові способи зв'язку
-        </h3>
+      <ProfileAccordion
+        title="Додаткові способи зв'язку"
+        description="Месенджери та соціальні мережі"
+        icon={MessageCircle}
+      >
 
-        <p className="mt-1 text-sm text-slate-500">
-          Оберіть месенджери або соціальні мережі,
-          через які з вами можна зв'язатися.
-        </p>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="grid items-start gap-3 sm:grid-cols-2">
           {CONTACT_OPTIONS.map(
-            ({ key, label, Icon, placeholder }) => {
-              const contact =
-                form.additionalContacts[key];
+            ({
+              key,
+              label,
+              Icon,
+              placeholder,
+              iconActive,
+              borderActive,
+              checkboxColor,
+            }) => {
+              const contact = form.additionalContacts[key];
 
               return (
                 <div
                   key={key}
-                  className={`rounded-xl border bg-white p-4 transition ${
-                    contact.enabled
-                      ? "border-blue-300"
-                      : "border-slate-200"
-                  }`}
+                  className={`self-start rounded-2xl border bg-white transition ${contact.enabled
+                    ? borderActive
+                    : "border-slate-200"
+                    }`}
                 >
-                  <label className="flex cursor-pointer items-center gap-3">
+                  <label
+                    className={`flex items-center gap-3 p-4 ${saving
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer"
+                      }`}
+                  >
                     <input
                       type="checkbox"
                       checked={contact.enabled}
@@ -570,100 +761,146 @@ export default function ProfileEditor({
                           enabled: event.target.checked,
                         })
                       }
-                      className="h-4 w-4 accent-blue-600"
+                      className={`h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 ${checkboxColor}`}
                     />
 
-                    <Icon
-                      size={19}
-                      className="text-blue-600"
-                    />
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${contact.enabled
+                        ? iconActive
+                        : "bg-slate-100 text-slate-500"
+                        }`}
+                    >
+                      <Icon size={18} strokeWidth={2} />
+                    </span>
 
-                    <span className="text-sm font-bold text-slate-800">
+                    <span className="text-sm font-bold text-slate-700">
                       {label}
                     </span>
                   </label>
 
+
                   {contact.enabled && (
-                    <input
-                      type="text"
-                      value={contact.value}
-                      onChange={(event) =>
-                        changeContact(key, {
-                          value: event.target.value,
-                        })
-                      }
-                      placeholder={placeholder}
-                      maxLength={250}
-                      disabled={saving}
-                      className="mt-4 w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-500"
-                    />
+                    <div className="px-4 pb-4">
+                      <input
+                        id={`profile-field-${key}`}
+                        type="text"
+                        value={contact.value}
+                        onChange={(event) =>
+                          changeContact(key, {
+                            value: event.target.value,
+                          })
+                        }
+                        onBlur={() => {
+                          const error = validateContact(
+                            key,
+                            contact.value || ""
+                          );
+
+                          setFieldErrors((previous) => {
+                            const next = { ...previous };
+
+                            if (error) {
+                              next[key] = error;
+                            } else {
+                              delete next[key];
+                            }
+
+                            return next;
+                          });
+                        }}
+                        placeholder={placeholder}
+                        maxLength={250}
+                        disabled={saving}
+                        autoComplete="off"
+                        aria-invalid={Boolean(fieldErrors[key])}
+                        aria-describedby={
+                          fieldErrors[key]
+                            ? `profile-error-${key}`
+                            : undefined
+                        }
+                        className={`w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 disabled:bg-slate-50 ${fieldErrors[key]
+                          ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                          : "border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                          }`}
+                      />
+
+                      {fieldErrors[key] && (
+                        <div
+                          id={`profile-error-${key}`}
+                          role="alert"
+                          className="mt-2 flex items-start gap-2 text-xs leading-5 text-red-600"
+                        >
+                          <span className="mt-0.5 shrink-0">
+                            <CircleAlert size={15} />
+                          </span>
+
+                          <span>{fieldErrors[key]}</span>
+                        </div>
+                      )}
+                    </div>
                   )}
+
                 </div>
               );
             }
           )}
         </div>
-      </section>
 
-      {/* Приватність */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-3">
-          <ShieldCheck
-            size={21}
-            className="text-blue-600"
+      </ProfileAccordion>
+
+      <ProfileAccordion
+        title="Приватність профілю"
+        description="Видимість особистої інформації"
+        icon={ShieldCheck}
+      >
+        <div className="space-y-3">
+          <PrivacyToggle
+            checked={form.privacy.hidePhone}
+            onChange={(value) =>
+              changePrivacy("hidePhone", value)
+            }
+            disabled={saving}
+            title="Не показувати номер телефону"
+            description="Ваш номер буде прихований у публічному профілі."
           />
 
-          <div>
-            <h3 className="text-base font-black text-slate-900">
-              Приватність профілю
-            </h3>
+          <PrivacyToggle
+            checked={form.privacy.hideCity}
+            onChange={(value) =>
+              changePrivacy("hideCity", value)
+            }
+            disabled={saving}
+            title="Не показувати місто"
+            description="Інші користувачі не бачитимуть ваш населений пункт."
+          />
 
-            <p className="text-xs text-slate-500">
-              Оберіть інформацію, яку не потрібно
-              показувати відвідувачам.
-            </p>
+          <PrivacyToggle
+            checked={form.privacy.hideContacts}
+            onChange={(value) =>
+              changePrivacy("hideContacts", value)
+            }
+            disabled={saving}
+            title="Не показувати додаткові контакти"
+            description="Одне налаштування приховає всі додані месенджери та соціальні мережі."
+          />
+
+          <div className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
+            <EyeOff size={16} className="mt-0.5 shrink-0" />
+            <span>
+              Налаштування приватності профілю
+              не впливають на контакти у ваших оголошеннях.
+            </span>
           </div>
         </div>
-
-        <PrivacyToggle
-          checked={form.privacy.hidePhone}
-          onChange={(value) =>
-            changePrivacy("hidePhone", value)
-          }
-          disabled={saving}
-          title="Не показувати номер телефону"
-          description="Ваш номер буде прихований у публічному профілі."
-        />
-
-        <PrivacyToggle
-          checked={form.privacy.hideCity}
-          onChange={(value) =>
-            changePrivacy("hideCity", value)
-          }
-          disabled={saving}
-          title="Не показувати місто"
-          description="Інші користувачі не бачитимуть ваш населений пункт."
-        />
-
-        <PrivacyToggle
-          checked={form.privacy.hideContacts}
-          onChange={(value) =>
-            changePrivacy("hideContacts", value)
-          }
-          disabled={saving}
-          title="Не показувати додаткові контакти"
-          description="Одне налаштування приховає всі додані месенджери та соціальні мережі."
-        />
-
-        <div className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-          <EyeOff size={16} className="mt-0.5 shrink-0" />
-          <span>
-            Налаштування приватності профілю
-            не впливають на контакти у ваших оголошеннях.
-          </span>
-        </div>
-      </section>
-
+      </ProfileAccordion>
+      {/* Налаштування акаунта */}
+      <ProfileAccordion
+        title="Налаштування акаунта"
+        description="Пароль та керування обліковим записом"
+        icon={Settings}
+      >
+        <ProfileAccountSettings disabled={saving} />
+      </ProfileAccordion>
       {/* Кнопки */}
       <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
         <button

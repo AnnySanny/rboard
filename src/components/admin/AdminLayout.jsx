@@ -58,7 +58,22 @@ const adminPages = {
         title: "Логи системи",
     },
 };
+const getAdminPage = (pageKey) => {
+    if (adminPages[pageKey]) {
+        return adminPages[pageKey];
+    }
 
+    if (pageKey.startsWith("profile:")) {
+        const uid = pageKey.slice("profile:".length);
+
+        return {
+            path: `/dashboard/users/${encodeURIComponent(uid)}`,
+            title: "Профіль користувача",
+        };
+    }
+
+    return null;
+};
 const AdminLayout = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -68,10 +83,14 @@ const AdminLayout = () => {
     ]);
 
     const activePageKey = useMemo(() => {
-        /*
-         * Сторінка редагування оголошення
-         * належить до вкладки "Оголошення".
-         */
+        const profileMatch = location.pathname.match(
+            /^\/dashboard\/users\/([^/]+)\/?$/
+        );
+
+        if (profileMatch) {
+            return `profile:${decodeURIComponent(profileMatch[1])}`;
+        }
+
         if (
             location.pathname.startsWith(
                 "/dashboard/listings/"
@@ -83,14 +102,10 @@ const AdminLayout = () => {
         const currentPage = Object.entries(
             adminPages
         ).find(
-            ([, page]) =>
-                page.path === location.pathname
+            ([, page]) => page.path === location.pathname
         );
 
-        return (
-            currentPage?.[0] ||
-            "dashboard"
-        );
+        return currentPage?.[0] || "dashboard";
     }, [location.pathname]);
 
     /*
@@ -169,9 +184,7 @@ const AdminLayout = () => {
              * останню вкладку
              */
             if (newTabs.length === 0) {
-                navigate(
-                    adminPages.dashboard.path
-                );
+                navigate("/dashboard");
 
                 return ["dashboard"];
             }
@@ -191,11 +204,9 @@ const AdminLayout = () => {
                     ] ||
                     "dashboard";
 
-                navigate(
-                    adminPages[
-                        nextTab
-                    ].path
-                );
+                const nextPage = getAdminPage(nextTab);
+
+                navigate(nextPage?.path || "/dashboard");
             }
 
             return newTabs;
@@ -206,8 +217,7 @@ const AdminLayout = () => {
      * Просто активувати існуючу вкладку
      */
     const activateTab = (pageKey) => {
-        const page =
-            adminPages[pageKey];
+        const page = getAdminPage(pageKey);
 
         if (!page) {
             return;
@@ -231,10 +241,7 @@ const AdminLayout = () => {
                     <div className="flex h-12 items-end overflow-x-auto px-3 sm:px-5">
                         {openTabs.map(
                             (pageKey) => {
-                                const page =
-                                    adminPages[
-                                    pageKey
-                                    ];
+                                const page = getAdminPage(pageKey);
 
                                 if (!page) {
                                     return null;

@@ -253,7 +253,10 @@ const App = () => {
               path="admin-create-listing"
               element={<AdminCreateListing />}
             />
-
+            <Route
+              path="users/:uid"
+              element={<UserProfile adminView />}
+            />
             {/* Новини */}
 
             <Route

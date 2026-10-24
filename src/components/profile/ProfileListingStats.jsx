@@ -167,26 +167,28 @@ export default function ProfileListingStats({
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 sm:justify-start">
 
                 {/* Кількість оголошень */}
-                <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+
+                <div className="flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap sm:justify-start">
                     <span className="text-xs font-semibold text-slate-700 sm:text-sm">
-                       Оголошення:
+                        Оголошення:
                     </span>
 
-                    <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">
-                        Всього: {stats.total} 
-                    </span>
-
-                    <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-600">
-                       Активні: {stats.active} 
-                    </span>
-
-                    {isOwner && (
-                        <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-600">
-                           Неактивні: {stats.rejected} 
+                    <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">
+                            Всього: {stats.total}
                         </span>
-                    )}
-                </div>
 
+                        <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-600">
+                            Активні: {stats.active}
+                        </span>
+
+                        {isOwner && (
+                            <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-600">
+                                Неактивні: {stats.rejected}
+                            </span>
+                        )}
+                    </div>
+                </div>
                 {/* Перегляди */}
                 <div className="flex shrink-0 items-center gap-2">
                     <Eye size={17} className="text-blue-600" />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   collection,
   doc,
@@ -6,7 +6,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import Swal from "sweetalert2";
-
+import { useLocation } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { db } from "../firebase";
@@ -38,6 +38,33 @@ const Contacts = () => {
     type: "Пропозиція",
     comment: "",
   });
+
+  const location = useLocation();
+
+  const complaint = location.state?.reviewComplaint;
+
+  useEffect(() => {
+    if (!complaint) return;
+
+    setFormData((previous) => ({
+      ...previous,
+
+      // Ім'я власника профілю
+      name: complaint.name || previous.name,
+
+      // Телефон власника профілю
+      contact: complaint.phone || previous.contact,
+
+      // Тип звернення
+      type: "Інше",
+
+      // Автоматично підготовлена скарга
+      comment: complaint.message || "",
+    }));
+  }, [complaint]);
+
+
+
   const [submitting, setSubmitting] =
     useState(false);
   const handleChange = (event) => {
@@ -50,43 +77,43 @@ const Contacts = () => {
   };
 
   const handleSubmit = async (event) => {
-  event.preventDefault();
+    event.preventDefault();
 
-  if (submitting) {
-    return;
-  }
+    if (submitting) {
+      return;
+    }
 
-  const contact =
-    formData.contact.trim();
+    const contact =
+      formData.contact.trim();
 
-  const name =
-    formData.name.trim();
+    const name =
+      formData.name.trim();
 
-  const comment =
-    formData.comment.trim();
+    const comment =
+      formData.comment.trim();
 
-  if (!contact) {
-    return;
-  }
+    if (!contact) {
+      return;
+    }
 
-  setSubmitting(true);
+    setSubmitting(true);
 
-  try {
-    const visitorId =
-      getVisitorId();
+    try {
+      const visitorId =
+        getVisitorId();
 
-    const limitRef = doc(
-      db,
-      "feedbackLimits",
-      visitorId
-    );
+      const limitRef = doc(
+        db,
+        "feedbackLimits",
+        visitorId
+      );
 
-    const feedbackRef = doc(
-      collection(db, "feedback")
-    );
+      const feedbackRef = doc(
+        collection(db, "feedback")
+      );
 
 
-    await runTransaction(
+      await runTransaction(
         db,
         async (transaction) => {
 
@@ -111,7 +138,7 @@ const Contacts = () => {
           let periodEndsAt =
             new Date(
               now.getTime() +
-                periodMilliseconds
+              periodMilliseconds
             );
 
           if (limitSnapshot.exists()) {
@@ -125,12 +152,12 @@ const Contacts = () => {
             const periodIsActive =
               savedPeriodEndsAt &&
               savedPeriodEndsAt.getTime() >
-                now.getTime();
+              now.getTime();
 
             if (periodIsActive) {
               attemptsLeft = Number(
                 limitData.attemptsLeft ??
-                  0
+                0
               );
 
               periodStartedAt =
@@ -208,64 +235,64 @@ const Contacts = () => {
         }
       );
 
-    setFormData({
-      contact: "",
-      name: "",
-      type: "Пропозиція",
-      comment: "",
-    });
-
-    await Swal.fire({
-      toast: true,
-      position: "top-end",
-      icon: "success",
-      title:
-        "Ваше повідомлення успішно надіслано",
-      showConfirmButton: false,
-      timer: 2500,
-      timerProgressBar: true,
-    });
-  } catch (error) {
-    console.error(
-      "Помилка надсилання звернення:",
-      error
-    );
-
-    if (
-      error?.code ===
-        "FEEDBACK_LIMIT_EXCEEDED" ||
-      error?.message ===
-        "FEEDBACK_LIMIT_EXCEEDED"
-    ) {
-      await Swal.fire({
-        icon: "info",
-        title:
-          "Ліміт звернень вичерпано",
-        text:
-          "Ви вже надіслали 3 звернення протягом 24 годин. Спробуйте пізніше.",
-        confirmButtonText:
-          "Зрозуміло",
-        confirmButtonColor:
-          "#2563eb",
+      setFormData({
+        contact: "",
+        name: "",
+        type: "Пропозиція",
+        comment: "",
       });
 
-      return;
-    }
+      await Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title:
+          "Ваше повідомлення успішно надіслано",
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+      });
+    } catch (error) {
+      console.error(
+        "Помилка надсилання звернення:",
+        error
+      );
 
-    await Swal.fire({
-      toast: true,
-      position: "top-end",
-      icon: "error",
-      title:
-        "Не вдалося надіслати повідомлення",
-      showConfirmButton: false,
-      timer: 3000,
-      timerProgressBar: true,
-    });
-  } finally {
-    setSubmitting(false);
-  }
-};
+      if (
+        error?.code ===
+        "FEEDBACK_LIMIT_EXCEEDED" ||
+        error?.message ===
+        "FEEDBACK_LIMIT_EXCEEDED"
+      ) {
+        await Swal.fire({
+          icon: "info",
+          title:
+            "Ліміт звернень вичерпано",
+          text:
+            "Ви вже надіслали 3 звернення протягом 24 годин. Спробуйте пізніше.",
+          confirmButtonText:
+            "Зрозуміло",
+          confirmButtonColor:
+            "#2563eb",
+        });
+
+        return;
+      }
+
+      await Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "error",
+        title:
+          "Не вдалося надіслати повідомлення",
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">

@@ -3,8 +3,12 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 
 import {
+    collection,
+    count,
     doc,
+    getAggregateFromServer,
     getDoc,
+    sum,
 } from "firebase/firestore";
 
 import {
@@ -18,6 +22,8 @@ import {
     Pencil,
     LoaderCircle,
     ArrowLeft,
+    Star,
+    MessageSquareText,
 } from "lucide-react";
 
 import Navbar from "../../components/Navbar";
@@ -26,9 +32,12 @@ import ProfileEditor from "../../components/profile/ProfileEditor";
 import ProfileContacts from "../../components/profile/ProfileContacts";
 import ProfileListings from "../../components/profile/ProfileListings";
 import ProfileListingStats from "../../components/profile/ProfileListingStats";
+import ProfileReviews from "../../components/profile/ProfileReviews";
 import { auth, db } from "../../firebase";
 
-export default function UserProfile() {
+export default function UserProfile({
+    adminView = false,
+}) {
     const { uid } = useParams();
 
     const [currentUser, setCurrentUser] = useState(null);
@@ -38,13 +47,85 @@ export default function UserProfile() {
     const [profile, setProfile] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [error, setError] = useState("");
-
+    const [reviewStats, setReviewStats] = useState({
+        count: 0,
+        average: 0,
+        loading: true,
+    });
     const profileUid = uid || currentUser?.uid || null;
 
     const isOwner = Boolean(
         currentUser &&
         profileUid === currentUser.uid
     );
+
+    useEffect(() => {
+        if (!profileUid) return;
+
+        let active = true;
+
+        const loadReviewStats = async () => {
+            setReviewStats({
+                count: 0,
+                average: 0,
+                loading: true,
+            });
+
+            try {
+                const reviewsCollection = collection(
+                    db,
+                    "publicProfiles",
+                    profileUid,
+                    "reviews"
+                );
+
+                const snapshot = await getAggregateFromServer(
+                    reviewsCollection,
+                    {
+                        reviewCount: count(),
+                        ratingSum: sum("rating"),
+                    }
+                );
+
+                if (!active) return;
+
+                const data = snapshot.data();
+
+                const reviewCount = data.reviewCount || 0;
+                const ratingSum = data.ratingSum || 0;
+
+                const average =
+                    reviewCount > 0
+                        ? ratingSum / reviewCount
+                        : 0;
+
+                setReviewStats({
+                    count: reviewCount,
+                    average,
+                    loading: false,
+                });
+            } catch (error) {
+                console.error(
+                    "Помилка завантаження рейтингу:",
+                    error
+                );
+
+                if (active) {
+                    setReviewStats({
+                        count: 0,
+                        average: 0,
+                        loading: false,
+                    });
+                }
+            }
+        };
+
+        loadReviewStats();
+
+        return () => {
+            active = false;
+        };
+    }, [profileUid]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(
@@ -199,11 +280,23 @@ export default function UserProfile() {
     };
 
     return (
-        <div className="flex min-h-screen flex-col bg-slate-100">
-            <Navbar />
+        <div
+            className={
+                adminView
+                    ? "w-full"
+                    : "flex min-h-screen flex-col bg-slate-100"
+            }
+        >
+            {!adminView && <Navbar />}
 
             <main className="flex-1">
-                <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+                <div
+                    className={
+                        adminView
+                            ? "mx-auto max-w-6xl py-2"
+                            : "mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10"
+                    }
+                >
 
                     {loading ? (
                         <div className="flex min-h-80 items-center justify-center">
@@ -342,6 +435,90 @@ export default function UserProfile() {
 
 
                                                 )}
+
+
+                                                {/* Рейтинг користувача */}
+                                                <div className="mt-3 flex flex-col items-center gap-2 text-sm text-slate-400 sm:items-start">
+
+                                                    {/* Середній рейтинг */}
+                                                    <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                                                        <Star
+                                                            size={16}
+                                                            className="shrink-0 text-slate-400"
+                                                        />
+
+                                                        <span>Рейтинг:</span>
+
+                                                        {reviewStats.loading ? (
+                                                            <span className="text-xs text-slate-400">
+                                                                Завантаження...
+                                                            </span>
+                                                        ) : (
+                                                            <>
+                                                                <div className="flex items-center gap-0.5">
+                                                                    {[1, 2, 3, 4, 5].map((star) => {
+                                                                        const fillPercent = Math.max(
+                                                                            0,
+                                                                            Math.min(
+                                                                                100,
+                                                                                (reviewStats.average - (star - 1)) * 100
+                                                                            )
+                                                                        );
+
+                                                                        return (
+                                                                            <div
+                                                                                key={star}
+                                                                                className="relative h-[17px] w-[17px]"
+                                                                            >
+                                                                                <Star
+                                                                                    size={17}
+                                                                                    className="fill-slate-100 text-slate-300"
+                                                                                />
+
+                                                                                <div
+                                                                                    className="absolute inset-0 overflow-hidden"
+                                                                                    style={{
+                                                                                        width: `${fillPercent}%`,
+                                                                                    }}
+                                                                                >
+                                                                                    <Star
+                                                                                        size={17}
+                                                                                        className="min-w-[17px] fill-amber-400 text-amber-400"
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                <span className="font-medium text-blue-600">
+                                                                    {reviewStats.average
+                                                                        .toFixed(1)
+                                                                        .replace(".", ",")}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Кількість відгуків */}
+                                                    {!reviewStats.loading && (
+                                                        <div className="flex items-center justify-center gap-2 sm:justify-start">
+                                                            <MessageSquareText
+                                                                size={16}
+                                                                className="shrink-0 text-slate-400"
+                                                            />
+
+                                                            <span>
+                                                                Кількість відгуків:{" "}
+                                                                <span className="font-medium text-blue-600">
+                                                                    {reviewStats.count}
+                                                                </span>
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+
                                                 {/* Статистика оголошень користувача */}
                                                 <ProfileListingStats
                                                     profileUid={profileUid}
@@ -400,7 +577,12 @@ export default function UserProfile() {
                                                 : profile
                                         }
                                     />
-
+                                    <ProfileReviews
+                                        profileUid={profileUid}
+                                        currentUser={currentUser}
+                                        isOwner={isOwner}
+                                        profile={profile}
+                                    />
                                 </>
                             )}
 
@@ -420,7 +602,7 @@ export default function UserProfile() {
                 </div>
             </main>
 
-            <Footer />
+            {!adminView && <Footer />}
         </div>
     );
 }

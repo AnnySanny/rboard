@@ -3,7 +3,7 @@ import {
   useMemo,
   useState,
 } from "react";
-
+import { Link } from "react-router-dom";
 import {
   arrayRemove,
   collection,
@@ -1344,10 +1344,15 @@ const UserRow = ({
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-black text-slate-900">
-                {user.login ||
-                  "Без імені"}
-              </p>
+
+              <Link
+                to={`/dashboard/users/${encodeURIComponent(user.id)}`}
+                className="font-black text-slate-900 transition-colors hover:text-blue-600 hover:underline hover:underline-offset-4 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                title={`Переглянути профіль: ${user.login || "Без імені"}`}
+              >
+                {user.login || "Без імені"}
+              </Link>
+
             </div>
 
             <p className="mt-1 text-xs text-slate-400">
@@ -1435,10 +1440,13 @@ const UserMobileCard = ({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-black text-slate-900">
-              {user.login ||
-                "Без імені"}
-            </h2>
+            <Link
+              to={`/dashboard/users/${encodeURIComponent(user.id)}`}
+              className="font-black text-slate-900 transition-colors hover:text-blue-600 active:text-blue-700"
+              title={`Переглянути профіль: ${user.login || "Без імені"}`}
+            >
+              {user.login || "Без імені"}
+            </Link>
 
             <UserStatus
               blocked={

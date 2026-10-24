@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import {
   UserRound,
@@ -12,6 +12,17 @@ import { db } from "../../firebase";
 
 export default function ListingAuthor({ listing }) {
   const authorUid = listing?.author?.uid || null;
+
+
+const location = useLocation();
+
+const isAdminPage =
+  location.pathname === "/dashboard" ||
+  location.pathname.startsWith("/dashboard/");
+
+const profileUrl = isAdminPage
+  ? `/dashboard/users/${encodeURIComponent(authorUid)}`
+  : `/user/${encodeURIComponent(authorUid)}`;
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -115,7 +126,7 @@ export default function ListingAuthor({ listing }) {
 
   return (
     <Link
-        to={`/user/${encodeURIComponent(authorUid)}`}
+        to={profileUrl}
       title={`Переглянути профіль: ${authorName}`}
       className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition duration-200 hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-sm"
     >

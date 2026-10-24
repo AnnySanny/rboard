@@ -895,7 +895,7 @@ export default function ProfileEditor({
       </ProfileAccordion>
       {/* Налаштування акаунта */}
       <ProfileAccordion
-        title="Налаштування акаунта"
+        title="Налаштування профілю"
         description="Пароль та керування обліковим записом"
         icon={Settings}
       >

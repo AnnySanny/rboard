@@ -39,122 +39,122 @@ export default function LoginModal() {
     const [error, setError] = useState("");
 
     const handleSubmit = async (e) => {
-    e.preventDefault();
+        e.preventDefault();
 
-    setError("");
+        setError("");
 
-    const normalizedPhone =
-        phone.trim();
+        const normalizedPhone =
+            phone.trim();
 
-    const normalizedPassword =
-        password.trim();
-
-    if (
-        !normalizedPhone &&
-        !normalizedPassword
-    ) {
-        setError(
-            "Введіть номер телефону та пароль"
-        );
-        return;
-    }
-
-    if (!normalizedPhone) {
-        setError(
-            "Введіть номер телефону"
-        );
-        return;
-    }
-
-    if (!normalizedPassword) {
-        setError("Введіть пароль");
-        return;
-    }
-
-    try {
-        setLoading(true);
-
-        const authEmail =
-            createAuthEmail(
-                normalizedPhone
-            );
-
-        const userCredential =
-            await signInWithEmailAndPassword(
-                auth,
-                authEmail,
-                normalizedPassword
-            );
-
-        const firebaseUser =
-            userCredential.user;
-
-        const userReference = doc(
-            db,
-            "users",
-            firebaseUser.uid
-        );
-
-        const userSnapshot =
-            await getDoc(userReference);
-
-        if (!userSnapshot.exists()) {
-            await signOut(auth);
-
-            setError(
-                "Дані користувача не знайдено"
-            );
-
-            return;
-        }
-
-        const userData =
-            userSnapshot.data();
-
-        if (userData.blocked === true) {
-            await signOut(auth);
-
-            setError("blocked");
-
-            return;
-        }
-        setPhone("");
-        setPassword("");
-
-        navigate("/user");
-    } catch (err) {
-        console.error(
-            "Помилка входу:",
-            err
-        );
+        const normalizedPassword =
+            password.trim();
 
         if (
-            err.code ===
-                "auth/invalid-credential" ||
-            err.code ===
-                "auth/wrong-password" ||
-            err.code ===
-                "auth/user-not-found"
+            !normalizedPhone &&
+            !normalizedPassword
         ) {
             setError(
-                "Неправильний номер телефону або пароль"
+                "Введіть номер телефону та пароль"
             );
-        } else if (
-            err.code ===
-            "auth/too-many-requests"
-        ) {
-            setError(
-                "Забагато спроб входу. Спробуйте пізніше."
-            );
-        } else {
-            setError(
-                "Не вдалося увійти. Спробуйте ще раз."
-            );
+            return;
         }
-    } finally {
-        setLoading(false);
-    }
-};
+
+        if (!normalizedPhone) {
+            setError(
+                "Введіть номер телефону"
+            );
+            return;
+        }
+
+        if (!normalizedPassword) {
+            setError("Введіть пароль");
+            return;
+        }
+
+        try {
+            setLoading(true);
+
+            const authEmail =
+                createAuthEmail(
+                    normalizedPhone
+                );
+
+            const userCredential =
+                await signInWithEmailAndPassword(
+                    auth,
+                    authEmail,
+                    normalizedPassword
+                );
+
+            const firebaseUser =
+                userCredential.user;
+
+            const userReference = doc(
+                db,
+                "users",
+                firebaseUser.uid
+            );
+
+            const userSnapshot =
+                await getDoc(userReference);
+
+            if (!userSnapshot.exists()) {
+                await signOut(auth);
+
+                setError(
+                    "Дані користувача не знайдено"
+                );
+
+                return;
+            }
+
+            const userData =
+                userSnapshot.data();
+
+            if (userData.blocked === true) {
+                await signOut(auth);
+
+                setError("blocked");
+
+                return;
+            }
+            setPhone("");
+            setPassword("");
+
+            navigate("/user");
+        } catch (err) {
+            console.error(
+                "Помилка входу:",
+                err
+            );
+
+            if (
+                err.code ===
+                "auth/invalid-credential" ||
+                err.code ===
+                "auth/wrong-password" ||
+                err.code ===
+                "auth/user-not-found"
+            ) {
+                setError(
+                    "Неправильний номер телефону або пароль"
+                );
+            } else if (
+                err.code ===
+                "auth/too-many-requests"
+            ) {
+                setError(
+                    "Забагато спроб входу. Спробуйте пізніше."
+                );
+            } else {
+                setError(
+                    "Не вдалося увійти. Спробуйте ще раз."
+                );
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
     return (
         <div className="w-full">
 
@@ -353,8 +353,19 @@ export default function LoginModal() {
                         ? "Вхід..."
                         : "Увійти"}
                 </button>
-            </form>
 
+                <div className="pt-1 text-center">
+                    <p className="text-sm text-slate-500">
+                        Забули пароль?{" "}
+                        <Link
+                            to="/contacts"
+                            className="font-semibold text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+                        >
+                            Напишіть нам для відновлення
+                        </Link>
+                    </p>
+                </div>
+            </form>
             <p className="mt-6 text-center text-xs leading-5 text-slate-400">
                 Використовуйте номер телефону, який ви вказали
                 під час реєстрації.

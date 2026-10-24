@@ -4,6 +4,7 @@ const ListingsSection = ({
   listings,
   viewMode,
   onListingClick,
+  compact = false,
 }) => {
   if (!listings.length) {
     return (
@@ -37,23 +38,28 @@ const ListingsSection = ({
 
   return (
     <section
-      id="listings"
-      className={`mt-7 grid gap-5 ${
-        viewMode === "grid"
-          ? "grid-cols-1 md:grid-cols-2"
-          : "grid-cols-1"
-      }`}
+      id={compact ? "profile-listings" : "listings"}
+      className={
+        compact
+          ? "grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4"
+          : `mt-7 grid gap-5 ${viewMode === "grid"
+            ? "grid-cols-1 md:grid-cols-2"
+            : "grid-cols-1"
+          }`
+      }
     >
       {listings.map((listing) => (
         <ListingCard
           key={listing.id}
           listing={listing}
           viewMode={viewMode}
+          compact={compact}
           onClick={() => onListingClick(listing)}
         />
       ))}
     </section>
   );
 };
+
 
 export default ListingsSection;

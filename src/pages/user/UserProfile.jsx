@@ -24,6 +24,8 @@ import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import ProfileEditor from "../../components/profile/ProfileEditor";
 import ProfileContacts from "../../components/profile/ProfileContacts";
+import ProfileListings from "../../components/profile/ProfileListings";
+import ProfileListingStats from "../../components/profile/ProfileListingStats";
 import { auth, db } from "../../firebase";
 
 export default function UserProfile() {
@@ -128,6 +130,41 @@ export default function UserProfile() {
         });
     };
 
+    const getDaysOnRBoard = (value) => {
+        if (!value) return null;
+
+        const date =
+            value?.toDate?.() ||
+            (value instanceof Date
+                ? value
+                : new Date(value));
+
+        if (Number.isNaN(date.getTime())) {
+            return null;
+        }
+
+        const now = new Date();
+
+        const startDay = Date.UTC(
+            date.getFullYear(),
+            date.getMonth(),
+            date.getDate()
+        );
+
+        const today = Date.UTC(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+        );
+
+        return Math.max(
+            0,
+            Math.floor(
+                (today - startDay) / 86400000
+            )
+        );
+    };
+
     const cityName =
         typeof profile?.city === "string"
             ? profile.city
@@ -220,8 +257,18 @@ export default function UserProfile() {
                             {!isEditing && (
                                 <>
                                     {/* Основна інформація */}
-                                    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-
+                                    <section className="relative rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+                                        {isOwner && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsEditing(true)}
+                                                className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 transition duration-200 hover:border-blue-200 hover:bg-blue-100 hover:text-blue-700 active:scale-95 sm:right-6 sm:top-6"
+                                                aria-label="Редагувати профіль"
+                                                title="Редагувати профіль"
+                                            >
+                                                <Pencil size={21} strokeWidth={2} />
+                                            </button>
+                                        )}
                                         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
 
                                             <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-blue-50 bg-slate-100 sm:mx-0 sm:h-32 sm:w-32">
@@ -254,36 +301,64 @@ export default function UserProfile() {
                                                 )}
 
                                                 {getJoinedDate(profile.createdAt) && (
-                                                    <div className="mt-2 flex items-center justify-center gap-2 text-sm text-slate-400 sm:justify-start">
-                                                        <CalendarDays size={16} />
-                                                        <span>
-                                                            На RBoard з {getJoinedDate(profile.createdAt)}
-                                                        </span>
+
+
+                                                    <div className="mt-3 flex flex-col items-center gap-1.5 text-sm text-slate-400 sm:mt-2 sm:flex-row sm:justify-start sm:gap-2">
+                                                        {/* Мобільна версія */}
+                                                        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 sm:hidden">
+                                                            <CalendarDays size={15} className="shrink-0 text-slate-400" />
+
+                                                            <span className="text-xs font-medium text-slate-500">
+                                                                На RBoard з {getJoinedDate(profile.createdAt)}
+                                                            </span>
+
+                                                            {getDaysOnRBoard(profile.createdAt) !== null && (
+                                                                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-600">
+                                                                    {getDaysOnRBoard(profile.createdAt)} дн.
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Версія для планшетів і комп'ютерів */}
+                                                        <div className="hidden items-center gap-2 sm:flex">
+                                                            <CalendarDays size={16} className="shrink-0" />
+
+                                                            <span>
+                                                                Реєстрація на платформі:{" "}
+                                                                {getJoinedDate(profile.createdAt)}
+
+                                                                {getDaysOnRBoard(profile.createdAt) !== null && (
+                                                                    <>
+                                                                        {" "}(
+                                                                        <span className="text-blue-600">
+                                                                            {getDaysOnRBoard(profile.createdAt)} дн.
+                                                                        </span>
+                                                                        )
+                                                                    </>
+                                                                )}
+                                                            </span>
+                                                        </div>
                                                     </div>
+
+
                                                 )}
-
-                                                {isOwner && (
-                                                    <div className="mt-5 flex flex-wrap justify-center gap-3 sm:justify-start">
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setIsEditing(true)}
-                                                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
-                                                        >
-                                                            <Pencil size={16} />
-                                                            Редагувати профіль
-                                                        </button>
-                                                    </div>
-                                                )}
-
+                                                {/* Статистика оголошень користувача */}
+                                                <ProfileListingStats
+                                                    profileUid={profileUid}
+                                                    isOwner={isOwner}
+                                                />
                                             </div>
                                         </div>
                                     </section>
 
                                     {/* Інформація про користувача */}
+
                                     {profile.bio && (
-                                        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-                                            <h2 className="text-lg font-black text-slate-950">
+                                        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
+                                            <h2 className="flex items-center gap-2 text-base font-medium text-slate-900 sm:text-lg">
+                                                <UserRound
+                                                    className="h-[18px] w-[18px] shrink-0 text-blue-600 sm:h-[21px] sm:w-[21px]"
+                                                />
                                                 Про мене
                                             </h2>
 
@@ -293,7 +368,8 @@ export default function UserProfile() {
                                         </section>
                                     )}
 
-
+                                    {/* Оголошення користувача */}
+                                    <ProfileListings profileUid={profileUid} />
                                     <ProfileContacts
                                         profile={
                                             isOwner

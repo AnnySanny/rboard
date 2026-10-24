@@ -23,6 +23,7 @@ import { registerListingView } from "../../utils/listingViews";
 import Swal from "sweetalert2";
 import ListingImageGallery from "./ListingImageGallery";
 import RelatedListings from "./RelatedListings";
+import ListingAuthor from "./ListingAuthor";
 const formatDate = (value) => {
   if (!value) {
     return "Не вказано";
@@ -43,22 +44,6 @@ const formatDate = (value) => {
     minute: "2-digit",
   });
 };
-
-
-const InfoItem = ({ label, value }) => {
-  return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-1 break-words text-sm font-semibold text-slate-800">
-        {value || "Не вказано"}
-      </p>
-    </div>
-  );
-};
-
 
 const getAdditionalContactValue = (
   additional,
@@ -822,10 +807,7 @@ const ListingDetailsModal = ({
             </h3>
 
             <div className="mt-5 space-y-5">
-              <InfoItem
-                label="Автор"
-                value={listing.authorName}
-              />
+              <ListingAuthor listing={listing} />
 
               <div>
                 {phoneRows.length === 0 &&

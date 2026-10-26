@@ -1,76 +1,96 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../firebase";
 const Footer = () => {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
   return (
     <footer
       id="contacts"
       className="mt-16 border-t border-slate-200 bg-white"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between">
-  <div>
-    <p className="text-lg font-black text-slate-950">
-      RBoard
-    </p>
+        <div>
+          <p className="text-lg font-black text-slate-950">
+            RBoard
+          </p>
 
-    <p className="mt-1 text-sm text-slate-500">
-      Локальна дошка оголошень для Рахова.
-    </p>
-  </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Локальна дошка оголошень для Рахова.
+          </p>
+        </div>
 
-  <div className="flex flex-wrap gap-5 text-sm text-slate-500">
-    <Link
-      to="/"
-      className="transition hover:text-blue-600"
-    >
-      Оголошення
-    </Link>
+        <div className="flex flex-wrap gap-5 text-sm text-slate-500">
+          <Link
+            to="/"
+            className="transition hover:text-blue-600"
+          >
+            Оголошення
+          </Link>
 
-    <Link
-      to="/about"
-      className="transition hover:text-blue-600"
-    >
-      Про сервіс
-    </Link>
+          <Link
+            to="/about"
+            className="transition hover:text-blue-600"
+          >
+            Про сервіс
+          </Link>
 
-    <Link
-      to="/rules"
-      className="transition hover:text-blue-600"
-    >
-      Правила
-    </Link>
-    <Link
-      to="/contacts"
-      className="transition hover:text-blue-600"
-    >
-      Контакти
-    </Link>
-        <Link
-      to="/help"
-      className="transition hover:text-blue-600"
-    >
-      Допомога
-    </Link>
-    <a
-      href="mailto:rakhivboardinfo@gmail.com"
-      className="transition hover:text-blue-600"
-    >
-      rakhivboardinfo@gmail.com
-    </a>
-  </div>
-</div>
+          <Link
+            to="/rules"
+            className="transition hover:text-blue-600"
+          >
+            Правила
+          </Link>
+          <Link
+            to="/contacts"
+            className="transition hover:text-blue-600"
+          >
+            Контакти
+          </Link>
+          <Link
+            to="/help"
+            className="transition hover:text-blue-600"
+          >
+            Допомога
+          </Link>
+          <a
+            href="mailto:rakhivboardinfo@gmail.com"
+            className="transition hover:text-blue-600"
+          >
+            rakhivboardinfo@gmail.com
+          </a>
+        </div>
+      </div>
 
-<div className="border-t border-slate-100">
-  <div className="mx-auto max-w-6xl px-4 py-4 text-center text-xs text-slate-400 sm:px-6">
-    © {new Date().getFullYear()} RBoard.{" "}
+      <div className="border-t border-slate-100">
+        <div className="mx-auto max-w-6xl px-4 py-4 text-center text-xs text-slate-400 sm:px-6">
+          © {new Date().getFullYear()} RBoard.{" "}
 
-    <Link
-      to="/admin-login"
-      className="transition hover:text-blue-600"
-    >
-      Усі права захищені.
-    </Link>
-  </div>
-</div>
+
+          {!authLoading && !currentUser ? (
+            <Link
+              to="/admin-login"
+              className="transition hover:text-blue-600"
+            >
+              Усі права захищені.
+            </Link>
+          ) : (
+            <span>Усі права захищені.</span>
+          )}
+
+        </div>
+      </div>
     </footer>
   );
 };

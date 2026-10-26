@@ -15,7 +15,9 @@ import { db } from "../../firebase";
 import ListingContacts from "../listings/ListingContacts";
 import CityAutocomplete from "../listings/CityAutocomplete";
 import ListingImageUploader from "../listings/ListingImageUploader";
-
+import {
+    buildListingSearchTokens,
+} from "../../utils/listingSearch";
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -392,7 +394,14 @@ const AdminCreateListingForm = ({
                 60 *
                 1000
             );
-
+            const searchTokens = buildListingSearchTokens({
+                authorName: form.authorName.trim(),
+                title: form.title.trim(),
+                type: form.type,
+                city: getCleanCity(form.city),
+                street: form.street.trim(),
+                comment: form.comment.trim(),
+            });
             /*
              * 3. Створюємо документ.
              */
@@ -441,7 +450,7 @@ const AdminCreateListingForm = ({
 
                         status:
                             "approved",
-
+                        searchTokens,
                         views: 0,
 
                         /*

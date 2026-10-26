@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../firebase";
 import {
   Phone,
   Instagram,
   Facebook,
   Copy,
   Mail,
+  MessageCircle,
 } from "lucide-react";
 
 
@@ -439,6 +443,52 @@ const ListingDetailsModal = ({
   onClose,
   onSelectRelated,
 }) => {
+  const navigate = useNavigate();
+
+  const [currentUser, setCurrentUser] = useState(undefined);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+  }, []);
+
+  const authorUid = listing?.author?.uid || null;
+
+  const handleOpenChat = async () => {
+    if (currentUser === undefined) return;
+
+    if (!currentUser) {
+      await Swal.fire({
+        icon: "info",
+        title: "Потрібна авторизація",
+        text: "Щоб написати автору, увійдіть у свій обліковий запис RBoard.",
+        confirmButtonText: "Зрозуміло",
+        confirmButtonColor: "#2563eb",
+      });
+      return;
+    }
+
+    if (!authorUid || !listing?.id) return;
+
+    if (currentUser.uid === authorUid) {
+      await Swal.fire({
+        icon: "info",
+        title: "Це ваше оголошення",
+        text: "Ви не можете написати повідомлення самому собі.",
+        confirmButtonText: "Зрозуміло",
+        confirmButtonColor: "#2563eb",
+      });
+      return;
+    }
+
+    const params = new URLSearchParams({
+      to: authorUid,
+      listing: listing.id,
+    });
+
+    navigate(`/user/chats?${params.toString()}`);
+  };
   const [currentTime, setCurrentTime] =
     useState(Date.now());
   const modalRef = useRef(null);
@@ -1022,6 +1072,18 @@ const ListingDetailsModal = ({
                   </div>
                 )}
               </div>
+
+              {authorUid && currentUser?.uid !== authorUid && (
+                <button
+                  type="button"
+                  onClick={handleOpenChat}
+                  disabled={currentUser === undefined}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+                >
+                  <MessageCircle size={18} />
+                  Написати автору
+                </button>
+              )}
             </div>
           </aside>
         </div>

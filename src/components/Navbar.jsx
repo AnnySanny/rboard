@@ -11,6 +11,7 @@ import {
 } from "firebase/auth";
 
 import { auth } from "../firebase";
+import { stopAndRemoveUserPresence } from "../utils/userPresence";
 import {
     LogOut,
     User,
@@ -28,6 +29,7 @@ import Modal from "./Modal";
 import LoginModal from "./auth/LoginModal";
 import RegisterModal from "./auth/RegisterModal";
 import OnboardingModal from "./onboarding/OnboardingModal";
+import { useChatNotifications } from "../context/ChatNotificationsContext";
 const getOnboardingImages = () => {
     const isMobile = window.matchMedia(
         "(max-width: 767px)"
@@ -79,6 +81,10 @@ const Navbar = () => {
         useState(true);
 
     const userMode = Boolean(currentUser);
+    const { unreadCount } = useChatNotifications();
+
+    const unreadLabel =
+        unreadCount > 99 ? "99+" : unreadCount;
     useEffect(() => {
         const unsubscribe =
             onAuthStateChanged(
@@ -263,17 +269,28 @@ const Navbar = () => {
             );
         };
     }, []);
+
     const handleLogout = async () => {
         setShowMobileMenu(false);
 
         try {
+            const user = auth.currentUser;
+
+            if (user) {
+                try {
+                    await stopAndRemoveUserPresence(user.uid);
+                } catch (error) {
+                    console.error(
+                        "Помилка очищення статусу користувача:",
+                        error
+                    );
+                }
+            }
+
             await signOut(auth);
             navigate("/");
         } catch (error) {
-            console.error(
-                "Помилка виходу:",
-                error
-            );
+            console.error("Помилка виходу:", error);
         }
     };
 
@@ -463,6 +480,24 @@ const Navbar = () => {
                                     className={navLinkClass}
                                 >
                                     Мої оголошення
+                                </NavLink>
+
+                                <NavLink
+                                    to="/user/chats"
+                                    className={({ isActive }) =>
+                                        `inline-flex items-center gap-1.5 text-sm font-medium transition ${isActive
+                                            ? "text-blue-600"
+                                            : "text-slate-600 hover:text-blue-600"
+                                        }`
+                                    }
+                                >
+                                    Чати
+
+                                    {unreadCount > 0 && (
+                                        <span className="inline-flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold leading-none text-white">
+                                            {unreadLabel}
+                                        </span>
+                                    )}
                                 </NavLink>
 
                                 <NavLink
@@ -670,6 +705,23 @@ const Navbar = () => {
                                     >
                                         Мої оголошення
                                     </NavLink>
+
+                                    <NavLink
+                                        to="/user/chats"
+                                        onClick={closeMobileMenu}
+                                        className={mobileNavLinkClass}
+                                    >
+                                        <span className="flex items-center justify-between gap-3">
+                                            <span>Чати</span>
+
+                                            {unreadCount > 0 && (
+                                                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[11px] font-bold text-white">
+                                                    {unreadLabel}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </NavLink>
+
                                     <NavLink
                                         to="/help"
                                         onClick={closeMobileMenu}

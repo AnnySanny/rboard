@@ -41,7 +41,9 @@ const Contacts = () => {
 
   const location = useLocation();
 
-  const complaint = location.state?.reviewComplaint;
+  const complaint =
+    location.state?.chatComplaint ||
+    location.state?.reviewComplaint;
 
   useEffect(() => {
     if (!complaint) return;

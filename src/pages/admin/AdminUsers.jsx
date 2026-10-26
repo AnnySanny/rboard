@@ -7,10 +7,14 @@ import { Link } from "react-router-dom";
 import {
   arrayRemove,
   collection,
+  collectionGroup,
+  deleteDoc,
   doc,
   getDocs,
+  limit,
   onSnapshot,
   query,
+  runTransaction,
   updateDoc,
   where,
   writeBatch,
@@ -22,6 +26,7 @@ import {
 } from "../../utils/adminLogger";
 import { db } from "../../firebase";
 import UserStatisticsModal from "../../components/admin/UserStatisticsModal";
+
 const STATUS_FILTERS = [
   {
     value: "all",
@@ -35,7 +40,16 @@ const STATUS_FILTERS = [
     value: "blocked",
     label: "Заблоковані",
   },
+  {
+    value: "online",
+    label: "На платформі",
+  },
+  {
+    value: "offline",
+    label: "Не в мережі",
+  },
 ];
+
 
 const SORT_OPTIONS = [
   {
@@ -59,37 +73,205 @@ const SORT_OPTIONS = [
     label: "За ім’ям",
   },
 ];
-const commitOperations = async (
-  operations
-) => {
-  const CHUNK_SIZE = 400;
 
-  for (
-    let index = 0;
-    index < operations.length;
-    index += CHUNK_SIZE
-  ) {
-    const batch =
-      writeBatch(db);
 
-    const chunk =
-      operations.slice(
-        index,
-        index + CHUNK_SIZE
-      );
+const DELETE_BATCH_SIZE = 100;
 
-    chunk.forEach(
-      (operation) => {
-        operation(batch);
-      }
-    );
+const deleteDocuments = async (createQuery) => {
+  let count = 0;
+
+  while (true) {
+    const snapshot = await getDocs(createQuery());
+
+    if (snapshot.empty) break;
+
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach((item) => {
+      batch.delete(item.ref);
+    });
 
     await batch.commit();
+    count += snapshot.size;
   }
+
+  return count;
 };
+
+const deleteUserReviews = async (uid) => {
+  const received = await deleteDocuments(() =>
+    query(
+      collection(db, "publicProfiles", uid, "reviews"),
+      limit(DELETE_BATCH_SIZE)
+    )
+  );
+
+  const written = await deleteDocuments(() =>
+    query(
+      collectionGroup(db, "reviews"),
+      where("reviewerUid", "==", uid),
+      limit(DELETE_BATCH_SIZE)
+    )
+  );
+
+  return { received, written };
+};
+
+const deleteUserChats = async (uid) => {
+  let count = 0;
+
+  while (true) {
+    const snapshot = await getDocs(
+      query(
+        collection(db, "chats"),
+        where("participants", "array-contains", uid),
+        limit(DELETE_BATCH_SIZE)
+      )
+    );
+
+    if (snapshot.empty) break;
+
+    for (const chat of snapshot.docs) {
+      await deleteDocuments(() =>
+        query(
+          collection(db, "chats", chat.id, "messages"),
+          limit(DELETE_BATCH_SIZE)
+        )
+      );
+
+      await deleteDoc(chat.ref);
+      count++;
+    }
+  }
+
+  return count;
+};
+
+const deleteListingViews = async (listingId) => {
+  return deleteDocuments(() =>
+    query(
+      collection(db, "listingViews"),
+      where("listingId", "==", listingId),
+      limit(DELETE_BATCH_SIZE)
+    )
+  );
+};
+
+const deleteUserListings = async (uid) => {
+  let count = 0;
+
+  while (true) {
+    const snapshot = await getDocs(
+      query(
+        collection(db, "listings"),
+        where("author.uid", "==", uid),
+        limit(DELETE_BATCH_SIZE)
+      )
+    );
+
+    if (snapshot.empty) break;
+
+    for (const listing of snapshot.docs) {
+      await deleteListingViews(listing.id);
+      await deleteDoc(listing.ref);
+      count++;
+    }
+  }
+
+  return count;
+};
+
+const deleteOwnListingViews = async (uid) => {
+  let count = 0;
+
+  while (true) {
+    const snapshot = await getDocs(
+      query(
+        collection(db, "listingViews"),
+        where("viewerType", "==", "user"),
+        where("viewerId", "==", `user_${uid}`),
+        limit(DELETE_BATCH_SIZE)
+      )
+    );
+
+    if (snapshot.empty) break;
+
+    for (const view of snapshot.docs) {
+      const listingId = view.data().listingId;
+
+      if (!listingId) {
+        await deleteDoc(view.ref);
+        count++;
+        continue;
+      }
+
+      const listingRef = doc(db, "listings", listingId);
+
+      const deleted = await runTransaction(
+        db,
+        async (transaction) => {
+          const currentView = await transaction.get(view.ref);
+          const currentListing = await transaction.get(listingRef);
+
+          if (!currentView.exists()) return false;
+
+          transaction.delete(view.ref);
+
+          if (currentListing.exists()) {
+            const views = Number(
+              currentListing.data().views ?? 0
+            );
+
+            transaction.update(listingRef, {
+              views: Math.max(0, views - 1),
+            });
+          }
+
+          return true;
+        }
+      );
+
+      if (deleted) count++;
+    }
+  }
+
+  return count;
+};
+
+const removeUserFavorites = async (uid) => {
+  let count = 0;
+
+  while (true) {
+    const snapshot = await getDocs(
+      query(
+        collection(db, "listings"),
+        where("favoriteUserIds", "array-contains", uid),
+        limit(DELETE_BATCH_SIZE)
+      )
+    );
+
+    if (snapshot.empty) break;
+
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach((listing) => {
+      batch.update(listing.ref, {
+        favoriteUserIds: arrayRemove(uid),
+      });
+    });
+
+    await batch.commit();
+    count += snapshot.size;
+  }
+
+  return count;
+};
+
 const AdminUsers = () => {
   const [users, setUsers] =
     useState([]);
+  const [userPresence, setUserPresence] = useState({});
+  const [presenceNow, setPresenceNow] = useState(Date.now());
 
   const [listings, setListings] =
     useState([]);
@@ -206,6 +388,39 @@ const AdminUsers = () => {
 
     return unsubscribe;
   }, []);
+
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "userPresence"),
+      (snapshot) => {
+        const presence = {};
+
+        snapshot.forEach((documentSnapshot) => {
+          presence[documentSnapshot.id] =
+            documentSnapshot.data().lastSeenAt?.toMillis?.() ?? null;
+        });
+
+        setUserPresence(presence);
+        setPresenceNow(Date.now());
+      },
+      (error) => {
+        console.error("Помилка завантаження онлайн-статусів:", error);
+      }
+    );
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPresenceNow(Date.now());
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+
 
   /*
    * Усі оголошення.
@@ -379,7 +594,11 @@ const AdminUsers = () => {
 
           return {
             ...user,
-
+            online:
+              !user.blocked &&
+              typeof userPresence[user.id] === "number" &&
+              presenceNow - userPresence[user.id] >= 0 &&
+              presenceNow - userPresence[user.id] < 5 * 60 * 1000,
             listings:
               userListings,
 
@@ -396,7 +615,7 @@ const AdminUsers = () => {
           };
         }
       );
-    }, [users, listings]);
+    }, [users, listings, userPresence, presenceNow]);
 
   /*
    * Пошук + фільтри +
@@ -412,15 +631,13 @@ const AdminUsers = () => {
       const result =
         usersWithStatistics.filter(
           (user) => {
+
             const matchesStatus =
-              statusFilter ===
-              "all" ||
-              (statusFilter ===
-                "blocked" &&
-                user.blocked) ||
-              (statusFilter ===
-                "active" &&
-                !user.blocked);
+              statusFilter === "all" ||
+              (statusFilter === "blocked" && user.blocked) ||
+              (statusFilter === "active" && !user.blocked) ||
+              (statusFilter === "online" && user.online) ||
+              (statusFilter === "offline" && !user.online);
 
             const searchableText =
               [
@@ -688,327 +905,101 @@ const AdminUsers = () => {
    * Видалення користувача
    * + ВСІХ його оголошень.
    */
-  const handleDelete =
-    async (user) => {
-      const result =
-        await Swal.fire({
-          icon: "warning",
+  
+const handleDelete = async (user) => {
+  const result = await Swal.fire({
+    icon: "warning",
+    title: "Видалити користувача?",
+    html: `
+      <div style="line-height:1.7;color:#64748b">
+        <p>
+          Користувача
+          <strong style="color:#0f172a">
+            ${escapeHtml(user.login || "Без імені")}
+          </strong>
+          та його дані буде назавжди видалено.
+        </p>
+        <p style="margin-top:12px">
+          Будуть очищені профіль, оголошення, перегляди,
+          обране, чати, повідомлення та відгуки.
+        </p>
+        <p style="margin-top:12px;color:#dc2626;font-weight:600">
+          Цю дію неможливо скасувати.
+        </p>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: "Видалити дані",
+    cancelButtonText: "Скасувати",
+    confirmButtonColor: "#dc2626",
+    cancelButtonColor: "#64748b",
+    reverseButtons: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  setDeletingId(user.id);
+
+  try {
+    const uid = user.id;
+
+    const reviews = await deleteUserReviews(uid);
+    const chatsCount = await deleteUserChats(uid);
+    const listingsCount = await deleteUserListings(uid);
+    const viewsCount = await deleteOwnListingViews(uid);
+    const favoritesCount = await removeUserFavorites(uid);
+
+    await deleteDoc(doc(db, "userPresence", uid));
+    await deleteDoc(doc(db, "publicProfiles", uid));
+    await deleteDoc(doc(db, "users", uid));
+
+    setStatisticsUser((current) =>
+      current?.id === uid ? null : current
+    );
+
+    try {
+      await createAdminLog({
+        action: ADMIN_LOG_ACTIONS.USER_DELETED,
+        category: "users",
+        title: "Видалено дані користувача",
+        description:
+          `Видалено дані користувача «${user.login || "Без імені"}». ` +
+          `Оголошень: ${listingsCount}, ` +
+          `власних переглядів: ${viewsCount}, ` +
+          `записів обраного: ${favoritesCount}, ` +
+          `чатів: ${chatsCount}, ` +
+          `отриманих відгуків: ${reviews.received}, ` +
+          `залишених відгуків: ${reviews.written}.`,
+        targetId: uid,
+        targetName: user.login || "Без імені",
+      });
+    } catch (logError) {
+      console.error("Помилка запису журналу:", logError);
+    }
+
+    await Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: "success",
+      title: "Дані користувача видалено",
+      showConfirmButton: false,
+      timer: 2500,
+      timerProgressBar: true,
+    });
+  } catch (error) {
+    console.error("Помилка видалення користувача:", error);
+
+    await Swal.fire({
+      icon: "error",
+      title: "Не вдалося завершити видалення",
+      text: "Частину даних уже могло бути видалено. Перевірте Firestore та повторіть операцію.",
+      confirmButtonColor: "#2563eb",
+    });
+  } finally {
+    setDeletingId(null);
+  }
+};
 
-          title:
-            "Видалити користувача?",
-
-          html: `
-                    <div style="line-height:1.65">
-                        <div>
-                            Користувач
-                            <strong>
-                                ${escapeHtml(
-            user.login
-          )}
-                            </strong>
-                            буде назавжди видалений.
-                        </div>
-
-                        <div style="margin-top:8px">
-                            Будуть видалені його
-                            оголошення, перегляди
-                            та всі згадки в обраному.
-                        </div>
-
-                        <div style="
-                            margin-top:12px;
-                            color:#dc2626;
-                            font-weight:600;
-                        ">
-                            Цю дію неможливо скасувати.
-                        </div>
-                    </div>
-                `,
-
-          showCancelButton:
-            true,
-
-          confirmButtonText:
-            "Видалити все",
-
-          cancelButtonText:
-            "Скасувати",
-
-          confirmButtonColor:
-            "#dc2626",
-
-          cancelButtonColor:
-            "#64748b",
-
-          reverseButtons:
-            true,
-        });
-
-
-      if (!result.isConfirmed) {
-        return;
-      }
-
-
-      try {
-        setDeletingId(
-          user.id
-        );
-
-
-        const userId =
-          user.id;
-
-        const viewerId =
-          `user_${userId}`;
-
-
-        /*
-         * =========================
-         * 1. ОГОЛОШЕННЯ
-         * =========================
-         */
-        const userListingsQuery =
-          query(
-            collection(
-              db,
-              "listings"
-            ),
-            where(
-              "author.uid",
-              "==",
-              userId
-            )
-          );
-
-
-        const userListingsSnapshot =
-          await getDocs(
-            userListingsQuery
-          );
-
-
-        const listingDeleteOperations =
-          userListingsSnapshot.docs.map(
-            (listingDocument) =>
-              (batch) => {
-                batch.delete(
-                  listingDocument.ref
-                );
-              }
-          );
-
-
-        await commitOperations(
-          listingDeleteOperations
-        );
-
-
-        /*
-         * =========================
-         * 2. ПЕРЕГЛЯДИ
-         * =========================
-         *
-         * Зареєстровані користувачі
-         * мають viewerId:
-         *
-         * user_FIREBASE_UID
-         */
-        const viewsQuery =
-          query(
-            collection(
-              db,
-              "listingViews"
-            ),
-            where(
-              "viewerId",
-              "==",
-              viewerId
-            )
-          );
-
-
-        const viewsSnapshot =
-          await getDocs(
-            viewsQuery
-          );
-
-
-        const viewDeleteOperations =
-          viewsSnapshot.docs.map(
-            (viewDocument) =>
-              (batch) => {
-                batch.delete(
-                  viewDocument.ref
-                );
-              }
-          );
-
-
-        await commitOperations(
-          viewDeleteOperations
-        );
-
-
-        /*
-         * =========================
-         * 3. ОБРАНЕ
-         * =========================
-         *
-         * Шукаємо всі оголошення,
-         * де UID користувача є
-         * у favoriteUserIds.
-         */
-        const favoritesQuery =
-          query(
-            collection(
-              db,
-              "listings"
-            ),
-            where(
-              "favoriteUserIds",
-              "array-contains",
-              userId
-            )
-          );
-
-
-        const favoritesSnapshot =
-          await getDocs(
-            favoritesQuery
-          );
-
-
-        const favoriteOperations =
-          favoritesSnapshot.docs.map(
-            (listingDocument) =>
-              (batch) => {
-                batch.update(
-                  listingDocument.ref,
-                  {
-                    favoriteUserIds:
-                      arrayRemove(
-                        userId
-                      ),
-                  }
-                );
-              }
-          );
-
-
-        await commitOperations(
-          favoriteOperations
-        );
-
-
-        /*
-         * =========================
-         * 4. ПРОФІЛЬ
-         * =========================
-         *
-         * Робимо останнім,
-         * щоб користувач не зник
-         * з адмінки раніше, ніж
-         * очистяться його дані.
-         */
-        const profileBatch =
-          writeBatch(db);
-
-
-        profileBatch.delete(
-          doc(
-            db,
-            "users",
-            userId
-          )
-        );
-
-
-        await profileBatch.commit();
-
-        await createAdminLog({
-          action:
-            ADMIN_LOG_ACTIONS.USER_DELETED,
-
-          category:
-            "users",
-
-          title:
-            "Видалено користувача",
-
-          description:
-            `Видалено користувача «${user.login || "Без імені"}». ` +
-            `Разом видалено оголошень: ${userListingsSnapshot.size}, ` +
-            `переглядів: ${viewsSnapshot.size}, ` +
-            `очищено записів обраного: ${favoritesSnapshot.size}.`,
-
-          targetId:
-            userId,
-
-          targetName:
-            user.login || "Без імені",
-        });
-        /*
-         * Якщо відкрита статистика
-         * цього користувача —
-         * закриваємо її.
-         */
-        setStatisticsUser(
-          (currentUser) =>
-            currentUser?.id ===
-              userId
-              ? null
-              : currentUser
-        );
-
-
-        await Swal.fire({
-          toast: true,
-
-          position:
-            "top-end",
-
-          icon: "success",
-
-          title:
-            "Користувача видалено",
-
-          text:
-            `Оголошень: ${userListingsSnapshot.size}, переглядів: ${viewsSnapshot.size}, обране очищено: ${favoritesSnapshot.size}`,
-
-          showConfirmButton:
-            false,
-
-          timer: 3000,
-
-          timerProgressBar:
-            true,
-        });
-      } catch (error) {
-        console.error(
-          "Помилка повного видалення користувача:",
-          error
-        );
-
-
-        await Swal.fire({
-          icon: "error",
-
-          title:
-            "Помилка видалення",
-
-          text:
-            "Не вдалося повністю видалити дані користувача.",
-
-          confirmButtonColor:
-            "#2563eb",
-        });
-      } finally {
-        setDeletingId(
-          null
-        );
-      }
-    };
 
   return (
     <div className="space-y-6">
@@ -1383,9 +1374,8 @@ const UserRow = ({
       {/* Статус */}
       <td className="px-6 py-5">
         <UserStatus
-          blocked={
-            user.blocked
-          }
+          blocked={user.blocked}
+          online={user.online}
         />
       </td>
 
@@ -1423,6 +1413,7 @@ const UserRow = ({
 /*
  * Mobile картка
  */
+
 const UserMobileCard = ({
   user,
   changingBlock,
@@ -1432,99 +1423,117 @@ const UserMobileCard = ({
   onDelete,
 }) => {
   return (
-    <article className="p-5 sm:p-6">
+    <article className="p-4 sm:p-5">
       <div className="flex items-start gap-3">
-        <UserAvatar
-          name={user.login}
-        />
+        <UserAvatar name={user.login} />
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to={`/dashboard/users/${encodeURIComponent(user.id)}`}
-              className="font-black text-slate-900 transition-colors hover:text-blue-600 active:text-blue-700"
-              title={`Переглянути профіль: ${user.login || "Без імені"}`}
-            >
-              {user.login || "Без імені"}
-            </Link>
+          <Link
+            to={`/dashboard/users/${encodeURIComponent(user.id)}`}
+            className="block w-fit max-w-full truncate text-sm font-black text-slate-900 transition hover:text-blue-600"
+            title={`Переглянути профіль: ${user.login || "Без імені"}`}
+          >
+            {user.login || "Без імені"}
+          </Link>
 
-            <UserStatus
-              blocked={
-                user.blocked
-              }
-            />
-          </div>
-
-          <p className="mt-1 break-all text-sm font-semibold text-blue-600">
-            {user.email ||
-              user.phone ||
-              "Контакт не вказано"}
+          <p className="mt-1 break-all text-xs font-medium text-slate-500">
+            {user.email || user.phone || "Контакт не вказано"}
           </p>
 
-          <p className="mt-1 text-xs text-slate-400">
-            {formatDate(
-              user.createdAt
-            )}
+          <p className="mt-1 text-[11px] text-slate-400">
+            Реєстрація: {formatDate(user.createdAt)}
           </p>
         </div>
+
+        <Link
+          to={`/dashboard/users/${encodeURIComponent(user.id)}`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+          aria-label="Переглянути профіль"
+        >
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </Link>
       </div>
 
-      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-        <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-400">
-          Оголошення
-        </p>
-
-        <ListingsStats
-          user={user}
-          mobile
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        <UserStatus
+          blocked={user.blocked}
+          online={user.online}
         />
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            Оголошення
+          </span>
+
+          <span className="text-xs font-bold text-slate-600">
+            Всього: {user.listingsCount}
+          </span>
+        </div>
+
+        <ListingsStats user={user} mobile />
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <MobileActionButton
-          label="Статистика"
-          onClick={
-            onStatistics
-          }
+        <button
+          type="button"
+          onClick={onStatistics}
+          disabled={deleting || changingBlock}
+          className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-blue-100 bg-blue-50 px-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:opacity-50"
         >
           <ChartIcon />
-        </MobileActionButton>
+          <span>Статистика</span>
+        </button>
 
-        <MobileActionButton
-          label={
+        <button
+          type="button"
+          onClick={onToggleBlock}
+          disabled={changingBlock || deleting}
+          className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-semibold transition disabled:opacity-50 ${
             user.blocked
-              ? "Розблок."
-              : "Блок"
-          }
-          onClick={
-            onToggleBlock
-          }
-          loading={
-            changingBlock
-          }
-          danger={
-            !user.blocked
-          }
+              ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              : "border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100"
+          }`}
         >
-          {user.blocked ? (
+          {changingBlock ? (
+            <Spinner />
+          ) : user.blocked ? (
             <UnlockIcon />
           ) : (
             <LockIcon />
           )}
-        </MobileActionButton>
 
-        <MobileActionButton
-          label="Видалити"
+          <span>
+            {user.blocked ? "Розблок." : "Блокувати"}
+          </span>
+        </button>
+
+        <button
+          type="button"
           onClick={onDelete}
-          loading={deleting}
-          danger
+          disabled={deleting || changingBlock}
+          className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
         >
-          <TrashIcon />
-        </MobileActionButton>
+          {deleting ? <Spinner /> : <TrashIcon />}
+          <span>Видалити</span>
+        </button>
       </div>
     </article>
   );
 };
+
 
 /*
  * Кількість оголошень
@@ -1613,20 +1622,35 @@ const ListingCount = ({
 /*
  * Статус користувача
  */
-const UserStatus = ({
-  blocked,
-}) =>
-  blocked ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
-      <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-      Заблокований
+
+const UserStatus = ({ blocked, online }) => (
+  <div className="flex flex-col items-start gap-1.5">
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${blocked
+          ? "border-red-100 bg-red-50 text-red-700"
+          : "border-blue-100 bg-blue-50 text-blue-700"
+        }`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${blocked ? "bg-red-500" : "bg-blue-500"
+          }`}
+      />
+      {blocked ? "Заблокований" : "Активний"}
     </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-      Активний
+
+    <span
+      className={`inline-flex items-center gap-1.5 px-1 text-[11px] font-semibold ${online ? "text-emerald-600" : "text-red-500"
+        }`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-500" : "bg-red-400"
+          }`}
+      />
+      {online ? "На платформі" : "Не в мережі"}
     </span>
-  );
+  </div>
+);
+
 
 /*
  * Кнопки desktop
@@ -1692,31 +1716,6 @@ const DeleteButton = ({
   </button>
 );
 
-const MobileActionButton = ({
-  children,
-  label,
-  onClick,
-  loading,
-  danger,
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={loading}
-    className={`flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl border text-xs font-bold transition disabled:opacity-50 ${danger
-      ? "border-red-100 bg-red-50 text-red-600"
-      : "border-blue-100 bg-blue-50 text-blue-600"
-      }`}
-  >
-    {loading ? (
-      <Spinner />
-    ) : (
-      children
-    )}
-
-    <span>{label}</span>
-  </button>
-);
 
 /*
  * Допоміжні компоненти

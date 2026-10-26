@@ -34,7 +34,7 @@ import ProfileListings from "../../components/profile/ProfileListings";
 import ProfileListingStats from "../../components/profile/ProfileListingStats";
 import ProfileReviews from "../../components/profile/ProfileReviews";
 import { auth, db } from "../../firebase";
-
+import useUserPresence from "../../hooks/useUserPresence";
 export default function UserProfile({
     adminView = false,
 }) {
@@ -53,7 +53,7 @@ export default function UserProfile({
         loading: true,
     });
     const profileUid = uid || currentUser?.uid || null;
-
+    const presence = useUserPresence(profileUid);
     const isOwner = Boolean(
         currentUser &&
         profileUid === currentUser.uid
@@ -381,10 +381,31 @@ export default function UserProfile({
                                             </div>
 
                                             <div className="min-w-0 flex-1 text-center sm:text-left">
-
                                                 <h1 className="break-words text-2xl font-black text-slate-950 sm:text-3xl">
                                                     {profile.login || "Користувач RBoard"}
                                                 </h1>
+
+                                                <div className="mt-2 flex justify-center sm:justify-start">
+                                                    <span
+                                                        className={`inline-flex items-center gap-2 text-xs font-semibold ${presence.online
+                                                                ? "text-emerald-600"
+                                                                : presence.text === "Перевірка статусу..."
+                                                                    ? "text-slate-400"
+                                                                    : "text-red-500"
+                                                            }`}
+                                                    >
+                                                        <span
+                                                            className={`h-2 w-2 shrink-0 rounded-full ${presence.online
+                                                                    ? "bg-emerald-500"
+                                                                    : presence.text === "Перевірка статусу..."
+                                                                        ? "bg-slate-300"
+                                                                        : "bg-red-400"
+                                                                }`}
+                                                        />
+
+                                                        {presence.text}
+                                                    </span>
+                                                </div>
 
                                                 {cityName && showCity && (
                                                     <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500 sm:justify-start">

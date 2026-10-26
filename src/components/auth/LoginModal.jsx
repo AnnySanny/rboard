@@ -22,6 +22,7 @@ import {
     auth,
     db,
 } from "../../firebase";
+import { stopAndRemoveUserPresence } from "../../utils/userPresence";
 const createAuthEmail = (phone) => {
     const normalizedPhone =
         phone.replace(/\D/g, "");
@@ -99,12 +100,15 @@ export default function LoginModal() {
                 await getDoc(userReference);
 
             if (!userSnapshot.exists()) {
+                try {
+                    await stopAndRemoveUserPresence(firebaseUser.uid);
+                } catch (error) {
+                    console.error("Помилка очищення статусу:", error);
+                }
+
                 await signOut(auth);
 
-                setError(
-                    "Дані користувача не знайдено"
-                );
-
+                setError("Дані користувача не знайдено");
                 return;
             }
 
@@ -112,10 +116,15 @@ export default function LoginModal() {
                 userSnapshot.data();
 
             if (userData.blocked === true) {
+                try {
+                    await stopAndRemoveUserPresence(firebaseUser.uid);
+                } catch (error) {
+                    console.error("Помилка очищення статусу:", error);
+                }
+
                 await signOut(auth);
 
                 setError("blocked");
-
                 return;
             }
             setPhone("");

@@ -17,6 +17,8 @@ import {
     ChartNoAxesCombined,
     House,
     HandCoins,
+    Eye,
+    MessagesSquare,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
@@ -77,6 +79,18 @@ const menuItems = [
         to: "/dashboard/tourist-places",
         title: "Тур-місця",
         icon: MapPinned,
+    },
+    {
+        key: "listingViews",
+        to: "/dashboard/listing-views",
+        title: "Перегляди оголошень",
+        icon: Eye,
+    },
+    {
+        key: "chats",
+        to: "/dashboard/chats",
+        title: "Чати",
+        icon: MessagesSquare,
     },
     {
         key: "statistics",

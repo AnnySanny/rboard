@@ -404,6 +404,7 @@ export default function ProfileReviews({
         setEmojiOpen(false);
 
         try {
+
             await setDoc(
                 doc(
                     db,
@@ -413,11 +414,14 @@ export default function ProfileReviews({
                     currentUser.uid
                 ),
                 {
+                    reviewerUid: currentUser.uid,
+                    profileUid,
                     rating,
                     text,
                     createdAt: serverTimestamp(),
                 }
             );
+
 
             setOwnReviewExists(true);
             setMessage("");
@@ -617,7 +621,7 @@ export default function ProfileReviews({
 
             {currentUser &&
                 !isOwner &&
-                  !isAdmin &&
+                !isAdmin &&
                 !checkingPermissions &&
                 !ownReviewExists && (
                     <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-5">
@@ -841,48 +845,47 @@ export default function ProfileReviews({
 
 
 
-                                        <div className="flex items-start gap-2">
-                                            <div className="flex flex-col items-end gap-1">
-                                                <span className="whitespace-nowrap text-[13px] font-medium text-slate-500">
-                                                    {formatDate(review.createdAt)}
-                                                </span>
 
-                                                {isOwner &&
-                                                    currentUser?.uid === profileUid &&
-                                                    review.id !== currentUser.uid && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleReportReview(review)}
-                                                            title="Поскаржитися на відгук"
-                                                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-red-50 hover:text-red-600 sm:text-xs"
-                                                        >
-                                                            <Flag size={12} />
-                                                            Поскаржитися
-                                                        </button>
-                                                    )}
-                                            </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <span className="mr-1 whitespace-nowrap text-xs font-medium text-slate-500">
+                                                {formatDate(review.createdAt)}
+                                            </span>
 
-                                            {(currentUser?.uid === review.id ||
-                                                isAdmin) && (
+                                            {isOwner &&
+                                                currentUser?.uid === profileUid &&
+                                                review.id !== currentUser.uid && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => removeReview(review.id)}
-                                                        disabled={deletingId === review.id}
-                                                        title="Видалити відгук"
-                                                        aria-label="Видалити відгук"
-                                                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                                                        onClick={() => handleReportReview(review)}
+                                                        title="Поскаржитися на відгук"
+                                                        aria-label="Поскаржитися на відгук"
+                                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-600 active:scale-95"
                                                     >
-                                                        {deletingId === review.id ? (
-                                                            <LoaderCircle
-                                                                size={15}
-                                                                className="animate-spin"
-                                                            />
-                                                        ) : (
-                                                            <Trash2 size={15} />
-                                                        )}
+                                                        <Flag size={19} strokeWidth={1.8} />
                                                     </button>
                                                 )}
+
+                                            {(currentUser?.uid === review.id || isAdmin) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeReview(review.id)}
+                                                    disabled={deletingId === review.id}
+                                                    title="Видалити відгук"
+                                                    aria-label="Видалити відгук"
+                                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    {deletingId === review.id ? (
+                                                        <LoaderCircle
+                                                            size={19}
+                                                            className="animate-spin"
+                                                        />
+                                                    ) : (
+                                                        <Trash2 size={19} strokeWidth={1.8} />
+                                                    )}
+                                                </button>
+                                            )}
                                         </div>
+
 
                                     </div>
 

@@ -12,7 +12,8 @@ import {
 // Звичайні імпорти
 import Home from "./pages/Home";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
-
+import { ChatNotificationsProvider } from "./context/ChatNotificationsContext";
+import UserPresenceTracker from "./components/UserPresenceTracker";
 // Публічні сторінки
 const About = lazy(() =>
   import("./pages/About")
@@ -29,7 +30,9 @@ const AdminLogin = lazy(() =>
 const AccessDenied = lazy(() =>
   import("./pages/AccessDenied")
 );
-
+const NotFound = lazy(() =>
+  import("./pages/NotFound")
+);
 const CreateListing = lazy(() =>
   import("./pages/CreateListing")
 );
@@ -52,7 +55,9 @@ const UserHome = lazy(() =>
 const UserListings = lazy(() =>
   import("./pages/user/UserListings")
 );
-
+const UserChats = lazy(() =>
+  import("./pages/user/UserChats")
+);
 const UserProfile = lazy(() =>
   import("./pages/user/UserProfile")
 );
@@ -80,7 +85,12 @@ const AdminListings = lazy(() =>
 const AdminUsers = lazy(() =>
   import("./pages/admin/AdminUsers")
 );
-
+const AdminChats = lazy(() =>
+  import("./pages/admin/AdminChats")
+);
+const AdminListingViews = lazy(() =>
+  import("./pages/admin/AdminListingViews")
+);
 const AdminContacts = lazy(() =>
   import("./pages/admin/AdminContacts")
 );
@@ -118,213 +128,226 @@ const AdminSite = lazy(() =>
 const App = () => {
   return (
     <BrowserRouter>
-      <Suspense fallback={null}>
-        <Routes>
+      <UserPresenceTracker />
+      <ChatNotificationsProvider>
+        <Suspense fallback={null}>
+          <Routes>
 
-          {/* ==============================
+            {/* ==============================
               ПУБЛІЧНІ СТОРІНКИ
           ============================== */}
 
-          <Route
-            path="/"
-            element={<Home />}
-          />
+            <Route
+              path="/"
+              element={<Home />}
+            />
 
-          <Route
-            path="/listing/:listingId"
-            element={<Home />}
-          />
+            <Route
+              path="/listing/:listingId"
+              element={<Home />}
+            />
 
-          <Route
-            path="/category/:categorySlug"
-            element={<Home />}
-          />
+            <Route
+              path="/category/:categorySlug"
+              element={<Home />}
+            />
 
-          <Route
-            path="/about"
-            element={<About />}
-          />
+            <Route
+              path="/about"
+              element={<About />}
+            />
 
-          <Route
-            path="/contacts"
-            element={<Contacts />}
-          />
+            <Route
+              path="/contacts"
+              element={<Contacts />}
+            />
 
-          <Route
-            path="/rules"
-            element={<Rules />}
-          />
+            <Route
+              path="/rules"
+              element={<Rules />}
+            />
 
-          <Route
-            path="/help"
-            element={<Help />}
-          />
-          <Route
-            path="/fundraisers"
-            element={<Fundraisers />}
-          />
-          <Route
-            path="/create-listing"
-            element={<CreateListing />}
-          />
+            <Route
+              path="/help"
+              element={<Help />}
+            />
+            <Route
+              path="/fundraisers"
+              element={<Fundraisers />}
+            />
+            <Route
+              path="/create-listing"
+              element={<CreateListing />}
+            />
 
-          <Route
-            path="/admin-login"
-            element={<AdminLogin />}
-          />
+            <Route
+              path="/admin-login"
+              element={<AdminLogin />}
+            />
 
-          {/* Сторінка відмови в доступі */}
+            {/* Сторінка відмови в доступі */}
 
-          <Route
-            path="/403"
-            element={<AccessDenied />}
-          />
+            <Route
+              path="/403"
+              element={<AccessDenied />}
+            />
 
-          {/* ==============================
+            {/* ==============================
               СТОРІНКИ КОРИСТУВАЧА
           ============================== */}
 
-          <Route
-            path="/user"
-            element={<UserHome />}
-          />
+            <Route
+              path="/user"
+              element={<UserHome />}
+            />
 
-          <Route
-            path="/user/listings"
-            element={<UserListings />}
-          />
+            <Route
+              path="/user/listings"
+              element={<UserListings />}
+            />
+            <Route
+              path="/user/chats"
+              element={<UserChats />}
+            />
+            {/* Власний профіль */}
+            <Route
+              path="/user/profile"
+              element={<UserProfile />}
+            />
 
-          {/* Власний профіль */}
-          <Route
-            path="/user/profile"
-            element={<UserProfile />}
-          />
+            {/* Публічний профіль за UID */}
+            <Route
+              path="/user/:uid"
+              element={<UserProfile />}
+            />
 
-          {/* Публічний профіль за UID */}
-          <Route
-            path="/user/:uid"
-            element={<UserProfile />}
-          />
+            {/* Налаштування акаунта */}
+            <Route
+              path="/user/settings"
+              element={<UserSettings />}
+            />
 
-          {/* Налаштування акаунта */}
-          <Route
-            path="/user/settings"
-            element={<UserSettings />}
-          />
+            <Route
+              path="/user/listings/:listingId/edit"
+              element={<EditListing />}
+            />
 
-          <Route
-            path="/user/listings/:listingId/edit"
-            element={<EditListing />}
-          />
-
-          {/* ==============================
+            {/* ==============================
               ЗАХИЩЕНА АДМІН-ПАНЕЛЬ
           ============================== */}
 
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedAdminRoute>
-                <AdminLayout />
-              </ProtectedAdminRoute>
-            }
-          >
-
-            {/* Головна сторінка адмін-панелі */}
-
             <Route
-              index
-              element={<Dashboard />}
-            />
+              path="/dashboard"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminLayout />
+                </ProtectedAdminRoute>
+              }
+            >
 
-            {/* Керування оголошеннями */}
+              {/* Головна сторінка адмін-панелі */}
 
-            <Route
-              path="listings"
-              element={<AdminListings />}
-            />
+              <Route
+                index
+                element={<Dashboard />}
+              />
 
-            <Route
-              path="listings/:listingId/edit"
-              element={<AdminEditListing />}
-            />
+              {/* Керування оголошеннями */}
 
-            <Route
-              path="admin-create-listing"
-              element={<AdminCreateListing />}
-            />
-            <Route
-              path="users/:uid"
-              element={<UserProfile adminView />}
-            />
-            {/* Новини */}
+              <Route
+                path="listings"
+                element={<AdminListings />}
+              />
 
-            <Route
-              path="news"
-              element={<AdminNews />}
-            />
+              <Route
+                path="listings/:listingId/edit"
+                element={<AdminEditListing />}
+              />
 
-            {/* Логи */}
-            {/* Збори */}
+              <Route
+                path="admin-create-listing"
+                element={<AdminCreateListing />}
+              />
+              <Route
+                path="users/:uid"
+                element={<UserProfile adminView />}
+              />
+              {/* Новини */}
 
-            <Route
-              path="fundraisers"
-              element={<AdminFundraisers />}
-            />
-            <Route
-              path="logs"
-              element={<AdminLogs />}
-            />
+              <Route
+                path="news"
+                element={<AdminNews />}
+              />
 
-            {/* Туристичні місця */}
+              {/* Логи */}
+              {/* Збори */}
 
-            <Route
-              path="tourist-places"
-              element={<AdminTouristPlaces />}
-            />
+              <Route
+                path="fundraisers"
+                element={<AdminFundraisers />}
+              />
+              <Route
+                path="logs"
+                element={<AdminLogs />}
+              />
 
-            {/* Статистика */}
+              {/* Туристичні місця */}
 
-            <Route
-              path="statistics"
-              element={<AdminStatistics />}
-            />
+              <Route
+                path="tourist-places"
+                element={<AdminTouristPlaces />}
+              />
+              <Route
+                path="listing-views"
+                element={<AdminListingViews />}
+              />
+              <Route
+                path="chats"
+                element={<AdminChats />}
+              />
+              {/* Статистика */}
 
-            {/* Керування користувачами */}
+              <Route
+                path="statistics"
+                element={<AdminStatistics />}
+              />
 
-            <Route
-              path="users"
-              element={<AdminUsers />}
-            />
+              {/* Керування користувачами */}
 
-            {/* Головна сайту */}
+              <Route
+                path="users"
+                element={<AdminUsers />}
+              />
 
-            <Route
-              path="site"
-              element={<AdminSite />}
-            />
+              {/* Головна сайту */}
 
-            {/* Повідомлення з форми
+              <Route
+                path="site"
+                element={<AdminSite />}
+              />
+
+              {/* Повідомлення з форми
                 зворотного зв'язку */}
 
-            <Route
-              path="contacts"
-              element={<AdminContacts />}
-            />
+              <Route
+                path="contacts"
+                element={<AdminContacts />}
+              />
 
-          </Route>
+            </Route>
 
-          {/* ==============================
+            {/* ==============================
               НЕВІДОМА АДРЕСА
           ============================== */}
 
-          <Route
-            path="*"
-            element={<Home />}
-          />
+            <Route
+              path="*"
+              element={<NotFound />}
+            />
 
-        </Routes>
-      </Suspense>
+          </Routes>
+        </Suspense>
+      </ChatNotificationsProvider>
     </BrowserRouter>
   );
 };

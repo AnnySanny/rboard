@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Copy,
   Check,
@@ -12,6 +13,7 @@ import {
   UserRound,
   Eye,
   CalendarDays,
+  ChevronRight,
 } from "lucide-react";
 import {
   FaTelegramPlane,
@@ -210,38 +212,42 @@ const ReelDetailsPanel = ({
 
   const isDark = theme === "dark";
   const { phones, links } = getContacts(listing);
+  const authorUid = listing.author?.uid || null;
 
+  const profileUrl = authorUid
+    ? `/user/${encodeURIComponent(authorUid)}`
+    : null;
   const ui = isDark
     ? {
-        panel: "bg-[#252A34] text-white",
-        header: "border-white/10 bg-[#252A34]",
-        card: "border-white/[0.07] bg-[#303642]",
-        inner: "border-white/10 bg-[#252A34]",
-        title: "text-slate-100",
-        text: "text-slate-200",
-        muted: "text-slate-400",
-        border: "border-white/10",
-        button: "border-white/10 bg-white/5 text-slate-200",
-        accent: "text-blue-300",
-        iconBg: "bg-white/5",
-        category:
-          "border-blue-400/20 bg-blue-400/10 text-blue-300",
-      }
+      panel: "bg-[#252A34] text-white",
+      header: "border-white/10 bg-[#252A34]",
+      card: "border-white/[0.07] bg-[#303642]",
+      inner: "border-white/10 bg-[#252A34]",
+      title: "text-slate-100",
+      text: "text-slate-200",
+      muted: "text-slate-400",
+      border: "border-white/10",
+      button: "border-white/10 bg-white/5 text-slate-200",
+      accent: "text-blue-300",
+      iconBg: "bg-white/5",
+      category:
+        "border-blue-400/20 bg-blue-400/10 text-blue-300",
+    }
     : {
-        panel: "bg-[#E8EBF0] text-slate-900",
-        header: "border-slate-300/60 bg-[#E8EBF0]",
-        card: "border-slate-200 bg-[#F8FAFC]",
-        inner: "border-slate-200 bg-white",
-        title: "text-slate-900",
-        text: "text-slate-700",
-        muted: "text-slate-500",
-        border: "border-slate-200",
-        button: "border-slate-200 bg-white text-slate-600",
-        accent: "text-blue-600",
-        iconBg: "bg-slate-100",
-        category:
-          "border-blue-200 bg-blue-50 text-blue-700",
-      };
+      panel: "bg-[#E8EBF0] text-slate-900",
+      header: "border-slate-300/60 bg-[#E8EBF0]",
+      card: "border-slate-200 bg-[#F8FAFC]",
+      inner: "border-slate-200 bg-white",
+      title: "text-slate-900",
+      text: "text-slate-700",
+      muted: "text-slate-500",
+      border: "border-slate-200",
+      button: "border-slate-200 bg-white text-slate-600",
+      accent: "text-blue-600",
+      iconBg: "bg-slate-100",
+      category:
+        "border-blue-200 bg-blue-50 text-blue-700",
+    };
 
   const copyPhone = async (phone) => {
     try {
@@ -286,9 +292,8 @@ const ReelDetailsPanel = ({
       >
         <div className="mb-4 flex justify-center">
           <div
-            className={`h-1 w-9 rounded-full ${
-              isDark ? "bg-slate-500" : "bg-slate-400"
-            }`}
+            className={`h-1 w-9 rounded-full ${isDark ? "bg-slate-500" : "bg-slate-400"
+              }`}
           />
         </div>
 
@@ -360,11 +365,46 @@ const ReelDetailsPanel = ({
             Інформація
           </h4>
 
-          <InfoRow
-            Icon={UserRound}
-            label="Автор"
-            value={listing.authorName}
-          />
+
+          {profileUrl ? (
+            <Link
+              to={profileUrl}
+              title={`Переглянути профіль: ${listing.authorName || "Користувач RBoard"}`}
+              className={`group flex items-center gap-3 border-b py-3 transition-colors ${ui.border} ${isDark
+                  ? "hover:text-blue-300"
+                  : "hover:text-blue-600"
+                }`}
+            >
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${ui.iconBg}`}
+              >
+                <UserRound size={17} className={ui.accent} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className={`text-[11px] ${ui.muted}`}>
+                  Автор
+                </p>
+
+                <p className={`mt-0.5 truncate text-sm font-semibold ${ui.text}`}>
+                  {listing.authorName || "Користувач RBoard"}
+                </p>
+              </div>
+
+              <ChevronRight
+                size={18}
+                className={`shrink-0 transition-transform group-hover:translate-x-1 ${isDark ? "text-slate-400" : "text-slate-400"
+                  }`}
+              />
+            </Link>
+          ) : (
+            <InfoRow
+              Icon={UserRound}
+              label="Автор"
+              value={listing.authorName || "Гість"}
+            />
+          )}
+
 
           <InfoRow
             Icon={Eye}
@@ -455,11 +495,10 @@ const ReelDetailsPanel = ({
                     href={href}
                     target={service === "email" ? undefined : "_blank"}
                     rel={service === "email" ? undefined : "noopener noreferrer"}
-                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition active:scale-[0.97] ${
-                      isDark
-                        ? "border-white/15 bg-white/5 text-slate-200"
-                        : "border-slate-200 bg-white text-slate-700"
-                    }`}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition active:scale-[0.97] ${isDark
+                      ? "border-white/15 bg-white/5 text-slate-200"
+                      : "border-slate-200 bg-white text-slate-700"
+                      }`}
                   >
                     <Icon
                       size={17}

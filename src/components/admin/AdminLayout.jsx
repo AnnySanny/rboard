@@ -47,7 +47,15 @@ const adminPages = {
         path: "/dashboard/tourist-places",
         title: "Тур-місця",
     },
+    listingViews: {
+        path: "/dashboard/listing-views",
+        title: "Перегляди оголошень",
+    },
 
+    chats: {
+        path: "/dashboard/chats",
+        title: "Чати",
+    },
     statistics: {
         path: "/dashboard/statistics",
         title: "Статистика",

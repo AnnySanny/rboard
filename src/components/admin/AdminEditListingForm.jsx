@@ -15,6 +15,9 @@ import { db } from "../../firebase";
 import CityAutocomplete from "../listings/CityAutocomplete";
 import ListingImageUploader from "../listings/ListingImageUploader";
 import ListingContacts from "../listings/ListingContacts";
+import {
+    buildListingSearchTokens,
+} from "../../utils/listingSearch";
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -173,8 +176,8 @@ const createInitialAdditionalContacts = (
 
         facebook:
             getContact("facebook"),
-              tiktok:
-        getContact("tiktok"),
+        tiktok:
+            getContact("tiktok"),
     };
 };
 const AdminEditListingForm = ({
@@ -281,68 +284,68 @@ const AdminEditListingForm = ({
         }));
     };
     const getCleanAdditionalContacts = () => {
-    return Object.entries(
-        form.additionalContacts
-    ).reduce(
-        (result, [key, contact]) => {
-            const value =
-                contact.value.trim();
+        return Object.entries(
+            form.additionalContacts
+        ).reduce(
+            (result, [key, contact]) => {
+                const value =
+                    contact.value.trim();
 
-            if (
-                !contact.enabled ||
-                !value
-            ) {
-                return result;
-            }
-
-            // Viber та WhatsApp —
-            // телефонні номери
-            if (
-                key === "viber" ||
-                key === "whatsapp"
-            ) {
-                result[key] =
-                    normalizeContact(value);
-
-                return result;
-            }
-
-            // Telegram може бути:
-            // @username
-            // t.me/username
-            // telegram.me/username
-            // або номер телефону
-            if (key === "telegram") {
                 if (
-                    value.startsWith("@")
+                    !contact.enabled ||
+                    !value
                 ) {
-                    result[key] = value;
                     return result;
                 }
 
+                // Viber та WhatsApp —
+                // телефонні номери
                 if (
-                    /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
-                        value
-                    )
+                    key === "viber" ||
+                    key === "whatsapp"
                 ) {
-                    result[key] = value;
+                    result[key] =
+                        normalizeContact(value);
+
                     return result;
                 }
 
-                result[key] =
-                    normalizeContact(value);
+                // Telegram може бути:
+                // @username
+                // t.me/username
+                // telegram.me/username
+                // або номер телефону
+                if (key === "telegram") {
+                    if (
+                        value.startsWith("@")
+                    ) {
+                        result[key] = value;
+                        return result;
+                    }
+
+                    if (
+                        /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(
+                            value
+                        )
+                    ) {
+                        result[key] = value;
+                        return result;
+                    }
+
+                    result[key] =
+                        normalizeContact(value);
+
+                    return result;
+                }
+
+                // Instagram та Facebook
+                result[key] = value;
 
                 return result;
-            }
-
-            // Instagram та Facebook
-            result[key] = value;
-
-            return result;
-        },
-        {}
-    );
-};
+            },
+            {}
+        );
+    };
     const validateForm = () => {
         const newErrors = {};
 
@@ -563,7 +566,16 @@ const AdminEditListingForm = ({
 
             const newComment =
                 form.comment.trim();
-
+            // Створюємо актуальний пошуковий індекс
+            // на основі відредагованих даних.
+            const searchTokens = buildListingSearchTokens({
+                authorName: newAuthorName,
+                title: newTitle,
+                type: form.type,
+                city: getCleanCity(form.city),
+                street: newStreet,
+                comment: newComment,
+            });
 
             if (
                 newAuthorName !==
@@ -694,7 +706,11 @@ const AdminEditListingForm = ({
 
                     comment:
                         form.comment.trim(),
-
+                    // Оновлюємо пошукові токени лише
+                    // для схвалених оголошень.
+                    ...(listing.status === "approved"
+                        ? { searchTokens }
+                        : {}),
                     images:
                         finalImages,
 

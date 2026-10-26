@@ -14,7 +14,7 @@ import {
 import {
     doc,
     serverTimestamp,
-    setDoc,
+    writeBatch,
 } from "firebase/firestore";
 
 import {
@@ -47,143 +47,182 @@ export default function RegisterModal() {
     const [success, setSuccess] = useState("");
 
     const handleSubmit = async (e) => {
-    e.preventDefault();
+        e.preventDefault();
 
-    setError("");
-    setSuccess("");
+        setError("");
+        setSuccess("");
 
-    const normalizedLogin =
-        login.trim();
+        const normalizedLogin =
+            login.trim();
 
-    const normalizedPhone =
-        phone.trim();
+        const normalizedPhone =
+            phone.trim();
 
-    const normalizedPassword =
-        password.trim();
+        const normalizedPassword =
+            password.trim();
 
-    if (
-        !normalizedLogin ||
-        !normalizedPhone ||
-        !normalizedPassword
-    ) {
-        setError("Заповніть усі поля");
-        return;
-    }
+        if (
+            !normalizedLogin ||
+            !normalizedPhone ||
+            !normalizedPassword
+        ) {
+            setError("Заповніть усі поля");
+            return;
+        }
 
-    if (normalizedPassword.length < 6) {
-        setError(
-            "Пароль повинен містити щонайменше 6 символів"
-        );
-
-        return;
-    }
-
-    let createdAuthUser = null;
-
-    try {
-        setLoading(true);
-
-        const authEmail =
-            createAuthEmail(
-                normalizedPhone
+        if (normalizedPassword.length < 6) {
+            setError(
+                "Пароль повинен містити щонайменше 6 символів"
             );
 
-        const userCredential =
-            await createUserWithEmailAndPassword(
-                auth,
-                authEmail,
-                normalizedPassword
-            );
+            return;
+        }
 
-        createdAuthUser =
-            userCredential.user;
+        let createdAuthUser = null;
 
-        await setDoc(
-            doc(
+        try {
+            setLoading(true);
+
+            const authEmail =
+                createAuthEmail(
+                    normalizedPhone
+                );
+
+            const userCredential =
+                await createUserWithEmailAndPassword(
+                    auth,
+                    authEmail,
+                    normalizedPassword
+                );
+
+            createdAuthUser =
+                userCredential.user;
+
+
+            const batch = writeBatch(db);
+
+            const userRef = doc(
                 db,
                 "users",
                 createdAuthUser.uid
-            ),
-            {
-                login:
-                    normalizedLogin,
+            );
 
-                phone:
-                    normalizedPhone,
-
-                role:
-                    "user",
-
-                blocked:
-                    false,
-
-                createdAt:
-                    serverTimestamp(),
-            }
-        );
-
-        setSuccess(
-            "Реєстрація успішна!"
-        );
-
-        setLogin("");
-        setPhone("");
-        setPassword("");
-
-        navigate("/user");
-    } catch (err) {
-        console.error(
-            "Помилка реєстрації:",
-            err
-        );
-
-        if (
-            createdAuthUser &&
-            auth.currentUser?.uid ===
+            const publicProfileRef = doc(
+                db,
+                "publicProfiles",
                 createdAuthUser.uid
-        ) {
-            try {
-                await deleteUser(
-                    createdAuthUser
+            );
+
+
+            batch.set(userRef, {
+                login: normalizedLogin,
+                phone: normalizedPhone,
+                role: "user",
+                blocked: false,
+                bio: "",
+                city: "",
+                avatarUrl: "",
+                avatarPublicId: "",
+                additionalContacts: {
+                    telegram: "",
+                    viber: "",
+                    whatsapp: "",
+                    instagram: "",
+                    facebook: "",
+                    tiktok: "",
+                },
+                privacy: {
+                    hidePhone: true,
+                    hideCity: false,
+                    hideContacts: false,
+                },
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
+            batch.set(publicProfileRef, {
+                login: normalizedLogin,
+                avatarUrl: "",
+                bio: "",
+                city: "",
+                additionalContacts: {
+                    telegram: "",
+                    viber: "",
+                    whatsapp: "",
+                    instagram: "",
+                    facebook: "",
+                    tiktok: "",
+                },
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
+
+            await batch.commit();
+
+
+            setSuccess(
+                "Реєстрація успішна!"
+            );
+
+            setLogin("");
+            setPhone("");
+            setPassword("");
+
+            navigate("/user");
+        } catch (err) {
+            console.error(
+                "Помилка реєстрації:",
+                err
+            );
+
+            if (
+                createdAuthUser &&
+                auth.currentUser?.uid ===
+                createdAuthUser.uid
+            ) {
+                try {
+                    await deleteUser(
+                        createdAuthUser
+                    );
+                } catch (deleteError) {
+                    console.error(
+                        "Не вдалося видалити незавершений обліковий запис:",
+                        deleteError
+                    );
+                }
+            }
+
+            if (
+                err.code ===
+                "auth/email-already-in-use"
+            ) {
+                setError(
+                    "Користувач із таким номером телефону вже зареєстрований"
                 );
-            } catch (deleteError) {
-                console.error(
-                    "Не вдалося видалити незавершений обліковий запис:",
-                    deleteError
+            } else if (
+                err.code ===
+                "auth/weak-password"
+            ) {
+                setError(
+                    "Пароль занадто слабкий"
+                );
+            } else if (
+                err.code ===
+                "auth/invalid-email"
+            ) {
+                setError(
+                    "Некоректний номер телефону"
+                );
+            } else {
+                setError(
+                    "Не вдалося зареєструватися. Спробуйте ще раз."
                 );
             }
+        } finally {
+            setLoading(false);
         }
-
-        if (
-            err.code ===
-            "auth/email-already-in-use"
-        ) {
-            setError(
-                "Користувач із таким номером телефону вже зареєстрований"
-            );
-        } else if (
-            err.code ===
-            "auth/weak-password"
-        ) {
-            setError(
-                "Пароль занадто слабкий"
-            );
-        } else if (
-            err.code ===
-            "auth/invalid-email"
-        ) {
-            setError(
-                "Некоректний номер телефону"
-            );
-        } else {
-            setError(
-                "Не вдалося зареєструватися. Спробуйте ще раз."
-            );
-        }
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
     return (
         <div className="w-full">
@@ -298,7 +337,7 @@ export default function RegisterModal() {
                         Пароль
                     </label>
 
-                                       <div className="relative">
+                    <div className="relative">
                         <input
                             id="login-password"
                             type={

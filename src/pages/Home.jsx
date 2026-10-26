@@ -33,6 +33,9 @@ import ListingDetailsModal from "../components/listings/ListingDetailsModal";
 import { mapListingDocument } from "../utils/listingMapper";
 import ListingReels from "../components/listings/ListingReels";
 import {
+    normalizeSearchText,
+} from "../utils/listingSearch";
+import {
     auth,
     db,
 } from "../firebase";
@@ -144,6 +147,9 @@ const categorySlugs = Object.fromEntries(
     )
 );
 const LISTINGS_PER_PAGE = 20;
+const SEARCH_BATCH_SIZE = 40;
+const MAX_SEARCH_CANDIDATES = 240;
+const MIN_SEARCH_LENGTH = 3;
 const isListingActive = (expiresAt) => {
     if (!expiresAt) {
         return false;
@@ -195,6 +201,10 @@ const Home = () => {
     const [searchPlaceholder, setSearchPlaceholder] =
         useState("");
     const loadingMoreRef = useRef(false);
+    const requestVersionRef = useRef(0);
+    const searchBufferRef = useRef([]);
+    const searchCursorRef = useRef(null);
+    const searchHasMoreRef = useRef(true);
     useEffect(() => {
         const unsubscribe =
             onAuthStateChanged(
@@ -449,51 +459,30 @@ const Home = () => {
             ...constraints
         );
     };
+
     const buildSearchQuery = (
         lastVisibleDocument = null
     ) => {
-        const searchValue =
-            debouncedSearch.trim();
+        const normalizedSearch =
+            normalizeSearchText(debouncedSearch);
+
+        const words = normalizedSearch
+            .split(" ")
+            .filter(Boolean);
+
+        const anchor = [...words].sort(
+            (a, b) => b.length - a.length
+        )[0];
 
         const constraints = [
-            where(
-                "status",
-                "==",
-                "approved"
-            ),
-            where(
-                "title",
-                ">=",
-                searchValue
-            ),
-            where(
-                "title",
-                "<=",
-                searchValue + "\uf8ff"
-            ),
-            orderBy(
-                "title",
-                "asc"
-            ),
+            where("status", "==", "approved"),
         ];
 
-        if (
-            activeCategory !== "Усі" &&
-            activeCategory !== "Обрані"
-        ) {
-            constraints.push(
-                where(
-                    "type",
-                    "==",
-                    activeCategory
-                )
-            );
-        }
+        if (activeCategory === "Обрані") {
+            if (!currentUser?.uid) {
+                return null;
+            }
 
-        if (
-            activeCategory === "Обрані" &&
-            currentUser?.uid
-        ) {
             constraints.push(
                 where(
                     "favoriteUserIds",
@@ -501,18 +490,42 @@ const Home = () => {
                     currentUser.uid
                 )
             );
+        } else {
+            constraints.push(
+                where(
+                    "searchTokens",
+                    "array-contains",
+                    anchor
+                )
+            );
+
+            if (activeCategory !== "Усі") {
+                constraints.push(
+                    where(
+                        "type",
+                        "==",
+                        activeCategory
+                    )
+                );
+            }
         }
+        const sortConfig = getSortConfig();
+
+        constraints.push(
+            orderBy(
+                sortConfig.field,
+                sortConfig.direction
+            )
+        );
 
         if (lastVisibleDocument) {
             constraints.push(
-                startAfter(
-                    lastVisibleDocument
-                )
+                startAfter(lastVisibleDocument)
             );
         }
 
         constraints.push(
-            limit(LISTINGS_PER_PAGE)
+            limit(SEARCH_BATCH_SIZE)
         );
 
         return query(
@@ -520,51 +533,184 @@ const Home = () => {
             ...constraints
         );
     };
-    const loadListings = async () => {
+
+
+    const matchesSearch = (listingDocument) => {
+        const data = listingDocument.data();
+
+        if (
+            data.status !== "approved" ||
+            !isListingActive(data.expiresAt)
+        ) {
+            return false;
+        }
+
+        const words = normalizeSearchText(
+            debouncedSearch
+        )
+            .split(" ")
+            .filter(Boolean);
+
+        const tokens = Array.isArray(data.searchTokens)
+            ? data.searchTokens
+            : [];
+
+        return words.every((word) =>
+            tokens.includes(word)
+        );
+    };
+
+
+    const fetchSearchPage = async (version) => {
+        const found = [];
+
+        let cursor = searchCursorRef.current;
+        let buffer = [...searchBufferRef.current];
+        let hasMore = searchHasMoreRef.current;
+
+        let checkedCandidates = 0;
+
+        while (
+            found.length < LISTINGS_PER_PAGE &&
+            checkedCandidates < MAX_SEARCH_CANDIDATES
+        ) {
+
+            if (buffer.length === 0) {
+                if (!hasMore) {
+                    break;
+                }
+
+                const searchQuery =
+                    buildSearchQuery(cursor);
+
+                if (!searchQuery) {
+                    hasMore = false;
+                    break;
+                }
+
+                const snapshot = await getDocs(
+                    searchQuery
+                );
+
+                if (version !== requestVersionRef.current) {
+                    return null;
+                }
+
+                buffer = [...snapshot.docs];
+
+                if (snapshot.docs.length > 0) {
+                    cursor = snapshot.docs[
+                        snapshot.docs.length - 1
+                    ];
+                }
+
+                hasMore =
+                    snapshot.docs.length === SEARCH_BATCH_SIZE;
+
+                if (snapshot.empty) {
+                    break;
+                }
+            }
+
+            while (
+                buffer.length > 0 &&
+                found.length < LISTINGS_PER_PAGE &&
+                checkedCandidates < MAX_SEARCH_CANDIDATES
+            ) {
+                const document = buffer.shift();
+
+                checkedCandidates++;
+
+                if (matchesSearch(document)) {
+                    found.push(
+                        mapListingDocument(document)
+                    );
+                }
+            }
+        }
+
+        if (version !== requestVersionRef.current) {
+            return null;
+        }
+
+        searchCursorRef.current = cursor;
+        searchBufferRef.current = buffer;
+        searchHasMoreRef.current = hasMore;
+
+        return {
+            listings: found,
+            hasMore: buffer.length > 0 || hasMore,
+        };
+    };
+
+
+    const loadListings = async (version) => {
         setLoading(true);
         setLoadError("");
 
-        try {
-            const listingsQuery =
-                debouncedSearch
-                    ? buildSearchQuery()
-                    : buildListingsQuery();
+        setListings([]);
+        setLastDocument(null);
+        setHasMoreListings(false);
 
-            const snapshot =
-                await getDocs(
-                    listingsQuery
+        const normalizedSearch =
+            normalizeSearchText(debouncedSearch);
+
+        const isSearching =
+            normalizedSearch.length >= MIN_SEARCH_LENGTH;
+
+        try {
+            if (isSearching) {
+                const result =
+                    await fetchSearchPage(version);
+
+                if (
+                    !result ||
+                    version !== requestVersionRef.current
+                ) {
+                    return;
+                }
+
+                setListings(result.listings);
+                setHasMoreListings(result.hasMore);
+            } else {
+                const snapshot = await getDocs(
+                    buildListingsQuery()
                 );
 
-            const receivedListings =
-                snapshot.docs
-                    .filter((document) => {
-                        const data =
-                            document.data();
+                if (
+                    version !== requestVersionRef.current
+                ) {
+                    return;
+                }
 
-                        return isListingActive(
-                            data.expiresAt
-                        );
-                    })
-                    .map(
-                        mapListingDocument
-                    );
+                const receivedListings = snapshot.docs
+                    .filter((document) =>
+                        isListingActive(
+                            document.data().expiresAt
+                        )
+                    )
+                    .map(mapListingDocument);
 
-            setListings(
-                receivedListings
-            );
+                setListings(receivedListings);
 
-            const lastDoc =
-                snapshot.docs[
-                snapshot.docs.length - 1
-                ] || null;
+                setLastDocument(
+                    snapshot.docs[
+                    snapshot.docs.length - 1
+                    ] || null
+                );
 
-            setLastDocument(lastDoc);
-
-            setHasMoreListings(
-                snapshot.docs.length ===
-                LISTINGS_PER_PAGE
-            );
+                setHasMoreListings(
+                    snapshot.docs.length ===
+                    LISTINGS_PER_PAGE
+                );
+            }
         } catch (error) {
+            if (
+                version !== requestVersionRef.current
+            ) {
+                return;
+            }
+
             console.error(
                 "Помилка завантаження оголошень:",
                 error
@@ -576,71 +722,101 @@ const Home = () => {
                 "Не вдалося завантажити оголошення."
             );
         } finally {
-            setLoading(false);
+            if (
+                version === requestVersionRef.current
+            ) {
+                setLoading(false);
+            }
         }
     };
 
+
+
     const loadMoreListings = async () => {
         if (
-            !lastDocument ||
             loadingMoreRef.current ||
             loading ||
             !hasMoreListings
         ) {
             return;
         }
+
+        const normalizedSearch =
+            normalizeSearchText(debouncedSearch);
+
+        const isSearching =
+            normalizedSearch.length >= MIN_SEARCH_LENGTH;
+
+        if (!isSearching && !lastDocument) {
+            return;
+        }
+
+        const version = requestVersionRef.current;
+
         loadingMoreRef.current = true;
         setLoadingMore(true);
         setLoadError("");
 
         try {
-            const listingsQuery =
-                debouncedSearch
-                    ? buildSearchQuery(
-                        lastDocument
-                    )
-                    : buildListingsQuery(
-                        lastDocument
-                    );
+            if (isSearching) {
+                const result =
+                    await fetchSearchPage(version);
 
-            const snapshot =
-                await getDocs(
-                    listingsQuery
+                if (
+                    !result ||
+                    version !== requestVersionRef.current
+                ) {
+                    return;
+                }
+
+                setListings((currentListings) => [
+                    ...currentListings,
+                    ...result.listings,
+                ]);
+
+                setHasMoreListings(result.hasMore);
+            } else {
+                const snapshot = await getDocs(
+                    buildListingsQuery(lastDocument)
                 );
 
-            const receivedListings =
-                snapshot.docs
-                    .filter((document) => {
-                        const data =
-                            document.data();
+                if (
+                    version !== requestVersionRef.current
+                ) {
+                    return;
+                }
 
-                        return isListingActive(
-                            data.expiresAt
-                        );
-                    })
-                    .map(
-                        mapListingDocument
-                    );
+                const receivedListings = snapshot.docs
+                    .filter((document) =>
+                        isListingActive(
+                            document.data().expiresAt
+                        )
+                    )
+                    .map(mapListingDocument);
 
-            setListings(
-                (currentListings) => [
+                setListings((currentListings) => [
                     ...currentListings,
                     ...receivedListings,
-                ]
-            );
+                ]);
 
-            const lastDoc =
-                snapshot.docs[
-                snapshot.docs.length - 1
-                ] || null;
+                setLastDocument(
+                    snapshot.docs[
+                    snapshot.docs.length - 1
+                    ] || null
+                );
 
-            setLastDocument(lastDoc);
-
-            setHasMoreListings(
-                snapshot.docs.length ===
-                LISTINGS_PER_PAGE
-            );
+                setHasMoreListings(
+                    snapshot.docs.length ===
+                    LISTINGS_PER_PAGE
+                );
+            }
         } catch (error) {
+            if (
+                version !== requestVersionRef.current
+            ) {
+                return;
+            }
+
             console.error(
                 "Помилка завантаження наступних оголошень:",
                 error
@@ -650,13 +826,29 @@ const Home = () => {
                 "Не вдалося завантажити наступні оголошення."
             );
         } finally {
-            setLoadingMore(false);
-            loadingMoreRef.current = false;
+            if (
+                version === requestVersionRef.current
+            ) {
+                loadingMoreRef.current = false;
+                setLoadingMore(false);
+            }
         }
     };
 
+
     useEffect(() => {
-        loadListings();
+        requestVersionRef.current += 1;
+
+        const version = requestVersionRef.current;
+        searchBufferRef.current = [];
+        searchCursorRef.current = null;
+        searchHasMoreRef.current = true;
+
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+
+        loadListings(version);
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         activeCategory,
@@ -1082,12 +1274,12 @@ const Home = () => {
                                 onListingClick={openListing}
                             />
 
-                            {hasMoreListings && (
+                            {hasMoreListings && !loading && (
                                 <div className="mt-10 flex justify-center">
                                     <button
                                         type="button"
                                         onClick={loadMoreListings}
-                                        disabled={loadingMore}
+                                        disabled={loadingMore || loading}
                                         className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {loadingMore

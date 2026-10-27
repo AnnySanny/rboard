@@ -45,6 +45,7 @@ export default function UserProfile({
     const [profileLoading, setProfileLoading] = useState(true);
 
     const [profile, setProfile] = useState(null);
+    const [reviewsVersion, setReviewsVersion] = useState(0);
     const [isEditing, setIsEditing] = useState(false);
     const [error, setError] = useState("");
     const [reviewStats, setReviewStats] = useState({
@@ -125,7 +126,7 @@ export default function UserProfile({
         return () => {
             active = false;
         };
-    }, [profileUid]);
+    }, [profileUid, reviewsVersion]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(
@@ -388,18 +389,18 @@ export default function UserProfile({
                                                 <div className="mt-2 flex justify-center sm:justify-start">
                                                     <span
                                                         className={`inline-flex items-center gap-2 text-xs font-semibold ${presence.online
-                                                                ? "text-emerald-600"
-                                                                : presence.text === "Перевірка статусу..."
-                                                                    ? "text-slate-400"
-                                                                    : "text-red-500"
+                                                            ? "text-emerald-600"
+                                                            : presence.text === "Перевірка статусу..."
+                                                                ? "text-slate-400"
+                                                                : "text-red-500"
                                                             }`}
                                                     >
                                                         <span
                                                             className={`h-2 w-2 shrink-0 rounded-full ${presence.online
-                                                                    ? "bg-emerald-500"
-                                                                    : presence.text === "Перевірка статусу..."
-                                                                        ? "bg-slate-300"
-                                                                        : "bg-red-400"
+                                                                ? "bg-emerald-500"
+                                                                : presence.text === "Перевірка статусу..."
+                                                                    ? "bg-slate-300"
+                                                                    : "bg-red-400"
                                                                 }`}
                                                         />
 
@@ -598,12 +599,17 @@ export default function UserProfile({
                                                 : profile
                                         }
                                     />
+
                                     <ProfileReviews
                                         profileUid={profileUid}
                                         currentUser={currentUser}
                                         isOwner={isOwner}
                                         profile={profile}
+                                        onReviewsChanged={() =>
+                                            setReviewsVersion((previous) => previous + 1)
+                                        }
                                     />
+
                                 </>
                             )}
 

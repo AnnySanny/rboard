@@ -33,6 +33,7 @@ import {
     chatTimestampToMillis,
     markChatAsRead,
     deleteChatForEveryone,
+    toggleMessageReaction,
 } from "../../utils/chatService";
 
 const normalizeListing = (id, data) => {
@@ -456,7 +457,7 @@ const getErrorText = (error) => {
 
 export default function UserChats() {
     const [searchParams] = useSearchParams();
-        useEffect(() => {
+    useEffect(() => {
         window.scrollTo({
             top: 0,
             left: 0,
@@ -1048,7 +1049,7 @@ export default function UserChats() {
 
 
 
-    const handleSendMessage = async (chatId, text) => {
+    const handleSendMessage = async (chatId, text, replyTo = null) => {
         if (sending || !currentUser?.uid) return false;
 
         const chat = chats.find((item) => item.id === chatId);
@@ -1088,6 +1089,7 @@ export default function UserChats() {
                 recipientUid: chat.otherUser.uid,
                 senderUid: currentUser.uid,
                 text,
+                replyTo,
             });
 
             if (rememberChoice) {
@@ -1115,6 +1117,46 @@ export default function UserChats() {
         }
     };
 
+
+    const handleReactMessage = async (chatId, messageId, emoji) => {
+        if (
+            !currentUser?.uid ||
+            !chatId ||
+            !messageId ||
+            !emoji ||
+            deletingChat
+        ) {
+            return;
+        }
+
+        const chat = savedChats.find(
+            (item) => item.id === chatId
+        );
+
+        if (!chat?.participants?.includes(currentUser.uid)) {
+            return;
+        }
+
+        try {
+            await toggleMessageReaction(
+                chatId,
+                messageId,
+                currentUser.uid,
+                emoji
+            );
+        } catch (error) {
+            console.error("Помилка реакції:", error);
+
+            Swal.fire({
+                toast: true,
+                position: "top-end",
+                icon: "error",
+                title: "Не вдалося зберегти реакцію",
+                showConfirmButton: false,
+                timer: 2500,
+            });
+        }
+    };
 
     const handleOpenListing = async (id) => {
         if (!id || loadingListing) return;
@@ -1222,6 +1264,7 @@ export default function UserChats() {
                             <ChatWindow
                                 chat={selectedChat}
                                 messages={loadingMessages ? [] : displayedMessages}
+                                onReactMessage={handleReactMessage}
                                 onDeleteChat={
                                     isSelectedChatSaved
                                         ? handleDeleteChat

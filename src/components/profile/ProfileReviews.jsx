@@ -145,6 +145,7 @@ export default function ProfileReviews({
     profile = null,
     onOpenLogin,
     onOpenRegister,
+    onReviewsChanged,
 }) {
     const [reviews, setReviews] = useState([]);
     const [rating, setRating] = useState(5);
@@ -392,7 +393,6 @@ export default function ProfileReviews({
             ownReviewExists ||
             checkingPermissions ||
             saving ||
-            !text ||
             getLength(text) > MAX_LENGTH ||
             rating < 1 ||
             rating > 5
@@ -422,12 +422,12 @@ export default function ProfileReviews({
                 }
             );
 
-
             setOwnReviewExists(true);
             setMessage("");
             setRating(5);
 
             await loadReviews();
+            onReviewsChanged?.();
 
             Swal.fire({
                 toast: true,
@@ -504,6 +504,7 @@ export default function ProfileReviews({
             }
 
             await loadReviews();
+            onReviewsChanged?.();
 
             Swal.fire({
                 toast: true,
@@ -654,13 +655,13 @@ export default function ProfileReviews({
                                 }
                                 maxLength={350}
                                 rows={3}
-                                placeholder="Ваші враження про користувача..."
-                                className="block min-h-[105px] w-full resize-none rounded-xl border border-slate-200 bg-white px-3 pb-12 pt-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                placeholder="Ваші враження про користувача (необов'язково)..."
+                                className="block min-h-[105px] w-full resize-none rounded-xl border border-slate-200 bg-white pl-3 pr-12 pb-9 pt-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                             />
 
                             <div
                                 ref={emojiRef}
-                                className="absolute bottom-2 left-2 z-20"
+                                className="absolute right-2 top-2 z-20"
                             >
                                 <button
                                     type="button"
@@ -679,7 +680,7 @@ export default function ProfileReviews({
                                 </button>
 
                                 {emojiOpen && (
-                                    <div className="absolute bottom-full left-0 z-30 mb-2 w-[min(300px,calc(100vw-65px))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                                    <div className="absolute right-0 top-full z-30 mt-2 w-[min(300px,calc(100vw-65px))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                                         <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
                                             <span className="text-xs font-semibold text-slate-700">
                                                 Оберіть емоджі
@@ -742,7 +743,6 @@ export default function ProfileReviews({
                                 onClick={publishReview}
                                 disabled={
                                     saving ||
-                                    !message.trim() ||
                                     getLength(message.trim()) > MAX_LENGTH
                                 }
                                 className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
@@ -759,7 +759,9 @@ export default function ProfileReviews({
                                     />
                                 )}
 
-                                Опублікувати відгук
+                                {message.trim()
+                                    ? "Опублікувати відгук"
+                                    : "Опублікувати оцінку"}
                             </button>
                         </div>
                     </div>
@@ -893,9 +895,11 @@ export default function ProfileReviews({
                                         <StarRating value={review.rating} />
                                     </div>
 
-                                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
-                                        {review.text}
-                                    </p>
+                                    {review.text?.trim() && (
+                                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
+                                            {review.text}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

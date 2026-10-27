@@ -140,11 +140,13 @@ export const subscribeChatMessages = (
     );
 };
 
+
 export const sendChatMessage = async ({
     listingId,
     recipientUid,
     senderUid,
     text,
+    replyTo = null,
 }) => {
     const messageText = String(text || "").trim();
 
@@ -178,6 +180,36 @@ export const sendChatMessage = async ({
 
     await runTransaction(db, async (transaction) => {
         const chatSnapshot = await transaction.get(chatRef);
+
+        let replyData = null;
+
+        if (replyTo?.id) {
+            if (!chatSnapshot.exists()) {
+                throw new Error("Повідомлення для відповіді не знайдено.");
+            }
+
+            const originalRef = doc(
+                db,
+                "chats",
+                chatId,
+                "messages",
+                replyTo.id
+            );
+
+            const originalSnapshot = await transaction.get(originalRef);
+
+            if (!originalSnapshot.exists()) {
+                throw new Error("Повідомлення для відповіді вже видалено.");
+            }
+
+            const original = originalSnapshot.data();
+
+            replyData = {
+                id: originalSnapshot.id,
+                senderId: original.senderId,
+                text: original.text,
+            };
+        }
 
         if (!chatSnapshot.exists()) {
             const listingSnapshot = await transaction.get(listingRef);
@@ -231,15 +263,76 @@ export const sendChatMessage = async ({
             });
         }
 
-        transaction.set(messageRef, {
+        const messageData = {
             senderId: senderUid,
             text: messageText,
             createdAt: serverTimestamp(),
             type: "text",
-        });
+        };
+
+        if (replyData) {
+            messageData.replyTo = replyData;
+        }
+
+        transaction.set(messageRef, messageData);
     });
 
     return chatId;
+};
+
+
+export const toggleMessageReaction = async (
+    chatId,
+    messageId,
+    userId,
+    emoji
+) => {
+    if (!chatId || !messageId || !userId || !emoji) {
+        throw new Error("Недостатньо даних для реакції.");
+    }
+
+    const allowedReactions = [
+        "👍",
+        "👎",
+        "😂",
+        "❤️",
+        "🔥",
+        "🥰",
+    ];
+
+    if (!allowedReactions.includes(emoji)) {
+        throw new Error("Непідтримувана реакція.");
+    }
+
+    const messageRef = doc(
+        db,
+        "chats",
+        chatId,
+        "messages",
+        messageId
+    );
+
+    await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(messageRef);
+
+        if (!snapshot.exists()) {
+            throw new Error("Повідомлення не знайдено.");
+        }
+
+        const reactions = {
+            ...(snapshot.data().reactions || {}),
+        };
+
+        if (reactions[userId] === emoji) {
+            delete reactions[userId];
+        } else {
+            reactions[userId] = emoji;
+        }
+
+        transaction.update(messageRef, {
+            reactions,
+        });
+    });
 };
 
 export const deleteChatForEveryone = async (chatId) => {

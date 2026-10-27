@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
     ArrowLeft,
@@ -21,6 +21,7 @@ export default function ChatWindow({
     messages = [],
     currentUserId,
     onSendMessage,
+    onReactMessage,
     onDeleteChat,
     onReportChat,
     deletingChat = false,
@@ -32,6 +33,60 @@ export default function ChatWindow({
     const scrollRef = useRef(null);
     const presence = useUserPresence(chat?.otherUser?.uid);
     const chatId = chat?.id;
+
+    const [replyTo, setReplyTo] = useState(null);
+    const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+    const highlightTimeoutRef = useRef(null);
+
+    useEffect(() => {
+        setReplyTo(null);
+        setHighlightedMessageId(null);
+
+        if (highlightTimeoutRef.current) {
+            clearTimeout(highlightTimeoutRef.current);
+        }
+    }, [chatId]);
+
+    useEffect(() => {
+        return () => {
+            if (highlightTimeoutRef.current) {
+                clearTimeout(highlightTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const handleReply = (message) => {
+        setReplyTo({
+            id: message.id,
+            senderId: message.senderId,
+            text: message.text,
+        });
+    };
+
+    const jumpToMessage = (messageId) => {
+        const target = Array.from(
+            scrollRef.current?.querySelectorAll("[data-message-id]") || []
+        ).find((element) => element.dataset.messageId === messageId);
+
+        if (!target) {
+            return;
+        }
+
+        target.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+        });
+
+        setHighlightedMessageId(messageId);
+
+        if (highlightTimeoutRef.current) {
+            clearTimeout(highlightTimeoutRef.current);
+        }
+
+        highlightTimeoutRef.current = setTimeout(() => {
+            setHighlightedMessageId(null);
+        }, 1800);
+    };
 
     useEffect(() => {
         if (!chatId) return;
@@ -131,14 +186,14 @@ export default function ChatWindow({
 
                     <p
                         className={`mt-0.5 flex items-center gap-1.5 text-xs font-medium ${presence.online
-                                ? "text-emerald-600"
-                                : "text-red-500"
+                            ? "text-emerald-600"
+                            : "text-red-500"
                             }`}
                     >
                         <span
                             className={`h-2 w-2 shrink-0 rounded-full ${presence.online
-                                    ? "bg-emerald-500"
-                                    : "bg-red-400"
+                                ? "bg-emerald-500"
+                                : "bg-red-400"
                                 }`}
                         />
 
@@ -255,29 +310,59 @@ export default function ChatWindow({
                             </p>
                         </div>
                     ) : (
+
                         messages.map((message) => (
-                            <ChatMessage
+                            <div
                                 key={message.id}
-                                message={message}
-                                isOwn={
-                                    message.senderId === currentUserId
-                                }
-                            />
+                                data-message-id={message.id}
+                                className={`rounded-xl transition-colors duration-500 ${highlightedMessageId === message.id
+                                    ? "bg-blue-100/80"
+                                    : "bg-transparent"
+                                    }`}
+                            >
+                                <ChatMessage
+                                    message={message}
+                                    isOwn={message.senderId === currentUserId}
+                                    currentUserId={currentUserId}
+                                    onReact={(emoji) =>
+                                        onReactMessage?.(chat.id, message.id, emoji)
+                                    }
+                                    onReply={handleReply}
+                                    onJumpToReply={jumpToMessage}
+                                />
+                            </div>
                         ))
+
                     )}
                 </div>
             </div>
 
+
             <ChatComposer
                 key={chat.id}
+                replyTo={replyTo}
+                onCancelReply={() => setReplyTo(null)}
                 onSend={
                     sendingEnabled && onSendMessage
-                        ? (text) => onSendMessage(chat.id, text)
+                        ? async (text) => {
+                            const success = await onSendMessage(
+                                chat.id,
+                                text,
+                                replyTo
+                            );
+
+                            if (success !== false) {
+                                setReplyTo(null);
+                            }
+
+                            return success;
+                        }
                         : undefined
                 }
                 deleting={deletingChat}
                 disabled={!sendingEnabled || deletingChat}
             />
+
         </section>
     );
 }

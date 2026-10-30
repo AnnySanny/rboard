@@ -72,17 +72,19 @@ const ListingCard = ({
         {/* Категорія, дата та перегляди */}
         <div
           className={`flex ${compact
-              ? "flex-col items-start gap-1.5"
-              : "flex-row flex-wrap items-center gap-2"
+            ? "flex-col items-start gap-1.5"
+            : "flex-row flex-wrap items-center gap-2"
             }`}
         >
           {/* Категорія */}
+
           <span
-            className={`inline-flex max-w-full items-center rounded-full border border-blue-100 bg-blue-50 font-bold text-blue-700 ${compact
-                ? "px-2 py-0.5 text-[10px] sm:text-xs"
-                : "px-3 py-1 text-xs"
+            className={`inline-flex max-w-full items-center rounded-full border border-blue-100 bg-blue-50 font-semibold text-blue-700 ${compact
+              ? "px-1.5 py-0.5 text-[9px] sm:text-[10px]"
+              : "px-2.5 py-1 text-[11px]"
               }`}
           >
+
             <span className="truncate">
               {listing.category || "Інше"}
             </span>
@@ -91,15 +93,15 @@ const ListingCard = ({
           {/* Дата та перегляди */}
           <div
             className={`flex flex-wrap items-center ${compact
-                ? "gap-x-2 gap-y-1"
-                : "contents"
+              ? "gap-x-2 gap-y-1"
+              : "contents"
               }`}
           >
             {/* Дата */}
             <span
               className={`inline-flex items-center gap-1 font-medium text-slate-500 ${compact
-                  ? "text-[10px] sm:text-xs"
-                  : "gap-1.5 text-xs"
+                ? "text-[10px] sm:text-xs"
+                : "gap-1.5 text-xs"
                 }`}
             >
               <svg
@@ -126,8 +128,8 @@ const ListingCard = ({
             {/* Перегляди */}
             <span
               className={`inline-flex items-center gap-1 font-semibold text-blue-600 ${compact
-                  ? "text-[10px] sm:text-xs"
-                  : "gap-1.5 text-xs"
+                ? "text-[10px] sm:text-xs"
+                : "gap-1.5 text-xs"
                 }`}
             >
               <svg

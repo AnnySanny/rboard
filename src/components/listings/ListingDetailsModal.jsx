@@ -811,24 +811,30 @@ const ListingDetailsModal = ({
                     <path d="M12 7v5l3 2" />
                   </svg>
 
-                  <span>
-                    Оголошення активно ще:{" "}
 
-                    <span className="font-bold text-blue-600">
-                      {remainingTime.days}
+                  <div className="flex flex-col gap-1 sm:block">
+                    <span className="block sm:inline">
+                      Оголошення активно ще:{" "}
                     </span>
-                    д,{" "}
 
-                    <span className="font-bold text-blue-600">
-                      {remainingTime.hours}
-                    </span>
-                    г,{" "}
+                    <span className="block whitespace-nowrap sm:inline">
+                      <span className="font-bold text-blue-600">
+                        {remainingTime.days}
+                      </span>
+                      {" "}д,{" "}
 
-                    <span className="font-bold text-blue-600">
-                      {remainingTime.minutes}
+                      <span className="font-bold text-blue-600">
+                        {remainingTime.hours}
+                      </span>
+                      {" "}г,{" "}
+
+                      <span className="font-bold text-blue-600">
+                        {remainingTime.minutes}
+                      </span>
+                      {" "}хв.
                     </span>
-                    хв.
-                  </span>
+                  </div>
+
                 </div>
               )}
             </div>

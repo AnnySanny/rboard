@@ -163,8 +163,8 @@ const ReelCard = ({
               onShowDetails();
             }}
             className={`group inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-xs font-semibold backdrop-blur-lg transition-all duration-200 active:scale-95 ${isDark
-                ? "border-white/20 bg-white/10 text-white hover:bg-white/20"
-                : "border-slate-300/70 bg-white/80 text-slate-800 shadow-sm hover:bg-white"
+              ? "border-white/20 bg-white/10 text-white hover:bg-white/20"
+              : "border-slate-300/70 bg-white/80 text-slate-800 shadow-sm hover:bg-white"
               }`}
           >
             <span>Детальніше</span>
@@ -381,7 +381,7 @@ const ListingReels = ({
         );
       }
     } else {
-      if (dy > 0) {
+      if (dy < 0) {
         goNext();
       } else {
         goPrevious();
@@ -399,15 +399,19 @@ const ListingReels = ({
     ? listings[transition.toIndex]
     : null;
 
-  const incomingStartY =
-    transition?.direction === "next"
-      ? "-100%"
-      : "100%";
 
-  const outgoingEndY =
-    transition?.direction === "next"
-      ? "100%"
-      : "-100%";
+
+const incomingStartY =
+  transition?.direction === "next"
+    ? "100%"
+    : "-100%";
+
+const outgoingEndY =
+  transition?.direction === "next"
+    ? "-100%"
+    : "100%";
+
+
 
   const currentIndex = transition
     ? transition.toIndex

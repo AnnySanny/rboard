@@ -1,7 +1,11 @@
+import { useState } from "react";
+
 import {
     Instagram,
     Facebook,
     PhoneOff,
+    ChevronDown,
+    MessageCircle,
 } from "lucide-react";
 
 import {
@@ -85,21 +89,21 @@ const CONTACT_TYPES = [
             "border-blue-200 shadow-sm",
         checkboxColor: "accent-blue-600",
     },
-      {
-    key: "tiktok",
-    label: "TikTok",
-    placeholder:
-        "https://www.tiktok.com/@username",
-    icon: FaTiktok,
-    type: "url",
-    inputMode: "url",
-    hint: "Вкажіть посилання на профіль TikTok",
-    iconActive:
-        "bg-slate-100 text-slate-950 ring-1 ring-slate-300",
-    borderActive:
-        "border-slate-300 shadow-sm",
-    checkboxColor: "accent-slate-900",
-},
+    {
+        key: "tiktok",
+        label: "TikTok",
+        placeholder:
+            "https://www.tiktok.com/@username",
+        icon: FaTiktok,
+        type: "url",
+        inputMode: "url",
+        hint: "Вкажіть посилання на профіль TikTok",
+        iconActive:
+            "bg-slate-100 text-slate-950 ring-1 ring-slate-300",
+        borderActive:
+            "border-slate-300 shadow-sm",
+        checkboxColor: "accent-slate-900",
+    },
 ];
 export default function ListingContacts({
     value,
@@ -108,6 +112,24 @@ export default function ListingContacts({
     onHidePhoneChange,
     disabled = false,
 }) {
+
+
+    const [isOpen, setIsOpen] = useState(() =>
+        Boolean(hidePhone) ||
+        Object.values(value || {}).some(
+            (contact) =>
+                contact?.enabled === true ||
+                Boolean(contact?.value?.trim())
+        )
+    );
+
+    const activeCount = Object.values(value || {}).filter(
+        (contact) =>
+            contact?.enabled === true &&
+            Boolean(contact?.value?.trim())
+    ).length;
+
+
     const handleToggle = (key) => {
         onChange({
             ...value,
@@ -133,19 +155,42 @@ export default function ListingContacts({
 
 
 
-    return (
-        <div className="rounded-2xl border border-blue-300 bg-blue-50 p-5 sm:p-6">
-            <div>
-                <h3 className="text-base font-black text-slate-900">
-                    Додатковий зв’язок із вами
-                </h3>
 
-                <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Додайте соціальні мережі або
-                    месенджери, через які з вами також
-                    можна зв’язатися.
-                </p>
-            </div>
+return (
+    <div className="rounded-2xl border border-blue-300 bg-blue-50 p-4 sm:p-5">
+        <button
+            type="button"
+            onClick={() => setIsOpen((previous) => !previous)}
+            aria-expanded={isOpen}
+            className="flex w-full items-center gap-3 text-left"
+        >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
+                <MessageCircle size={20} />
+            </span>
+
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-slate-900 sm:text-base">
+                    Додатковий зв’язок із вами
+                </span>
+
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    {activeCount > 0
+                        ? `Додано способів зв’язку: ${activeCount}`
+                        : "Telegram, Viber, WhatsApp та інші"}
+                </span>
+            </span>
+
+            <ChevronDown
+                size={20}
+                className={`shrink-0 text-blue-600 transition-transform duration-200 ${
+                    isOpen ? "rotate-180" : ""
+                }`}
+            />
+        </button>
+
+        {isOpen && (
+            <div className="mt-5 border-t border-blue-200 pt-4">
+
 
             {/* Видимість основного номера */}
             <div
@@ -276,8 +321,8 @@ ${hidePhone
 
                                     <span
                                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${contactState.enabled
-                                                ? contact.iconActive
-                                                : "bg-slate-100 text-slate-500"
+                                            ? contact.iconActive
+                                            : "bg-slate-100 text-slate-500"
                                             }`}
                                     >
                                         <Icon
@@ -344,6 +389,8 @@ ${hidePhone
                     }
                 )}
             </div>
+            </div>
+        )}
         </div>
     );
 }

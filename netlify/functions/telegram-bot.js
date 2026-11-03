@@ -48,6 +48,10 @@ const TELEGRAM_API =
 const SITE_URL =
     "https://rboard.netlify.app";
 
+const CHAT_URL =
+    `${SITE_URL}/user/chats`;
+
+
 /*
  * Стандартне фото для оголошень,
  * які не мають власних фотографій.
@@ -1152,6 +1156,284 @@ const answerCallback =
         }
     };
 
+/* =========================================================
+   TELEGRAM — ПІДТВЕРДЖЕННЯ ПРИВ'ЯЗКИ RBOARD
+========================================================= */
+
+const showTelegramLinkConfirmation = async (
+    chatId,
+    token
+) => {
+    const tokenRef = db
+        .collection("telegramSubscribers")
+        .doc(token);
+
+    const snapshot = await tokenRef.get();
+    const tokenData = snapshot.data();
+
+    const isValid =
+        snapshot.exists &&
+        tokenData?.type === "linkRequest" &&
+        typeof tokenData.uid === "string" &&
+        tokenData.expiresAt?.toMillis?.() > Date.now();
+
+    if (!isValid) {
+        await telegramRequest("sendMessage", {
+            chat_id: chatId,
+
+            text:
+                "❌ Посилання для прив'язки недійсне або термін його дії завершився.\n\n" +
+                "Поверніться до RBoard та спробуйте ще раз.",
+
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "↗ Повернутися до RBoard",
+                            url: CHAT_URL,
+                        },
+                    ],
+                ],
+            },
+        });
+
+        return;
+    }
+
+    await telegramRequest("sendMessage", {
+        chat_id: chatId,
+
+        parse_mode: "HTML",
+
+        text: [
+            "🔗 <b>Прив'язка акаунта RBoard</b>",
+            "",
+            "Бажаєте підключити цей Telegram-акаунт до свого профілю RBoard?",
+            "",
+            "🔔 Після підключення ви зможете отримувати сповіщення про нові повідомлення з чатів RBoard.",
+            "",
+            "Натисніть кнопку нижче, щоб підтвердити прив'язку.",
+        ].join("\n"),
+
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    {
+                        text: "✅ Прив'язати акаунт",
+                        callback_data: `connect:${token}`,
+                    },
+                ],
+                [
+                    {
+                        text: "↗ Повернутися до RBoard",
+                        url: CHAT_URL,
+                    },
+                ],
+            ],
+        },
+    });
+};
+
+/* =========================================================
+   TELEGRAM — ЗБЕРЕЖЕННЯ ПРИВ'ЯЗКИ
+========================================================= */
+
+const confirmTelegramLink = async (
+    callbackQuery,
+    token
+) => {
+    const chat = callbackQuery.message?.chat;
+
+    if (
+        !chat ||
+        chat.type !== "private" ||
+        String(callbackQuery.from?.id) !== String(chat.id)
+    ) {
+        return;
+    }
+
+    const chatId = chat.id;
+    const telegramId = String(chatId);
+
+    const tokenRef = db
+        .collection("telegramSubscribers")
+        .doc(token);
+
+    const subscriberRef = db
+        .collection("telegramSubscribers")
+        .doc(telegramId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const tokenSnapshot =
+                await transaction.get(tokenRef);
+
+            const tokenData = tokenSnapshot.data();
+
+            // Перевіряємо токен
+            if (
+                !tokenSnapshot.exists ||
+                tokenData?.type !== "linkRequest" ||
+                typeof tokenData.uid !== "string" ||
+                tokenData.expiresAt?.toMillis?.() <= Date.now() ||
+                !tokenData.expiresAt?.toMillis
+            ) {
+                throw new Error("TOKEN_INVALID");
+            }
+
+            const uid = tokenData.uid;
+
+            const userRef = db
+                .collection("users")
+                .doc(uid);
+
+            // Усі читання перед записами
+            const userSnapshot =
+                await transaction.get(userRef);
+
+            const subscriberSnapshot =
+                await transaction.get(subscriberRef);
+
+            if (
+                !userSnapshot.exists ||
+                userSnapshot.data().blocked === true
+            ) {
+                throw new Error("USER_UNAVAILABLE");
+            }
+
+            const userData = userSnapshot.data();
+            const subscriberData =
+                subscriberSnapshot.data() || {};
+
+            // Telegram не повинен бути прив'язаний
+            // до іншого користувача RBoard.
+            if (
+                subscriberData.linkedUid &&
+                subscriberData.linkedUid !== uid
+            ) {
+                throw new Error("TELEGRAM_ALREADY_LINKED");
+            }
+
+            // Один користувач RBoard — один Telegram
+            if (
+                userData.telegramChatId &&
+                String(userData.telegramChatId) !== telegramId
+            ) {
+                throw new Error("RBOARD_ALREADY_LINKED");
+            }
+
+            const now = Timestamp.now();
+
+            // Оновлюємо Telegram-підписника
+            transaction.set(
+                subscriberRef,
+                {
+                    chatId,
+
+                    username:
+                        callbackQuery.from.username || null,
+
+                    firstName:
+                        callbackQuery.from.first_name || null,
+
+                    active: true,
+
+                    linkedUid: uid,
+                    linkedAt: now,
+
+                    chatNotifications: true,
+                    showMessagePreview: true,
+
+                    updatedAt: now,
+
+                    ...(!subscriberSnapshot.exists
+                        ? { createdAt: now }
+                        : {}),
+                },
+                { merge: true }
+            );
+
+            // Додаємо Telegram до профілю RBoard
+            transaction.update(userRef, {
+                telegramChatId: telegramId,
+                telegramLinkedAt: now,
+            });
+
+            // Видаляємо використаний токен
+            transaction.delete(tokenRef);
+        });
+
+        // Повідомлення про успішну прив'язку
+        await telegramRequest("sendMessage", {
+            chat_id: chatId,
+
+            parse_mode: "HTML",
+
+            text: [
+                "✅ <b>Акаунт успішно прив'язано!</b>",
+                "",
+                "Ваш Telegram підключено до RBoard.",
+                "",
+                "🔔 Сповіщення про нові повідомлення активовано.",
+                "",
+                "Тепер можете повернутися до чатів на сайті.",
+            ].join("\n"),
+
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "↗ Повернутися до чатів RBoard",
+                            url: CHAT_URL,
+                        },
+                    ],
+                ],
+            },
+        });
+
+    } catch (error) {
+        console.error(
+            "Помилка прив'язки Telegram:",
+            error
+        );
+
+        const errors = {
+            TOKEN_INVALID:
+                "❌ Посилання недійсне, прострочене або вже використане.",
+
+            USER_UNAVAILABLE:
+                "❌ Профіль RBoard недоступний.",
+
+            TELEGRAM_ALREADY_LINKED:
+                "⚠️ Цей Telegram уже прив'язаний до іншого профілю RBoard.",
+
+            RBOARD_ALREADY_LINKED:
+                "⚠️ До вашого профілю RBoard уже прив'язаний інший Telegram.",
+        };
+
+        const message =
+            errors[error.message] ||
+            "❌ Не вдалося прив'язати Telegram. Спробуйте ще раз.";
+
+        await telegramRequest("sendMessage", {
+            chat_id: chatId,
+
+            text: message,
+
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "↗ Повернутися до RBoard",
+                            url: CHAT_URL,
+                        },
+                    ],
+                ],
+            },
+        });
+    }
+};
+
 
 /* =========================================================
    NETLIFY FUNCTION
@@ -1249,6 +1531,40 @@ exports.handler = async (
                     merge: true,
                 }
             );
+
+            /* =============================================
+               ПРИВ'ЯЗКА TELEGRAM ДО RBOARD
+            ============================================= */
+
+            const startText =
+                update.message.text.trim();
+
+            const startPayload =
+                startText.split(/\s+/)[1] || "";
+
+            // Перевіряємо токен із посилання
+            if (
+                /^link_[A-Za-z0-9_-]{32}$/.test(startPayload)
+            ) {
+                if (update.message.chat.type !== "private") {
+                    return {
+                        statusCode: 200,
+                        body: "OK",
+                    };
+                }
+
+                await showTelegramLinkConfirmation(
+                    chatId,
+                    startPayload
+                );
+
+                return {
+                    statusCode: 200,
+                    body: "OK",
+                };
+            }
+
+
             const listing =
                 await getFirstListing();
 
@@ -1305,10 +1621,27 @@ exports.handler = async (
                 "";
 
 
-            await answerCallback(
-                callbackQuery.id
-            );
+            /* =============================================
+               КНОПКА ПРИВ'ЯЗКИ RBOARD
+            ============================================= */
 
+            if (data.startsWith("connect:")) {
+                const token = data.substring(8);
+
+                if (
+                    /^link_[A-Za-z0-9_-]{32}$/.test(token)
+                ) {
+                    await confirmTelegramLink(
+                        callbackQuery,
+                        token
+                    );
+                }
+
+                return {
+                    statusCode: 200,
+                    body: "OK",
+                };
+            }
             if (
                 data === "categories"
             ) {

@@ -73,7 +73,7 @@ const ListingCard = ({
         <div
           className={`flex ${compact
             ? "flex-col items-start gap-1.5"
-            : "flex-row flex-wrap items-center gap-2"
+            : "flex-col items-start gap-2 min-[400px]:flex-row min-[400px]:flex-wrap min-[400px]:items-center"
             }`}
         >
           {/* Категорія */}
@@ -92,9 +92,9 @@ const ListingCard = ({
 
           {/* Дата та перегляди */}
           <div
-            className={`flex flex-wrap items-center ${compact
-              ? "gap-x-2 gap-y-1"
-              : "contents"
+            className={`flex items-center gap-x-3 gap-y-1 ${compact
+              ? "flex-wrap"
+              : "flex-nowrap min-[400px]:contents"
               }`}
           >
             {/* Дата */}

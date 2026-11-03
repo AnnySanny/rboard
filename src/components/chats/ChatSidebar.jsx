@@ -1,10 +1,25 @@
+import { useEffect, useState } from "react";
 
 import {
     Search,
     MessageCircle,
     UserRound,
     X,
+    Send,
+    ChevronRight,
+    CheckCheck,
+    CircleCheck,
+    LoaderCircle,
 } from "lucide-react";
+
+import { onAuthStateChanged } from "firebase/auth";
+
+import {
+    doc,
+    onSnapshot,
+} from "firebase/firestore";
+
+import { auth, db } from "../../firebase";
 
 const formatTime = (value) => {
     if (!value) return "";
@@ -39,6 +54,119 @@ export default function ChatSidebar({
     onSearchChange,
     className = "",
 }) {
+    // Telegram
+    const [telegramStatus, setTelegramStatus] = useState(null);
+    const [telegramLoading, setTelegramLoading] = useState(true);
+    const [telegramConnecting, setTelegramConnecting] = useState(false);
+    const [telegramError, setTelegramError] = useState("");
+
+    // Перевірка прив'язки Telegram
+    useEffect(() => {
+        let unsubscribeProfile = null;
+
+        const unsubscribeAuth = onAuthStateChanged(
+            auth,
+            (user) => {
+                unsubscribeProfile?.();
+                unsubscribeProfile = null;
+
+                setTelegramStatus(null);
+                setTelegramLoading(true);
+
+                if (!user) {
+                    setTelegramLoading(false);
+                    return;
+                }
+
+                unsubscribeProfile = onSnapshot(
+                    doc(db, "users", user.uid),
+                    (snapshot) => {
+                        const data = snapshot.data();
+
+                        setTelegramStatus({
+                            connected: Boolean(data?.telegramChatId),
+                            notifications: Boolean(data?.telegramChatId),
+                        });
+
+                        setTelegramLoading(false);
+                    },
+                    (error) => {
+                        console.error(
+                            "Помилка перевірки Telegram:",
+                            error
+                        );
+
+                        setTelegramStatus(null);
+                        setTelegramLoading(false);
+                        setTelegramError(
+                            "Не вдалося перевірити підключення Telegram."
+                        );
+                    }
+                );
+            }
+        );
+
+        return () => {
+            unsubscribeAuth();
+            unsubscribeProfile?.();
+        };
+    }, []);
+
+    // Підключення Telegram
+    const handleConnectTelegram = async () => {
+        if (telegramConnecting) return;
+
+        const user = auth.currentUser;
+
+        if (!user) {
+            setTelegramError(
+                "Для підключення Telegram потрібно увійти в акаунт."
+            );
+            return;
+        }
+
+        setTelegramConnecting(true);
+        setTelegramError("");
+
+        try {
+            const idToken = await user.getIdToken();
+
+            const response = await fetch(
+                "/.netlify/functions/create-telegram-link",
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${idToken}`,
+                    },
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success || !result.telegramUrl) {
+                throw new Error(
+                    result.error || "Не вдалося створити посилання."
+                );
+            }
+
+            // Перехід до Telegram із персональним токеном
+            window.location.assign(result.telegramUrl);
+        } catch (error) {
+            console.error(
+                "Помилка підключення Telegram:",
+                error
+            );
+
+            setTelegramError(
+                error.message || "Спробуйте ще раз."
+            );
+
+            setTelegramConnecting(false);
+        }
+    };
+
+
+
     const normalizedSearch = search
         .trim()
         .toLocaleLowerCase("uk-UA");
@@ -106,7 +234,104 @@ export default function ChatSidebar({
                     )}
                 </div>
             </div>
+            {/* Telegram-сповіщення */}
+            <div className="shrink-0 px-4 py-2.5 sm:px-5">
 
+                {telegramLoading ? (
+                    // Завантаження статусу
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                        <LoaderCircle
+                            size={19}
+                            className="animate-spin text-slate-400"
+                        />
+
+                        <p className="text-xs text-slate-500">
+                            Перевіряємо Telegram...
+                        </p>
+                    </div>
+                ) : telegramStatus?.connected ? (
+                    // Telegram підключено
+                    <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3">
+
+                        {/* Іконка */}
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                            <CheckCheck size={20} strokeWidth={2} />
+                        </div>
+
+                        {/* Текст */}
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-emerald-900">
+                                Telegram підключено
+                            </p>
+
+                            <p className="mt-0.5 text-[11px] leading-4 text-emerald-700">
+                                Сповіщення активовані
+                            </p>
+                        </div>
+
+                        {/* Статус */}
+                        <CircleCheck
+                            size={19}
+                            className="shrink-0 text-emerald-500"
+                        />
+
+                    </div>
+                ) : (
+                    // Telegram не підключено
+                    <button
+                        type="button"
+                        onClick={handleConnectTelegram}
+                        disabled={telegramConnecting || Boolean(telegramError && !auth.currentUser)}
+                        className="group flex w-full items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/60 px-3 py-3 text-left transition-all duration-200 hover:border-blue-200 hover:bg-blue-100/70 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+
+                        {/* Іконка */}
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 transition group-hover:bg-blue-200">
+                            {telegramConnecting ? (
+                                <LoaderCircle
+                                    size={19}
+                                    className="animate-spin"
+                                />
+                            ) : (
+                                <Send size={19} strokeWidth={1.8} />
+                            )}
+                        </div>
+
+                        {/* Текст */}
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900">
+                                {telegramConnecting
+                                    ? "Підключаємо Telegram..."
+                                    : "Сповіщення в Telegram"}
+                            </p>
+
+                            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+                                Отримуйте повідомлення прямо в боті
+                            </p>
+                        </div>
+
+                        {/* Стрілка */}
+                        {!telegramConnecting && (
+                            <ChevronRight
+                                size={18}
+                                className="shrink-0 text-blue-500 transition-transform group-hover:translate-x-1"
+                            />
+                        )}
+
+                    </button>
+                )}
+
+                {/* Помилка */}
+                {telegramError && (
+                    <p
+                        role="alert"
+                        className="mt-2 text-xs text-red-500"
+                    >
+                        {telegramError}
+                    </p>
+                )}
+
+            </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 {filteredChats.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
@@ -193,8 +418,8 @@ export default function ChatSidebar({
                                         <div className="mt-1 flex items-center justify-between gap-2">
                                             <p
                                                 className={`min-w-0 flex-1 truncate text-xs ${unread > 0
-                                                        ? "font-semibold text-slate-800"
-                                                        : "text-slate-500"
+                                                    ? "font-semibold text-slate-800"
+                                                    : "text-slate-500"
                                                     }`}
                                             >
                                                 {chat.lastMessage || "Нова розмова"}

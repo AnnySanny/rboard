@@ -1084,13 +1084,56 @@ export default function UserChats() {
                 rememberChoice = confirmation.remember;
             }
 
-            await sendChatMessage({
+
+            const sentMessage = await sendChatMessage({
                 listingId: chat.listing.id,
                 recipientUid: chat.otherUser.uid,
                 senderUid: currentUser.uid,
                 text,
                 replyTo,
             });
+
+            // Telegram-сповіщення після успішного запису в Firestore
+            try {
+                const idToken = await currentUser.getIdToken();
+
+                const response = await fetch(
+                    "/.netlify/functions/notify-chat-message",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${idToken}`,
+                        },
+                        body: JSON.stringify({
+                            chatId: sentMessage.chatId,
+                            messageId: sentMessage.messageId,
+                        }),
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `Telegram notification HTTP ${response.status}`
+                    );
+                }
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(
+                        result.error || "Помилка Telegram-сповіщення"
+                    );
+                }
+            } catch (notificationError) {
+                // Повідомлення у Firestore вже успішно збережене.
+                // Помилка Telegram не повинна заважати роботі чату.
+                console.warn(
+                    "Telegram-сповіщення не надіслано:",
+                    notificationError
+                );
+            }
+
 
             if (rememberChoice) {
                 localStorage.setItem(safetyKey, "true");

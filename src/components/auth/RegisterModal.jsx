@@ -400,7 +400,22 @@ export default function RegisterModal() {
                         </button>
                     </div>
                 </div>
+                {/* Порада щодо збереження пароля */}
+                <div className="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50/60 px-3.5 py-3">
+                    <Lock
+                        size={16}
+                        className="mt-0.5 shrink-0 text-blue-500"
+                    />
 
+                    <p className="text-xs leading-5 text-slate-600">
+                        Радимо зберігати пароль у{" "}
+                        <span className="font-semibold text-slate-700">
+                            менеджері паролів
+                        </span>{" "}
+                        або іншому надійному сховищі, щоб не втратити
+                        доступ до акаунта.
+                    </p>
+                </div>
                 {error && (
                     <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
                         {error}

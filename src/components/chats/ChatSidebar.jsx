@@ -150,7 +150,8 @@ export default function ChatSidebar({
             }
 
             // Перехід до Telegram із персональним токеном
-            window.location.assign(result.telegramUrl);
+            // Відкриваємо Telegram у новій вкладці
+            window.open(result.telegramUrl, "_blank", "noopener,noreferrer");
         } catch (error) {
             console.error(
                 "Помилка підключення Telegram:",
@@ -167,14 +168,14 @@ export default function ChatSidebar({
 
 
 
-    
-const handleDisconnectTelegram = async () => {
-    if (telegramDisconnecting) return;
 
-    const result = await Swal.fire({
-        icon: "warning",
-        title: "Відв'язати Telegram?",
-        html: `
+    const handleDisconnectTelegram = async () => {
+        if (telegramDisconnecting) return;
+
+        const result = await Swal.fire({
+            icon: "warning",
+            title: "Відв'язати Telegram?",
+            html: `
             <div style="margin-top:8px">
                 Ви більше не отримуватимете сповіщення
                 про нові повідомлення в чатах RBoard.
@@ -184,83 +185,83 @@ const handleDisconnectTelegram = async () => {
                 </span>
             </div>
         `,
-        showCancelButton: true,
-        confirmButtonText: "Відв'язати",
-        cancelButtonText: "Скасувати",
-        confirmButtonColor: "#dc2626",
-        cancelButtonColor: "#64748b",
-        reverseButtons: true,
-        focusCancel: true,
-    });
-
-    if (!result.isConfirmed) return;
-
-    const Toast = Swal.mixin({
-        toast: true,
-        position: "top-end",
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        showClass: {
-            popup: "swal2-noanimation",
-        },
-        hideClass: {
-            popup: "",
-        },
-    });
-
-    const user = auth.currentUser;
-
-    if (!user) {
-        Toast.fire({
-            icon: "error",
-            title: "Потрібно увійти в акаунт",
+            showCancelButton: true,
+            confirmButtonText: "Відв'язати",
+            cancelButtonText: "Скасувати",
+            confirmButtonColor: "#dc2626",
+            cancelButtonColor: "#64748b",
+            reverseButtons: true,
+            focusCancel: true,
         });
-        return;
-    }
 
-    setTelegramDisconnecting(true);
-    setTelegramError("");
+        if (!result.isConfirmed) return;
 
-    try {
-        const idToken = await user.getIdToken();
+        const Toast = Swal.mixin({
+            toast: true,
+            position: "top-end",
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            showClass: {
+                popup: "swal2-noanimation",
+            },
+            hideClass: {
+                popup: "",
+            },
+        });
 
-        const response = await fetch(
-            "/.netlify/functions/unlink-telegram",
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${idToken}`,
-                },
-            }
-        );
+        const user = auth.currentUser;
 
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-            throw new Error(
-                data.error || "Не вдалося відв'язати Telegram."
-            );
+        if (!user) {
+            Toast.fire({
+                icon: "error",
+                title: "Потрібно увійти в акаунт",
+            });
+            return;
         }
 
-        // onSnapshot автоматично оновить статус Telegram
-        await Toast.fire({
-            icon: "success",
-            title: "Telegram успішно відв'язано",
-        });
+        setTelegramDisconnecting(true);
+        setTelegramError("");
 
-    } catch (error) {
-        console.error("Помилка відв'язки Telegram:", error);
+        try {
+            const idToken = await user.getIdToken();
 
-        Toast.fire({
-            icon: "error",
-            title: "Не вдалося відв'язати Telegram",
-            text: error.message || "Спробуйте ще раз.",
-        });
-    } finally {
-        setTelegramDisconnecting(false);
-    }
-};
+            const response = await fetch(
+                "/.netlify/functions/unlink-telegram",
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${idToken}`,
+                    },
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.error || "Не вдалося відв'язати Telegram."
+                );
+            }
+
+            // onSnapshot автоматично оновить статус Telegram
+            await Toast.fire({
+                icon: "success",
+                title: "Telegram успішно відв'язано",
+            });
+
+        } catch (error) {
+            console.error("Помилка відв'язки Telegram:", error);
+
+            Toast.fire({
+                icon: "error",
+                title: "Не вдалося відв'язати Telegram",
+                text: error.message || "Спробуйте ще раз.",
+            });
+        } finally {
+            setTelegramDisconnecting(false);
+        }
+    };
 
 
     const normalizedSearch = search

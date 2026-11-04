@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-
+import Swal from "sweetalert2";
 import {
     Search,
     MessageCircle,
@@ -59,7 +59,7 @@ export default function ChatSidebar({
     const [telegramLoading, setTelegramLoading] = useState(true);
     const [telegramConnecting, setTelegramConnecting] = useState(false);
     const [telegramError, setTelegramError] = useState("");
-
+    const [telegramDisconnecting, setTelegramDisconnecting] = useState(false);
     // Перевірка прив'язки Telegram
     useEffect(() => {
         let unsubscribeProfile = null;
@@ -167,6 +167,102 @@ export default function ChatSidebar({
 
 
 
+    
+const handleDisconnectTelegram = async () => {
+    if (telegramDisconnecting) return;
+
+    const result = await Swal.fire({
+        icon: "warning",
+        title: "Відв'язати Telegram?",
+        html: `
+            <div style="margin-top:8px">
+                Ви більше не отримуватимете сповіщення
+                про нові повідомлення в чатах RBoard.
+                <br><br>
+                <span style="color:#64748b;font-size:13px">
+                    Ви зможете повторно підключити Telegram у будь-який момент.
+                </span>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: "Відв'язати",
+        cancelButtonText: "Скасувати",
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#64748b",
+        reverseButtons: true,
+        focusCancel: true,
+    });
+
+    if (!result.isConfirmed) return;
+
+    const Toast = Swal.mixin({
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        showClass: {
+            popup: "swal2-noanimation",
+        },
+        hideClass: {
+            popup: "",
+        },
+    });
+
+    const user = auth.currentUser;
+
+    if (!user) {
+        Toast.fire({
+            icon: "error",
+            title: "Потрібно увійти в акаунт",
+        });
+        return;
+    }
+
+    setTelegramDisconnecting(true);
+    setTelegramError("");
+
+    try {
+        const idToken = await user.getIdToken();
+
+        const response = await fetch(
+            "/.netlify/functions/unlink-telegram",
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                },
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.error || "Не вдалося відв'язати Telegram."
+            );
+        }
+
+        // onSnapshot автоматично оновить статус Telegram
+        await Toast.fire({
+            icon: "success",
+            title: "Telegram успішно відв'язано",
+        });
+
+    } catch (error) {
+        console.error("Помилка відв'язки Telegram:", error);
+
+        Toast.fire({
+            icon: "error",
+            title: "Не вдалося відв'язати Telegram",
+            text: error.message || "Спробуйте ще раз.",
+        });
+    } finally {
+        setTelegramDisconnecting(false);
+    }
+};
+
+
     const normalizedSearch = search
         .trim()
         .toLocaleLowerCase("uk-UA");
@@ -249,34 +345,64 @@ export default function ChatSidebar({
                             Перевіряємо Telegram...
                         </p>
                     </div>
+
                 ) : telegramStatus?.connected ? (
                     // Telegram підключено
-                    <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3">
+                    <div className="space-y-1.5">
 
-                        {/* Іконка */}
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-                            <CheckCheck size={20} strokeWidth={2} />
+                        {/* Зелений блок */}
+                        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3">
+
+                            {/* Іконка */}
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                                <CheckCheck size={20} strokeWidth={2} />
+                            </div>
+
+                            {/* Текст */}
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-emerald-900">
+                                    Telegram підключено
+                                </p>
+
+                                <p className="mt-0.5 text-[11px] leading-4 text-emerald-700">
+                                    Сповіщення активовані
+                                </p>
+                            </div>
+
+                            {/* Статус */}
+                            <CircleCheck
+                                size={19}
+                                className="shrink-0 text-emerald-500"
+                            />
+
                         </div>
 
-                        {/* Текст */}
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-emerald-900">
-                                Telegram підключено
-                            </p>
+                        {/* Кнопка відв'язки */}
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleDisconnectTelegram}
+                                disabled={telegramDisconnecting}
+                                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {telegramDisconnecting ? (
+                                    <LoaderCircle
+                                        size={12}
+                                        className="animate-spin"
+                                    />
+                                ) : (
+                                    <X size={12} />
+                                )}
 
-                            <p className="mt-0.5 text-[11px] leading-4 text-emerald-700">
-                                Сповіщення активовані
-                            </p>
+                                {telegramDisconnecting
+                                    ? "Відв'язуємо..."
+                                    : "Відв'язати Telegram"}
+                            </button>
                         </div>
-
-                        {/* Статус */}
-                        <CircleCheck
-                            size={19}
-                            className="shrink-0 text-emerald-500"
-                        />
 
                     </div>
                 ) : (
+
                     // Telegram не підключено
                     <button
                         type="button"

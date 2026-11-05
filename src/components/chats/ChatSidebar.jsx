@@ -113,58 +113,69 @@ export default function ChatSidebar({
     }, []);
 
     // Підключення Telegram
-    const handleConnectTelegram = async () => {
-        if (telegramConnecting) return;
+    
+const handleConnectTelegram = async () => {
+    if (telegramConnecting) return;
 
-        const user = auth.currentUser;
+    const user = auth.currentUser;
 
-        if (!user) {
-            setTelegramError(
-                "Для підключення Telegram потрібно увійти в акаунт."
-            );
-            return;
-        }
+    if (!user) {
+        setTelegramError(
+            "Для підключення Telegram потрібно увійти в акаунт."
+        );
+        return;
+    }
 
-        setTelegramConnecting(true);
-        setTelegramError("");
+    setTelegramConnecting(true);
+    setTelegramError("");
 
-        try {
-            const idToken = await user.getIdToken();
+    try {
+        const idToken = await user.getIdToken();
 
-            const response = await fetch(
-                "/.netlify/functions/create-telegram-link",
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${idToken}`,
-                    },
-                }
-            );
-
-            const result = await response.json();
-
-            if (!response.ok || !result.success || !result.telegramUrl) {
-                throw new Error(
-                    result.error || "Не вдалося створити посилання."
-                );
+        const response = await fetch(
+            "/.netlify/functions/create-telegram-link",
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                },
             }
+        );
 
-            // Перехід до Telegram із персональним токеном
-            // Відкриваємо Telegram у новій вкладці
-            window.open(result.telegramUrl, "_blank", "noopener,noreferrer");
-        } catch (error) {
-            console.error(
-                "Помилка підключення Telegram:",
-                error
+        const result = await response.json();
+
+        if (
+            !response.ok ||
+            !result.success ||
+            !result.telegramUrl
+        ) {
+            throw new Error(
+                result.error || "Не вдалося створити посилання."
             );
-
-            setTelegramError(
-                error.message || "Спробуйте ще раз."
-            );
-
-            setTelegramConnecting(false);
         }
-    };
+
+        // Відкриваємо Telegram в окремій вкладці
+        window.open(
+            result.telegramUrl,
+            "_blank",
+            "noopener,noreferrer"
+        );
+
+    } catch (error) {
+        console.error(
+            "Помилка підключення Telegram:",
+            error
+        );
+
+        setTelegramError(
+            error.message || "Спробуйте ще раз."
+        );
+
+    } finally {
+        // Завжди прибираємо індикатор завантаження
+        setTelegramConnecting(false);
+    }
+};
 
 
 

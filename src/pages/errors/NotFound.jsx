@@ -17,13 +17,13 @@ export default function NotFound() {
     return (
         <main
             className="
-                flex min-h-screen min-h-[100dvh]
-                flex-col items-center justify-center
-                overflow-hidden bg-[#f5f8ff]
-                px-3 py-8
-                sm:px-6 sm:py-12
-                lg:px-8 lg:py-14
-            "
+        flex h-screen h-[100dvh]
+        flex-col items-center justify-center
+        overflow-hidden bg-[#f5f8ff]
+        px-3 py-3
+        sm:px-6 sm:py-4
+        lg:px-8
+    "
         >
             <div
                 className="
@@ -61,8 +61,7 @@ export default function NotFound() {
                             "
                             style={{
                                 fontFamily: "Arial, sans-serif",
-                                fontSize:
-                                    "clamp(80px, 23vw, 340px)",
+                                fontSize: "clamp(55px, min(23vw, 28dvh), 340px)",
                             }}
                         >
                             4
@@ -194,8 +193,7 @@ export default function NotFound() {
                             "
                             style={{
                                 fontFamily: "Arial, sans-serif",
-                                fontSize:
-                                    "clamp(80px, 23vw, 340px)",
+                                fontSize: "clamp(55px, min(23vw, 28dvh), 340px)",
                             }}
                         >
                             4

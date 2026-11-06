@@ -17,8 +17,8 @@ import Swal from "sweetalert2";
 
 import { auth, db } from "../../firebase";
 
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 
 import ChatSidebar from "../../components/chats/ChatSidebar";
 import ChatWindow from "../../components/chats/ChatWindow";

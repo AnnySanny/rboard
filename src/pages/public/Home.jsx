@@ -24,21 +24,21 @@ import {
     onAuthStateChanged,
 } from "firebase/auth";
 
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
-import SearchFilters from "../components/SearchFilters";
-import ListingsSection from "../components/listings/ListingsSection";
-import AddListingButton from "../components/listings/AddListingButton";
-import ListingDetailsModal from "../components/listings/ListingDetailsModal";
-import { mapListingDocument } from "../utils/listingMapper";
-import ListingReels from "../components/listings/ListingReels";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
+import SearchFilters from "../../components/ui/SearchFilters";
+import ListingsSection from "../../components/listings/ListingsSection";
+import AddListingButton from "../../components/listings/AddListingButton";
+import ListingDetailsModal from "../../components/listings/ListingDetailsModal";
+import { mapListingDocument } from "../../utils/listingMapper";
+import ListingReels from "../../components/listings/ListingReels";
 import {
     normalizeSearchText,
-} from "../utils/listingSearch";
+} from "../../utils/listingSearch";
 import {
     auth,
     db,
-} from "../firebase";
+} from "../../firebase";
 
 
 const searchPhrases = [

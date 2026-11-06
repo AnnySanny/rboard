@@ -1,9 +1,9 @@
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 
-import backgroundImage from "../image/background.webp";
-import backgroundAutumn from "../image/background-autumn.webp";
-import backgroundWinter from "../image/background-winter.webp";
+import backgroundImage from "../../image/background.webp";
+import backgroundAutumn from "../../image/background-autumn.webp";
+import backgroundWinter from "../../image/background-winter.webp";
 
 
 const getSeasonBackground = () => {

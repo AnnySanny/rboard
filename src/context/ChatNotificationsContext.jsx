@@ -10,7 +10,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { MessageCircle, X } from "lucide-react";
 
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 import {
   subscribeUserChats,
   isChatUnread,
@@ -45,11 +46,68 @@ export function ChatNotificationsProvider({ children }) {
     locationRef.current = location.pathname;
   }, [location.pathname]);
 
-  useEffect(() => {
-    return onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-    });
-  }, []);
+useEffect(() => {
+  let active = true;
+  let generation = 0;
+
+  const unsubscribe = onAuthStateChanged(
+    auth,
+    async (user) => {
+      const currentGeneration = ++generation;
+
+      // Одразу очищаємо стан попереднього користувача
+      setCurrentUser(null);
+
+      if (!user) return;
+
+      try {
+        const userSnapshot = await getDoc(
+          doc(db, "users", user.uid)
+        );
+
+        // Перевіряємо, що сесія не змінилася
+        if (!active || currentGeneration !== generation) {
+          return;
+        }
+
+        if (auth.currentUser?.uid !== user.uid) {
+          return;
+        }
+
+        // Не підключаємо чати для відсутнього профілю
+        if (!userSnapshot.exists()) {
+          return;
+        }
+
+        // Не підключаємо чати заблокованому користувачу
+        if (userSnapshot.data().blocked === true) {
+          return;
+        }
+
+        // Лише тепер дозволяємо підписку
+        setCurrentUser(user);
+
+      } catch (error) {
+        if (!active || currentGeneration !== generation) {
+          return;
+        }
+
+        console.error(
+          "Помилка перевірки користувача для чатів:",
+          error
+        );
+
+        setCurrentUser(null);
+      }
+    }
+  );
+
+  return () => {
+    active = false;
+    generation++;
+    unsubscribe();
+  };
+}, []);
 
   useEffect(() => {
     initializedRef.current = false;

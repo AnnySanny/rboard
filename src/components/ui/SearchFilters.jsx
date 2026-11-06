@@ -10,7 +10,7 @@ import {
 import { Heart } from "lucide-react";
 import {
   auth,
-} from "../firebase";
+} from "../../firebase";
 
 const categories = [
   "Усі",

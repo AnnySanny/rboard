@@ -905,12 +905,12 @@ const AdminUsers = () => {
    * Видалення користувача
    * + ВСІХ його оголошень.
    */
-  
-const handleDelete = async (user) => {
-  const result = await Swal.fire({
-    icon: "warning",
-    title: "Видалити користувача?",
-    html: `
+
+  const handleDelete = async (user) => {
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Видалити користувача?",
+      html: `
       <div style="line-height:1.7;color:#64748b">
         <p>
           Користувача
@@ -928,77 +928,79 @@ const handleDelete = async (user) => {
         </p>
       </div>
     `,
-    showCancelButton: true,
-    confirmButtonText: "Видалити дані",
-    cancelButtonText: "Скасувати",
-    confirmButtonColor: "#dc2626",
-    cancelButtonColor: "#64748b",
-    reverseButtons: true,
-  });
+      showCancelButton: true,
+      confirmButtonText: "Видалити дані",
+      cancelButtonText: "Скасувати",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      reverseButtons: true,
+    });
 
-  if (!result.isConfirmed) return;
+    if (!result.isConfirmed) return;
 
-  setDeletingId(user.id);
-
-  try {
-    const uid = user.id;
-
-    const reviews = await deleteUserReviews(uid);
-    const chatsCount = await deleteUserChats(uid);
-    const listingsCount = await deleteUserListings(uid);
-    const viewsCount = await deleteOwnListingViews(uid);
-    const favoritesCount = await removeUserFavorites(uid);
-
-    await deleteDoc(doc(db, "userPresence", uid));
-    await deleteDoc(doc(db, "publicProfiles", uid));
-    await deleteDoc(doc(db, "users", uid));
-
-    setStatisticsUser((current) =>
-      current?.id === uid ? null : current
-    );
+    setDeletingId(user.id);
 
     try {
-      await createAdminLog({
-        action: ADMIN_LOG_ACTIONS.USER_DELETED,
-        category: "users",
-        title: "Видалено дані користувача",
-        description:
-          `Видалено дані користувача «${user.login || "Без імені"}». ` +
-          `Оголошень: ${listingsCount}, ` +
-          `власних переглядів: ${viewsCount}, ` +
-          `записів обраного: ${favoritesCount}, ` +
-          `чатів: ${chatsCount}, ` +
-          `отриманих відгуків: ${reviews.received}, ` +
-          `залишених відгуків: ${reviews.written}.`,
-        targetId: uid,
-        targetName: user.login || "Без імені",
+      const uid = user.id;
+      await updateDoc(doc(db, "users", uid), {
+        blocked: true,
       });
-    } catch (logError) {
-      console.error("Помилка запису журналу:", logError);
+      const reviews = await deleteUserReviews(uid);
+      const chatsCount = await deleteUserChats(uid);
+      const listingsCount = await deleteUserListings(uid);
+      const viewsCount = await deleteOwnListingViews(uid);
+      const favoritesCount = await removeUserFavorites(uid);
+
+      await deleteDoc(doc(db, "userPresence", uid));
+      await deleteDoc(doc(db, "publicProfiles", uid));
+      await deleteDoc(doc(db, "users", uid));
+
+      setStatisticsUser((current) =>
+        current?.id === uid ? null : current
+      );
+
+      try {
+        await createAdminLog({
+          action: ADMIN_LOG_ACTIONS.USER_DELETED,
+          category: "users",
+          title: "Видалено дані користувача",
+          description:
+            `Видалено дані користувача «${user.login || "Без імені"}». ` +
+            `Оголошень: ${listingsCount}, ` +
+            `власних переглядів: ${viewsCount}, ` +
+            `записів обраного: ${favoritesCount}, ` +
+            `чатів: ${chatsCount}, ` +
+            `отриманих відгуків: ${reviews.received}, ` +
+            `залишених відгуків: ${reviews.written}.`,
+          targetId: uid,
+          targetName: user.login || "Без імені",
+        });
+      } catch (logError) {
+        console.error("Помилка запису журналу:", logError);
+      }
+
+      await Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Дані користувача видалено",
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+      });
+    } catch (error) {
+      console.error("Помилка видалення користувача:", error);
+
+      await Swal.fire({
+        icon: "error",
+        title: "Не вдалося завершити видалення",
+        text: "Частину даних уже могло бути видалено. Перевірте Firestore та повторіть операцію.",
+        confirmButtonColor: "#2563eb",
+      });
+    } finally {
+      setDeletingId(null);
     }
-
-    await Swal.fire({
-      toast: true,
-      position: "top-end",
-      icon: "success",
-      title: "Дані користувача видалено",
-      showConfirmButton: false,
-      timer: 2500,
-      timerProgressBar: true,
-    });
-  } catch (error) {
-    console.error("Помилка видалення користувача:", error);
-
-    await Swal.fire({
-      icon: "error",
-      title: "Не вдалося завершити видалення",
-      text: "Частину даних уже могло бути видалено. Перевірте Firestore та повторіть операцію.",
-      confirmButtonColor: "#2563eb",
-    });
-  } finally {
-    setDeletingId(null);
-  }
-};
+  };
 
 
   return (
@@ -1501,11 +1503,10 @@ const UserMobileCard = ({
           type="button"
           onClick={onToggleBlock}
           disabled={changingBlock || deleting}
-          className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-semibold transition disabled:opacity-50 ${
-            user.blocked
+          className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-semibold transition disabled:opacity-50 ${user.blocked
               ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
               : "border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100"
-          }`}
+            }`}
         >
           {changingBlock ? (
             <Spinner />
@@ -1627,8 +1628,8 @@ const UserStatus = ({ blocked, online }) => (
   <div className="flex flex-col items-start gap-1.5">
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${blocked
-          ? "border-red-100 bg-red-50 text-red-700"
-          : "border-blue-100 bg-blue-50 text-blue-700"
+        ? "border-red-100 bg-red-50 text-red-700"
+        : "border-blue-100 bg-blue-50 text-blue-700"
         }`}
     >
       <span

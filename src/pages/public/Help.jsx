@@ -36,8 +36,8 @@ import {
     UserRoundX,
 } from "lucide-react";
 
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 
 const helpItems = [
     {
@@ -1071,11 +1071,10 @@ const Help = () => {
                             </div>
 
                             {/* Підказки */}
-                            {showSuggestions && searchWords.length > 0 && (
+                            {showSuggestions && searchWords.length > 0 && suggestions.length > 0 && (
                                 <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
 
-                                    {suggestions.length > 0 ? (
-                                        <>
+                                  
                                             <p className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">
                                                 Знайдені інструкції
                                             </p>
@@ -1111,12 +1110,6 @@ const Help = () => {
                                                     </button>
                                                 );
                                             })}
-                                        </>
-                                    ) : (
-                                        <p className="px-4 py-5 text-center text-sm text-slate-500">
-                                            За вашим запитом нічого не знайдено.
-                                        </p>
-                                    )}
                                 </div>
                             )}
 

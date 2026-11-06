@@ -15,7 +15,7 @@ import {
 
 import ChatMessage from "./ChatMessage";
 import ChatComposer from "./ChatComposer";
-import useUserPresence from "../../hooks/useUserPresence";
+import useUserPresence from "../hooks/useUserPresence";
 export default function ChatWindow({
     chat,
     messages = [],

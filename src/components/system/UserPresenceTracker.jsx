@@ -1,8 +1,8 @@
 
 import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase";
-import { startUserPresence } from "../utils/userPresence";
+import { auth } from "../../firebase";
+import { startUserPresence } from "../../utils/userPresence";
 
 export default function UserPresenceTracker() {
   useEffect(() => {

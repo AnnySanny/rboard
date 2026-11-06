@@ -10,42 +10,45 @@ import {
 } from "react-router-dom";
 
 // Звичайні імпорти
-import Home from "./pages/Home";
-import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
+import Home from "./pages/public/Home";
+import ProtectedAdminRoute from "./components/protectedRoute/ProtectedAdminRoute";
 import { ChatNotificationsProvider } from "./context/ChatNotificationsContext";
-import UserPresenceTracker from "./components/UserPresenceTracker";
+import UserPresenceTracker from "./components/system/UserPresenceTracker";
+import UserAccessWatcher from "./components/system/UserAccessWatcher";
+import NetworkStatus from "./components/system/NetworkStatus";
+
 // Публічні сторінки
 const About = lazy(() =>
-  import("./pages/About")
+  import("./pages/public/About")
 );
 
 const Contacts = lazy(() =>
-  import("./pages/Contacts")
+  import("./pages/public/Contacts")
 );
 
 const AdminLogin = lazy(() =>
-  import("./pages/AdminLogin")
+  import("./pages/auth/AdminLogin")
 );
 
 const AccessDenied = lazy(() =>
-  import("./pages/AccessDenied")
+  import("./pages/errors/AccessDenied")
 );
 const NotFound = lazy(() =>
-  import("./pages/NotFound")
+  import("./pages/errors/NotFound")
 );
 const CreateListing = lazy(() =>
-  import("./pages/CreateListing")
+  import("./pages/listings/CreateListing")
 );
 
 const Rules = lazy(() =>
-  import("./pages/Rules")
+  import("./pages/public/Rules")
 );
 
 const Help = lazy(() =>
-  import("./pages/Help")
+  import("./pages/public/Help")
 );
 const Fundraisers = lazy(() =>
-  import("./pages/Fundraisers")
+  import("./pages/public/Fundraisers")
 );
 // Сторінки користувача
 const UserHome = lazy(() =>
@@ -128,6 +131,8 @@ const AdminSite = lazy(() =>
 const App = () => {
   return (
     <BrowserRouter>
+      <NetworkStatus />
+      <UserAccessWatcher />
       <UserPresenceTracker />
       <ChatNotificationsProvider>
         <Suspense fallback={null}>
@@ -196,23 +201,44 @@ const App = () => {
               СТОРІНКИ КОРИСТУВАЧА
           ============================== */}
 
+            {/* Особистий кабінет */}
             <Route
               path="/user"
-              element={<UserHome />}
+              element={
+               
+                  <UserHome />
+                
+              }
             />
 
+            {/* Мої оголошення */}
             <Route
               path="/user/listings"
-              element={<UserListings />}
+              element={
+               
+                  <UserListings />
+                
+              }
             />
+
+            {/* Чати */}
             <Route
               path="/user/chats"
-              element={<UserChats />}
+              element={
+               
+                  <UserChats />
+                
+              }
             />
+
             {/* Власний профіль */}
             <Route
               path="/user/profile"
-              element={<UserProfile />}
+              element={
+               
+                  <UserProfile />
+                
+              }
             />
 
             {/* Публічний профіль за UID */}
@@ -224,12 +250,21 @@ const App = () => {
             {/* Налаштування акаунта */}
             <Route
               path="/user/settings"
-              element={<UserSettings />}
+              element={
+               
+                  <UserSettings />
+                
+              }
             />
 
+            {/* Редагування оголошення */}
             <Route
               path="/user/listings/:listingId/edit"
-              element={<EditListing />}
+              element={
+               
+                  <EditListing />
+                
+              }
             />
 
             {/* ==============================

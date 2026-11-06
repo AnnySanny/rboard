@@ -10,8 +10,8 @@ import {
     signOut,
 } from "firebase/auth";
 
-import { auth } from "../firebase";
-import { stopAndRemoveUserPresence } from "../utils/userPresence";
+import { auth } from "../../firebase";
+import { stopAndRemoveUserPresence } from "../../utils/userPresence";
 import {
     LogOut,
     User,
@@ -26,11 +26,11 @@ import {
     FaFacebookF,
 } from "react-icons/fa";
 
-import Modal from "./Modal";
-import LoginModal from "./auth/LoginModal";
-import RegisterModal from "./auth/RegisterModal";
-import OnboardingModal from "./onboarding/OnboardingModal";
-import { useChatNotifications } from "../context/ChatNotificationsContext";
+import Modal from "../ui/Modal";
+import LoginModal from "../auth/LoginModal";
+import RegisterModal from "../auth/RegisterModal";
+import OnboardingModal from "../onboarding/OnboardingModal";
+import { useChatNotifications } from "../../context/ChatNotificationsContext";
 const getOnboardingImages = () => {
     const isMobile = window.matchMedia(
         "(max-width: 767px)"
@@ -75,29 +75,96 @@ const Navbar = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const [currentUser, setCurrentUser] =
-        useState(null);
+const [currentUser, setCurrentUser] =
+    useState(() => auth.currentUser);
 
-    const [authLoading, setAuthLoading] =
-        useState(true);
+const [authLoading, setAuthLoading] =
+    useState(() => !auth.currentUser);
 
+    const [loginChecking, setLoginChecking] = useState(false);
     const userMode = Boolean(currentUser);
     const { unreadCount } = useChatNotifications();
 
     const unreadLabel =
         unreadCount > 99 ? "99+" : unreadCount;
-    useEffect(() => {
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                (user) => {
-                    setCurrentUser(user);
+
+
+
+        
+useEffect(() => {
+    let active = true;
+    let generation = 0;
+
+    const unsubscribe = onAuthStateChanged(
+        auth,
+        async (user) => {
+            const currentGeneration = ++generation;
+
+            if (!user) {
+                if (active) {
+                    setCurrentUser(null);
+                    setAuthLoading(false);
+                    setLoginChecking(false);
+                }
+                return;
+            }
+
+            if (active) {
+                setLoginChecking(true);
+            }
+
+            try {
+                const { doc, getDoc } = await import("firebase/firestore");
+                const { db } = await import("../../firebase");
+
+                const userSnapshot = await getDoc(
+                    doc(db, "users", user.uid)
+                );
+
+                if (!active || currentGeneration !== generation) {
+                    return;
+                }
+
+                if (
+                    !userSnapshot.exists() ||
+                    userSnapshot.data().blocked === true
+                ) {
+                    setCurrentUser(null);
+                    return;
+                }
+
+                setCurrentUser(user);
+            } catch (error) {
+                console.error(
+                    "Помилка перевірки користувача:",
+                    error
+                );
+
+                if (active && currentGeneration === generation) {
+                    setCurrentUser(null);
+                }
+            } finally {
+                if (active && currentGeneration === generation) {
+                    setLoginChecking(false);
                     setAuthLoading(false);
                 }
-            );
+            }
+        }
+    );
 
-        return unsubscribe;
-    }, []);
+    return () => {
+        active = false;
+        generation++;
+        unsubscribe();
+    };
+}, []);
+
+useEffect(() => {
+    if (currentUser && !loginChecking) {
+        setShowLogin(false);
+        setShowRegister(false);
+    }
+}, [currentUser, loginChecking]);
     useEffect(() => {
         if (authLoading) {
             return;
@@ -702,8 +769,8 @@ const Navbar = () => {
 
                 <div
                     className={`overflow-hidden border-t border-slate-100 bg-white transition-all duration-300 lg:hidden ${showMobileMenu
-                            ? "max-h-[600px] opacity-100"
-                            : "max-h-0 border-t-transparent opacity-0"
+                        ? "max-h-[600px] opacity-100"
+                        : "max-h-0 border-t-transparent opacity-0"
                         }`}
                 >
                     <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">

@@ -22,17 +22,70 @@ import {
     auth,
     db,
 } from "../../firebase";
-import { stopAndRemoveUserPresence } from "../../utils/userPresence";
 const createAuthEmail = (phone) => {
     const normalizedPhone =
         phone.replace(/\D/g, "");
 
     return `${normalizedPhone}@rboard.local`;
 };
+
+const formatPhone = (value) => {
+    let digits = value.replace(/\D/g, "");
+
+    if (digits.startsWith("380")) {
+        digits = digits.slice(3);
+    } else if (digits.startsWith("0")) {
+        digits = digits.slice(1);
+    }
+
+    digits = digits.slice(0, 9);
+
+    let result = "+380";
+
+    if (digits.length > 0) {
+        result += " " + digits.slice(0, 2);
+    }
+
+    if (digits.length > 2) {
+        result += " " + digits.slice(2, 5);
+    }
+
+    if (digits.length > 5) {
+        result += " " + digits.slice(5, 7);
+    }
+
+    if (digits.length > 7) {
+        result += " " + digits.slice(7, 9);
+    }
+
+    return result;
+};
+
+const validatePhone = (value) => {
+    const digits = value.replace(/\D/g, "");
+
+    if (!value || value === "+380") {
+        return "Введіть номер телефону";
+    }
+
+    if (!/^380\d{9}$/.test(digits)) {
+        return "Номер має містити 9 цифр після +380";
+    }
+
+    // Український мобільний номер
+    if (!/^380\d{2}/.test(digits)) {
+        return "Введіть коректний український номер";
+    }
+
+    return "";
+};
+
 export default function LoginModal() {
     const navigate = useNavigate();
 
     const [phone, setPhone] = useState("");
+    const [phoneError, setPhoneError] = useState("");
+    const [phoneTouched, setPhoneTouched] = useState(false);
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] =
         useState(false);
@@ -49,7 +102,15 @@ export default function LoginModal() {
 
         const normalizedPassword =
             password.trim();
+        const validationError = validatePhone(normalizedPhone);
 
+        if (validationError) {
+            setPhoneTouched(true);
+            setPhoneError(validationError);
+            return;
+        }
+
+        setPhoneError("");
         if (
             !normalizedPhone &&
             !normalizedPassword
@@ -73,6 +134,7 @@ export default function LoginModal() {
         }
 
         try {
+            sessionStorage.setItem("rboard_login_pending", "true");
             setLoading(true);
 
             const authEmail =
@@ -100,12 +162,6 @@ export default function LoginModal() {
                 await getDoc(userReference);
 
             if (!userSnapshot.exists()) {
-                try {
-                    await stopAndRemoveUserPresence(firebaseUser.uid);
-                } catch (error) {
-                    console.error("Помилка очищення статусу:", error);
-                }
-
                 await signOut(auth);
 
                 setError("Дані користувача не знайдено");
@@ -116,12 +172,7 @@ export default function LoginModal() {
                 userSnapshot.data();
 
             if (userData.blocked === true) {
-                try {
-                    await stopAndRemoveUserPresence(firebaseUser.uid);
-                } catch (error) {
-                    console.error("Помилка очищення статусу:", error);
-                }
-
+                
                 await signOut(auth);
 
                 setError("blocked");
@@ -131,38 +182,63 @@ export default function LoginModal() {
             setPassword("");
 
             navigate("/user");
-        } catch (err) {
-            console.error(
-                "Помилка входу:",
-                err
-            );
 
-            if (
-                err.code ===
-                "auth/invalid-credential" ||
-                err.code ===
-                "auth/wrong-password" ||
-                err.code ===
-                "auth/user-not-found"
-            ) {
-                setError(
-                    "Неправильний номер телефону або пароль"
-                );
-            } else if (
-                err.code ===
-                "auth/too-many-requests"
-            ) {
-                setError(
-                    "Забагато спроб входу. Спробуйте пізніше."
-                );
-            } else {
-                setError(
-                    "Не вдалося увійти. Спробуйте ще раз."
-                );
+        } catch (err) {
+            console.error("Помилка входу:", err);
+
+            switch (err.code) {
+                case "auth/user-not-found":
+                    setError(
+                        "Акаунта з таким номером телефону не існує."
+                    );
+                    break;
+
+                case "auth/wrong-password":
+                    setError(
+                        "Невірний пароль. Спробуйте ще раз."
+                    );
+                    break;
+
+                case "auth/invalid-email":
+                    setError(
+                        "Некоректний формат даних для входу."
+                    );
+                    break;
+
+                case "auth/invalid-credential":
+                    setError(
+                        "Не вдалося підтвердити дані для входу. Перевірте номер телефону та пароль."
+                    );
+                    break;
+
+                case "auth/user-disabled":
+                    setError(
+                        "Цей обліковий запис вимкнено."
+                    );
+                    break;
+
+                case "auth/too-many-requests":
+                    setError(
+                        "Забагато спроб входу. Спробуйте пізніше."
+                    );
+                    break;
+
+                case "auth/network-request-failed":
+                    setError(
+                        "Відсутнє з'єднання з інтернетом."
+                    );
+                    break;
+
+                default:
+                    setError(
+                        "Не вдалося увійти. Спробуйте ще раз."
+                    );
             }
         } finally {
+            sessionStorage.removeItem("rboard_login_pending");
             setLoading(false);
         }
+
     };
     return (
         <div className="w-full">
@@ -201,28 +277,58 @@ export default function LoginModal() {
                     <input
                         id="login-phone"
                         type="tel"
+                        inputMode="numeric"
                         value={phone}
-                        onChange={(e) =>
-                            setPhone(e.target.value)
-                        }
+                        onChange={(e) => {
+                            const formatted = formatPhone(e.target.value);
+
+                            setPhone(formatted);
+
+                            if (phoneTouched) {
+                                setPhoneError(validatePhone(formatted));
+                            }
+                        }}
+                        onFocus={() => {
+                            if (!phone) {
+                                setPhone("+380");
+                            }
+                        }}
+                        onBlur={() => {
+                            setPhoneTouched(true);
+                            setPhoneError(validatePhone(phone));
+                        }}
                         placeholder="+380 XX XXX XX XX"
                         autoComplete="tel"
-                        className="
-                            w-full rounded-xl
-                            border border-slate-200
-                            bg-slate-50
-                            px-4 py-3.5
-                            text-sm text-slate-900
-                            outline-none
-                            transition
-                            placeholder:text-slate-400
-                            hover:border-slate-300
-                            focus:border-blue-500
-                            focus:bg-white
-                            focus:ring-4
-                            focus:ring-blue-100
-                        "
+                        maxLength={17}
+                        aria-invalid={!!phoneError}
+                        aria-describedby="login-phone-help"
+                        className={`
+            w-full rounded-xl
+            border bg-slate-50
+            px-4 py-3.5
+            text-sm text-slate-900
+            outline-none transition
+            placeholder:text-slate-400
+            focus:bg-white focus:ring-4
+            ${phoneError
+                                ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                                : "border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-blue-100"
+                            }
+        `}
                     />
+
+                    <div id="login-phone-help" className="mt-2 min-h-[18px]">
+                        {phoneError ? (
+                            <p className="flex items-center gap-1.5 text-xs font-medium text-red-600">
+                                <span>⚠</span>
+                                {phoneError}
+                            </p>
+                        ) : (
+                            <p className="text-xs text-slate-400">
+                                Введіть український номер у форматі +380 XX XXX XX XX
+                            </p>
+                        )}
+                    </div>
                 </div>
                 <div>
                     <label

@@ -22,7 +22,7 @@ import {
     db,
 } from "../../firebase";
 
-import SearchFilters from "../../components/SearchFilters";
+import SearchFilters from "../../components/ui/SearchFilters";
 import ListingsSection from "../../components/listings/ListingsSection";
 import ListingDetailsModal from "../../components/listings/ListingDetailsModal";
 

@@ -180,12 +180,9 @@ export default function ProfileReviews({
             ? `/dashboard/users/${encodedUid}`
             : `/user/${encodedUid}`;
     };
-    const reviewsRef = collection(
-        db,
-        "publicProfiles",
-        profileUid,
-        "reviews"
-    );
+    const reviewsRef = profileUid
+        ? collection(db, "publicProfiles", profileUid, "reviews")
+        : null;
 
     useEffect(() => {
         if (!emojiOpen) return undefined;
@@ -239,6 +236,13 @@ export default function ProfileReviews({
     }, []);
 
     const loadReviews = useCallback(async () => {
+        if (!profileUid) {
+            setReviews([]);
+            setCursor(null);
+            setHasMore(false);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError("");
 
@@ -288,7 +292,8 @@ export default function ProfileReviews({
         setIsAdmin(false);
         setCheckingPermissions(Boolean(currentUser?.uid));
 
-        if (!currentUser?.uid) {
+        if (!currentUser?.uid || !profileUid) {
+            setCheckingPermissions(false);
             return undefined;
         }
 
@@ -332,7 +337,7 @@ export default function ProfileReviews({
     }, [profileUid, currentUser?.uid]);
 
     const loadMore = async () => {
-        if (!cursor || !hasMore || loadingMore) return;
+        if (!reviewsRef || !cursor || !hasMore || loadingMore) return;
 
         setLoadingMore(true);
 
@@ -388,6 +393,7 @@ export default function ProfileReviews({
         const text = message.trim();
 
         if (
+            !profileUid ||
             !currentUser ||
             isOwner ||
             ownReviewExists ||
@@ -455,6 +461,7 @@ export default function ProfileReviews({
     };
 
     const removeReview = async (reviewId) => {
+        if (!profileUid) return;
         if (
             currentUser?.uid !== reviewId &&
             !isAdmin

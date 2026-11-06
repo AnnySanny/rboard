@@ -7,9 +7,9 @@ import {
 } from "firebase/firestore";
 import Swal from "sweetalert2";
 import { useLocation } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
-import { db } from "../firebase";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
+import { db } from "../../firebase";
 const MAX_FEEDBACK_PER_DAY = 3;
 const FEEDBACK_LIMIT_HOURS = 24;
 

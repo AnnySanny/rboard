@@ -26,15 +26,15 @@ import {
     MessageSquareText,
 } from "lucide-react";
 
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 import ProfileEditor from "../../components/profile/ProfileEditor";
 import ProfileContacts from "../../components/profile/ProfileContacts";
 import ProfileListings from "../../components/profile/ProfileListings";
 import ProfileListingStats from "../../components/profile/ProfileListingStats";
 import ProfileReviews from "../../components/profile/ProfileReviews";
 import { auth, db } from "../../firebase";
-import useUserPresence from "../../hooks/useUserPresence";
+import useUserPresence from "../../components/hooks/useUserPresence";
 export default function UserProfile({
     adminView = false,
 }) {

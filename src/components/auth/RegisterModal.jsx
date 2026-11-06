@@ -34,6 +34,91 @@ const createAuthEmail = (phone) => {
     return `${normalizedPhone}@rboard.local`;
 };
 
+const formatPhone = (value) => {
+    let digits = value.replace(/\D/g, "");
+
+    if (digits.startsWith("380")) {
+        digits = digits.slice(3);
+    } else if (digits.startsWith("0")) {
+        digits = digits.slice(1);
+    }
+
+    digits = digits.slice(0, 9);
+
+    let result = "+380";
+
+    if (digits.length > 0) {
+        result += " " + digits.slice(0, 2);
+    }
+    if (digits.length > 2) {
+        result += " " + digits.slice(2, 5);
+    }
+    if (digits.length > 5) {
+        result += " " + digits.slice(5, 7);
+    }
+    if (digits.length > 7) {
+        result += " " + digits.slice(7, 9);
+    }
+
+    return result;
+};
+
+const validatePhone = (value) => {
+    const digits = value.replace(/\D/g, "");
+
+    if (!value || digits === "380") {
+        return "Введіть номер телефону";
+    }
+
+    if (!/^380\d{9}$/.test(digits)) {
+        return "Введіть 9 цифр після +380";
+    }
+
+    return "";
+};
+
+const validateLogin = (value) => {
+    const name = value.trim();
+
+    if (!name) {
+        return "Введіть ваше ім'я";
+    }
+
+    if (name.length < 2) {
+        return "Ім'я має містити щонайменше 2 символи";
+    }
+
+    if (name.length > 40) {
+        return "Ім'я не може перевищувати 40 символів";
+    }
+
+    if (!/^\p{L}+(?:[ '\u2019-]\p{L}+)*$/u.test(name)) {
+        return "Використовуйте лише літери, пробіли, дефіс або апостроф";
+    }
+
+    return "";
+};
+
+const validatePassword = (value) => {
+    if (!value) {
+        return "Введіть пароль";
+    }
+
+    if (value.length < 8) {
+        return "Пароль має містити щонайменше 8 символів";
+    }
+
+    if (!/\p{L}/u.test(value)) {
+        return "Додайте хоча б одну літеру";
+    }
+
+    if (!/[0-9]/.test(value)) {
+        return "Додайте хоча б одну цифру";
+    }
+
+    return "";
+};
+
 export default function RegisterModal() {
     const navigate = useNavigate();
 
@@ -45,36 +130,69 @@ export default function RegisterModal() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [touched, setTouched] = useState({});
+
+
+    const validators = {
+        login: validateLogin,
+        phone: validatePhone,
+        password: validatePassword,
+    };
+
+    const handleFieldBlur = (field, value) => {
+        setTouched((prev) => ({
+            ...prev,
+            [field]: true,
+        }));
+
+        setFieldErrors((prev) => ({
+            ...prev,
+            [field]: validators[field](value),
+        }));
+    };
+
+    const handleFieldChange = (field, value, setter) => {
+        setter(value);
+
+        setFieldErrors((prev) => ({
+            ...prev,
+            [field]: touched[field]
+                ? validators[field](value)
+                : "",
+        }));
+    };
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (loading) return;
+
         setError("");
         setSuccess("");
 
-        const normalizedLogin =
-            login.trim();
+        const normalizedLogin = login.trim();
+        const normalizedPhone = phone.trim();
 
-        const normalizedPhone =
-            phone.trim();
+        // Пароль не обрізаємо: пробіли можуть бути його частиною.
+        const normalizedPassword = password;
 
-        const normalizedPassword =
-            password.trim();
+        const errors = {
+            login: validateLogin(normalizedLogin),
+            phone: validatePhone(normalizedPhone),
+            password: validatePassword(normalizedPassword),
+        };
 
-        if (
-            !normalizedLogin ||
-            !normalizedPhone ||
-            !normalizedPassword
-        ) {
-            setError("Заповніть усі поля");
-            return;
-        }
+        setFieldErrors(errors);
 
-        if (normalizedPassword.length < 6) {
-            setError(
-                "Пароль повинен містити щонайменше 6 символів"
-            );
+        setTouched({
+            login: true,
+            phone: true,
+            password: true,
+        });
 
+        if (Object.values(errors).some(Boolean)) {
             return;
         }
 
@@ -83,10 +201,7 @@ export default function RegisterModal() {
         try {
             setLoading(true);
 
-            const authEmail =
-                createAuthEmail(
-                    normalizedPhone
-                );
+            const authEmail = createAuthEmail(normalizedPhone);
 
             const userCredential =
                 await createUserWithEmailAndPassword(
@@ -95,9 +210,7 @@ export default function RegisterModal() {
                     normalizedPassword
                 );
 
-            createdAuthUser =
-                userCredential.user;
-
+            createdAuthUser = userCredential.user;
 
             const batch = writeBatch(db);
 
@@ -112,7 +225,6 @@ export default function RegisterModal() {
                 "publicProfiles",
                 createdAuthUser.uid
             );
-
 
             batch.set(userRef, {
                 login: normalizedLogin,
@@ -157,34 +269,28 @@ export default function RegisterModal() {
                 updatedAt: serverTimestamp(),
             });
 
-
             await batch.commit();
 
-
-            setSuccess(
-                "Реєстрація успішна!"
-            );
+            setSuccess("Реєстрація успішна!");
 
             setLogin("");
             setPhone("");
             setPassword("");
+            setFieldErrors({});
+            setTouched({});
 
             navigate("/user");
-        } catch (err) {
-            console.error(
-                "Помилка реєстрації:",
-                err
-            );
 
+        } catch (err) {
+            console.error("Помилка реєстрації:", err);
+
+            // Очищення незавершеної реєстрації
             if (
                 createdAuthUser &&
-                auth.currentUser?.uid ===
-                createdAuthUser.uid
+                auth.currentUser?.uid === createdAuthUser.uid
             ) {
                 try {
-                    await deleteUser(
-                        createdAuthUser
-                    );
+                    await deleteUser(createdAuthUser);
                 } catch (deleteError) {
                     console.error(
                         "Не вдалося видалити незавершений обліковий запис:",
@@ -193,36 +299,52 @@ export default function RegisterModal() {
                 }
             }
 
-            if (
-                err.code ===
-                "auth/email-already-in-use"
-            ) {
-                setError(
-                    "Користувач із таким номером телефону вже зареєстрований"
-                );
-            } else if (
-                err.code ===
-                "auth/weak-password"
-            ) {
-                setError(
-                    "Пароль занадто слабкий"
-                );
-            } else if (
-                err.code ===
-                "auth/invalid-email"
-            ) {
-                setError(
-                    "Некоректний номер телефону"
-                );
-            } else {
-                setError(
-                    "Не вдалося зареєструватися. Спробуйте ще раз."
-                );
+            switch (err.code) {
+                case "auth/email-already-in-use":
+                    setFieldErrors((prev) => ({
+                        ...prev,
+                        phone: "Цей номер телефону вже зареєстрований",
+                    }));
+                    break;
+
+                case "auth/weak-password":
+                    setFieldErrors((prev) => ({
+                        ...prev,
+                        password: "Пароль занадто слабкий",
+                    }));
+                    break;
+
+                case "auth/invalid-email":
+                    setFieldErrors((prev) => ({
+                        ...prev,
+                        phone: "Некоректний номер телефону",
+                    }));
+                    break;
+
+                case "auth/too-many-requests":
+                    setError(
+                        "Забагато спроб. Спробуйте пізніше."
+                    );
+                    break;
+
+                case "auth/network-request-failed":
+                    setError(
+                        "Перевірте підключення до інтернету."
+                    );
+                    break;
+
+                default:
+                    setError(
+                        "Не вдалося зареєструватися. Перевірте дані або спробуйте пізніше."
+                    );
+                    break;
             }
+
         } finally {
             setLoading(false);
         }
     };
+
 
     return (
         <div className="w-full">
@@ -255,31 +377,49 @@ export default function RegisterModal() {
                         Ім’я
                     </label>
 
+
                     <input
                         id="login"
                         type="text"
                         value={login}
                         onChange={(e) =>
-                            setLogin(e.target.value)
+                            handleFieldChange(
+                                "login",
+                                e.target.value.slice(0, 40),
+                                setLogin
+                            )
                         }
+                        onBlur={() => handleFieldBlur("login", login)}
                         placeholder="Як до вас звертатись?"
-                        autoComplete="username"
-                        className="
-                            w-full rounded-xl
-                            border border-slate-200
-                            bg-slate-50
-                            px-4 py-3.5
-                            text-sm text-slate-900
-                            outline-none
-                            transition
-                            placeholder:text-slate-400
-                            hover:border-slate-300
-                            focus:border-indigo-500
-                            focus:bg-white
-                            focus:ring-4
-                            focus:ring-indigo-100
-                        "
+                        autoComplete="nickname"
+                        maxLength={40}
+                        aria-invalid={!!fieldErrors.login}
+                        aria-describedby="register-login-help"
+                        className={`
+        w-full rounded-xl border
+        bg-slate-50 px-4 py-3.5
+        text-sm text-slate-900
+        outline-none transition
+        placeholder:text-slate-400
+        focus:bg-white focus:ring-4
+        ${fieldErrors.login
+                                ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                                : "border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-indigo-100"
+                            }
+    `}
                     />
+
+                    <p
+                        id="register-login-help"
+                        className={`mt-2 text-xs ${fieldErrors.login
+                            ? "font-medium text-red-600"
+                            : "text-slate-400"
+                            }`}
+                    >
+                        {fieldErrors.login ||
+                            "Від 2 до 40 символів. Наприклад: Назар, Анна-Марія"}
+                    </p>
+
                 </div>
 
                 <div>
@@ -296,31 +436,53 @@ export default function RegisterModal() {
                         Номер телефону
                     </label>
 
+
                     <input
                         id="phone"
                         type="tel"
+                        inputMode="tel"
                         value={phone}
                         onChange={(e) =>
-                            setPhone(e.target.value)
+                            handleFieldChange(
+                                "phone",
+                                formatPhone(e.target.value),
+                                setPhone
+                            )
                         }
+                        onFocus={() => {
+                            if (!phone) setPhone("+380");
+                        }}
+                        onBlur={() => handleFieldBlur("phone", phone)}
                         placeholder="+380 XX XXX XX XX"
                         autoComplete="tel"
-                        className="
-                            w-full rounded-xl
-                            border border-slate-200
-                            bg-slate-50
-                            px-4 py-3.5
-                            text-sm text-slate-900
-                            outline-none
-                            transition
-                            placeholder:text-slate-400
-                            hover:border-slate-300
-                            focus:border-indigo-500
-                            focus:bg-white
-                            focus:ring-4
-                            focus:ring-indigo-100
-                        "
+                        maxLength={17}
+                        aria-invalid={!!fieldErrors.phone}
+                        aria-describedby="register-phone-help"
+                        className={`
+        w-full rounded-xl border
+        bg-slate-50 px-4 py-3.5
+        text-sm text-slate-900
+        outline-none transition
+        placeholder:text-slate-400
+        focus:bg-white focus:ring-4
+        ${fieldErrors.phone
+                                ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                                : "border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-indigo-100"
+                            }
+    `}
                     />
+
+                    <p
+                        id="register-phone-help"
+                        className={`mt-2 text-xs ${fieldErrors.phone
+                            ? "font-medium text-red-600"
+                            : "text-slate-400"
+                            }`}
+                    >
+                        {fieldErrors.phone ||
+                            "Український номер у форматі +380 XX XXX XX XX"}
+                    </p>
+
                 </div>
 
                 <div>
@@ -338,35 +500,40 @@ export default function RegisterModal() {
                     </label>
 
                     <div className="relative">
+
                         <input
                             id="login-password"
-                            type={
-                                showPassword
-                                    ? "text"
-                                    : "password"
-                            }
+                            type={showPassword ? "text" : "password"}
                             value={password}
                             onChange={(e) =>
-                                setPassword(e.target.value)
+                                handleFieldChange(
+                                    "password",
+                                    e.target.value,
+                                    setPassword
+                                )
                             }
-                            placeholder="Введіть пароль"
-                            autoComplete="current-password"
-                            className="
-            w-full rounded-xl
-            border border-slate-200
-            bg-slate-50
-            py-3.5 pl-4 pr-12
-            text-sm text-slate-900
-            outline-none
-            transition
-            placeholder:text-slate-400
-            hover:border-slate-300
-            focus:border-blue-500
-            focus:bg-white
-            focus:ring-4
-            focus:ring-blue-100
-        "
+                            onBlur={() =>
+                                handleFieldBlur("password", password)
+                            }
+                            placeholder="Придумайте пароль"
+                            autoComplete="new-password"
+                            minLength={8}
+                            aria-invalid={!!fieldErrors.password}
+                            aria-describedby="register-password-help"
+                            className={`
+        w-full rounded-xl border
+        bg-slate-50 py-3.5 pl-4 pr-12
+        text-sm text-slate-900
+        outline-none transition
+        placeholder:text-slate-400
+        focus:bg-white focus:ring-4
+        ${fieldErrors.password
+                                    ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                                    : "border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-indigo-100"
+                                }
+    `}
                         />
+
 
                         <button
                             type="button"
@@ -399,6 +566,16 @@ export default function RegisterModal() {
                             )}
                         </button>
                     </div>
+                    <p
+                        id="register-password-help"
+                        className={`mt-2 text-xs ${fieldErrors.password
+                                ? "font-medium text-red-600"
+                                : "text-slate-400"
+                            }`}
+                    >
+                        {fieldErrors.password ||
+                            "Мінімум 8 символів, одна літера та одна цифра"}
+                    </p>
                 </div>
                 {/* Порада щодо збереження пароля */}
                 <div className="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50/60 px-3.5 py-3">

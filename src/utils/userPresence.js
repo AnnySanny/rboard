@@ -1,5 +1,6 @@
 
 import {
+  collection,
   deleteDoc,
   doc,
   getDoc,
@@ -12,42 +13,40 @@ import { auth, db } from "../firebase";
 const HEARTBEAT_INTERVAL = 3 * 60 * 1000;
 
 export const startUserPresence = (uid) => {
-  if (!uid) return () => {};
+  if (!uid) return async () => {};
 
-  const presenceRef = doc(db, "userPresence", uid);
+  const sessionsRef = collection(
+    db,
+    "userPresence",
+    uid,
+    "sessions"
+  );
+
+  const presenceRef = doc(sessionsRef);
 
   let stopped = false;
-  let writing = false;
   let verified = false;
+  let created = false;
+  let writing = null;
+  let stopping = null;
 
-  // Перевірка активної авторизації
-  const isCurrentUser = () => {
-    return (
-      !stopped &&
-      auth.currentUser?.uid === uid
-    );
-  };
+  const isCurrentUser = () =>
+    !stopped && auth.currentUser?.uid === uid;
 
-  // Перевірка профілю перед запуском
   const verifyUser = async () => {
     if (!isCurrentUser()) return false;
 
     try {
-      const userSnapshot = await getDoc(
+      const snapshot = await getDoc(
         doc(db, "users", uid)
       );
 
       if (!isCurrentUser()) return false;
 
-      if (!userSnapshot.exists()) {
-        return false;
-      }
-
-      if (userSnapshot.data().blocked === true) {
-        return false;
-      }
-
-      return true;
+      return (
+        snapshot.exists() &&
+        snapshot.data().blocked !== true
+      );
     } catch (error) {
       if (!stopped) {
         console.error(
@@ -60,56 +59,64 @@ export const startUserPresence = (uid) => {
     }
   };
 
-  // Оновлення онлайн-статусу
   const updatePresence = async () => {
     if (!isCurrentUser() || writing) return;
 
-    writing = true;
+    const task = (async () => {
+      try {
+        if (!verified) {
+          verified = await verifyUser();
+        }
+
+        if (!verified || !isCurrentUser()) {
+          return;
+        }
+
+        await setDoc(presenceRef, {
+          lastSeenAt: serverTimestamp(),
+        });
+
+        created = true;
+      } catch (error) {
+        if (!stopped) {
+          console.error(
+            "Помилка оновлення онлайн-статусу:",
+            error
+          );
+        }
+      }
+    })();
+
+    writing = task;
 
     try {
-      // Спочатку перевіряємо користувача
-      if (!verified) {
-        verified = await verifyUser();
-      }
-
-      if (!verified || !isCurrentUser()) {
-        return;
-      }
-
-      await setDoc(
-        presenceRef,
-        {
-          lastSeenAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    } catch (error) {
-      if (!stopped) {
-        console.error(
-          "Помилка оновлення статусу:",
-          error
-        );
-      }
+      await task;
     } finally {
-      writing = false;
+      if (writing === task) {
+        writing = null;
+      }
     }
   };
 
-  // Перше оновлення
   updatePresence();
 
-  // Періодичне оновлення
   const interval = setInterval(() => {
-    if (document.visibilityState === "visible") {
+    if (
+      document.visibilityState === "visible" &&
+      navigator.onLine
+    ) {
       updatePresence();
     }
   }, HEARTBEAT_INTERVAL);
 
-  // Повернення користувача на вкладку
   const handleVisibilityChange = () => {
     if (document.visibilityState === "visible") {
       updatePresence();
     }
+  };
+
+  const handleOnline = () => {
+    updatePresence();
   };
 
   document.addEventListener(
@@ -117,8 +124,11 @@ export const startUserPresence = (uid) => {
     handleVisibilityChange
   );
 
-  // Зупинка відстеження
-  return () => {
+  window.addEventListener("online", handleOnline);
+
+  const stopTracking = () => {
+    if (stopping) return stopping;
+
     stopped = true;
 
     clearInterval(interval);
@@ -127,22 +137,48 @@ export const startUserPresence = (uid) => {
       "visibilitychange",
       handleVisibilityChange
     );
+
+    window.removeEventListener(
+      "online",
+      handleOnline
+    );
+
+    stopping = (async () => {
+      if (writing) {
+        await writing;
+      }
+
+      if (!created) return;
+
+      try {
+        await deleteDoc(presenceRef);
+      } catch (error) {
+        console.error(
+          "Помилка видалення сесії:",
+          error
+        );
+      }
+    })();
+
+    return stopping;
   };
+
+  return stopTracking;
 };
 
-// Зупинка та видалення онлайн-статусу
 export const stopAndRemoveUserPresence = async (uid) => {
   if (!uid) return;
 
-  // Повідомляємо UserPresenceTracker
+  const pending = [];
+
   window.dispatchEvent(
     new CustomEvent("rboard:presence-stop", {
-      detail: { uid },
+      detail: {
+        uid,
+        pending,
+      },
     })
   );
 
-  // Видаляємо запис онлайн-статусу
-  await deleteDoc(
-    doc(db, "userPresence", uid)
-  );
+  await Promise.allSettled(pending);
 };

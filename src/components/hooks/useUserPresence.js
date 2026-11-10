@@ -1,13 +1,17 @@
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+} from "firebase/firestore";
+
 import { auth, db } from "../../firebase";
 
 const ONLINE_TIMEOUT = 5 * 60 * 1000;
 
 export default function useUserPresence(uid) {
-  const [lastSeenAt, setLastSeenAt] = useState(null);
+  const [sessions, setSessions] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(Boolean(uid));
 
@@ -15,7 +19,7 @@ export default function useUserPresence(uid) {
     let active = true;
     let unsubscribePresence = null;
 
-    setLastSeenAt(null);
+    setSessions([]);
     setLoading(Boolean(uid));
 
     if (!uid) {
@@ -26,7 +30,6 @@ export default function useUserPresence(uid) {
     const unsubscribeAuth = onAuthStateChanged(
       auth,
       (user) => {
-        // Зупиняємо попередню підписку
         if (unsubscribePresence) {
           unsubscribePresence();
           unsubscribePresence = null;
@@ -34,27 +37,35 @@ export default function useUserPresence(uid) {
 
         if (!active) return;
 
-        // Гість не має доступу до онлайн-статусу
         if (!user) {
-          setLastSeenAt(null);
+          setSessions([]);
           setLoading(false);
           return;
         }
 
         setLoading(true);
 
-        // Підписка тільки для авторизованих
+        const sessionsRef = collection(
+          db,
+          "userPresence",
+          uid,
+          "sessions"
+        );
+
         unsubscribePresence = onSnapshot(
-          doc(db, "userPresence", uid),
+          sessionsRef,
           (snapshot) => {
             if (!active) return;
 
-            setLastSeenAt(
-              snapshot.exists()
-                ? snapshot.data().lastSeenAt?.toMillis?.() ?? null
-                : null
-            );
+            const timestamps = snapshot.docs
+              .map((session) =>
+                session.data().lastSeenAt?.toMillis?.()
+              )
+              .filter((value) =>
+                Number.isFinite(value)
+              );
 
+            setSessions(timestamps);
             setNow(Date.now());
             setLoading(false);
           },
@@ -62,11 +73,11 @@ export default function useUserPresence(uid) {
             if (!active) return;
 
             console.error(
-              "Помилка отримання статусу:",
+              "Помилка отримання онлайн-статусу:",
               error
             );
 
-            setLastSeenAt(null);
+            setSessions([]);
             setLoading(false);
           }
         );
@@ -93,9 +104,11 @@ export default function useUserPresence(uid) {
 
   const online =
     !loading &&
-    lastSeenAt !== null &&
-    now - lastSeenAt >= 0 &&
-    now - lastSeenAt < ONLINE_TIMEOUT;
+    sessions.some(
+      (lastSeenAt) =>
+        now - lastSeenAt >= 0 &&
+        now - lastSeenAt < ONLINE_TIMEOUT
+    );
 
   return {
     online,

@@ -390,27 +390,46 @@ const AdminUsers = () => {
   }, []);
 
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, "userPresence"),
-      (snapshot) => {
-        const presence = {};
 
-        snapshot.forEach((documentSnapshot) => {
-          presence[documentSnapshot.id] =
-            documentSnapshot.data().lastSeenAt?.toMillis?.() ?? null;
-        });
+useEffect(() => {
+  const unsubscribe = onSnapshot(
+    collectionGroup(db, "sessions"),
+    (snapshot) => {
+      const presence = {};
 
-        setUserPresence(presence);
-        setPresenceNow(Date.now());
-      },
-      (error) => {
-        console.error("Помилка завантаження онлайн-статусів:", error);
-      }
-    );
+      snapshot.docs.forEach((sessionDoc) => {
+        const uid = sessionDoc.ref.parent.parent?.id;
 
-    return unsubscribe;
-  }, []);
+        const lastSeenAt =
+          sessionDoc.data().lastSeenAt?.toMillis?.();
+
+        if (!uid || !Number.isFinite(lastSeenAt)) {
+          return;
+        }
+
+        // Беремо найновішу сесію користувача
+        if (
+          !presence[uid] ||
+          lastSeenAt > presence[uid]
+        ) {
+          presence[uid] = lastSeenAt;
+        }
+      });
+
+      setUserPresence(presence);
+      setPresenceNow(Date.now());
+    },
+    (error) => {
+      console.error(
+        "Помилка завантаження онлайн-статусів:",
+        error
+      );
+    }
+  );
+
+  return unsubscribe;
+}, []);
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -901,6 +920,19 @@ const AdminUsers = () => {
       }
     };
 
+
+
+const deleteUserPresence = async (uid) => {
+  await deleteDocuments(() =>
+    query(
+      collection(db, "userPresence", uid, "sessions"),
+      limit(DELETE_BATCH_SIZE)
+    )
+  );
+
+  // Видаляємо старий документ, якщо він існує
+  await deleteDoc(doc(db, "userPresence", uid));
+};
   /*
    * Видалення користувача
    * + ВСІХ його оголошень.
@@ -951,7 +983,7 @@ const AdminUsers = () => {
       const viewsCount = await deleteOwnListingViews(uid);
       const favoritesCount = await removeUserFavorites(uid);
 
-      await deleteDoc(doc(db, "userPresence", uid));
+      await deleteUserPresence(uid);
       await deleteDoc(doc(db, "publicProfiles", uid));
       await deleteDoc(doc(db, "users", uid));
 

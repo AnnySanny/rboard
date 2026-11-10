@@ -12,6 +12,8 @@ import {
 import {
     LoaderCircle,
     AlertCircle,
+    House,
+    MessagesSquare,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
@@ -1280,9 +1282,56 @@ export default function UserChats() {
 
 
                     {currentUser === null && (
-                        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                            Для використання чатів потрібно увійти
-                            до свого облікового запису RBoard.
+                        <div
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="chat-auth-title"
+                            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-md"
+                        >
+                            <div className="w-full max-w-sm rounded-3xl bg-white p-7 text-center shadow-2xl sm:p-9">
+
+                                {/* Іконка */}
+                                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-50 text-blue-600">
+                                    <MessagesSquare
+                                        size={38}
+                                        strokeWidth={1.8}
+                                    />
+                                </div>
+
+                                {/* Заголовок */}
+                                <h2
+                                    id="chat-auth-title"
+                                    className="mt-6 text-2xl font-black text-slate-900"
+                                >
+                                    Йой, ви ще не увійшли!
+                                </h2>
+
+                                {/* Опис */}
+                                <p className="mt-3 text-sm leading-6 text-slate-500">
+                                    Схоже, ви ще не увійшли до свого
+                                    облікового запису RBoard.
+                                    Щоб користуватися чатами та спілкуватися
+                                    з авторами оголошень, перейдіть
+                                    на головну сторінку й увійдіть у свій профіль.
+                                </p>
+
+                                {/* Кнопка */}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/")}
+                                    className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700"
+                                >
+                                    <House size={18} />
+                                    На головну
+                                </button>
+
+                                {/* Підказка */}
+                                <p className="mt-5 text-xs leading-5 text-slate-400">
+                                    Після входу ви зможете переглядати
+                                    повідомлення та починати нові розмови.
+                                </p>
+
+                            </div>
                         </div>
                     )}
 

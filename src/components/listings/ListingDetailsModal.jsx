@@ -687,7 +687,7 @@ const ListingDetailsModal = ({
     >
       <article
         ref={modalRef}
-        className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl"
+        className="listing-modal-scroll relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl"
         onMouseDown={(event) =>
           event.stopPropagation()
         }

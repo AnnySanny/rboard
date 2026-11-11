@@ -25,6 +25,9 @@ import {
     createAdminLog,
     ADMIN_LOG_ACTIONS,
 } from "../../utils/adminLogger";
+import {
+    buildListingSearchTokens,
+} from "../../utils/listingSearch";
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -39,6 +42,14 @@ const LISTING_TYPES = [
     "Оголошення громади",
     "Інше",
 ];
+const Toast = Swal.mixin({
+    toast: true,
+    position: "top-end",
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    showCloseButton: true,
+});
 const EXTENSION_OPTIONS = [
     {
         value: "7-days",
@@ -1154,25 +1165,37 @@ const AdminListings = () => {
                     status.value === newStatus
             );
 
-        const confirmation =
-            await Swal.fire({
-                icon: "question",
-                title: "Змінити статус?",
-                html: `
-                    <p style="line-height: 1.6;">
-                        Оголошення
-                        <strong>«${listing.title || "Без назви"}»</strong>
-                        отримає статус
-                        <strong>«${selectedStatus?.label || newStatus}»</strong>.
-                    </p>
-                `,
-                showCancelButton: true,
-                confirmButtonText: "Так, змінити",
-                cancelButtonText: "Скасувати",
-                confirmButtonColor: "#2563eb",
-                cancelButtonColor: "#64748b",
-                reverseButtons: true,
-            });
+        const confirmation = await Swal.fire({
+            icon: "question",
+            title: "Змінити статус?",
+
+            html: `
+        <p style="line-height: 1.6;">
+            Оголошення
+            <strong>«${listing.title || "Без назви"}»</strong>
+            отримає статус
+            <strong>«${selectedStatus?.label || newStatus}»</strong>.
+        </p>
+    `,
+
+            // Галочка тільки під час публікації
+            ...(newStatus === "approved" &&
+                listing.status !== "approved"
+                ? {
+                    input: "checkbox",
+                    inputValue: 0,
+                    inputPlaceholder:
+                        "Надіслати сповіщення користувачам Telegram",
+                }
+                : {}),
+
+            showCancelButton: true,
+            confirmButtonText: "Так, змінити",
+            cancelButtonText: "Скасувати",
+            confirmButtonColor: "#2563eb",
+            cancelButtonColor: "#64748b",
+            reverseButtons: true,
+        });
 
         if (!confirmation.isConfirmed) {
             return;
@@ -1232,6 +1255,9 @@ const AdminListings = () => {
                 updateData[
                     "moderation.rejectionReason"
                 ] = null;
+
+                updateData.searchTokens =
+                    buildListingSearchTokens(listing);
             }
 
             if (newStatus === "cancelled") {
@@ -1256,18 +1282,37 @@ const AdminListings = () => {
                 listingRef,
                 updateData
             );
+            // Одразу оновлюємо оголошення в інтерфейсі
+            setListings((previousListings) =>
+                previousListings.map((item) =>
+                    item.id === listing.id
+                        ? {
+                            ...item,
+                            status: newStatus,
+                            approvedAt:
+                                updateData.approvedAt !== undefined
+                                    ? updateData.approvedAt
+                                    : item.approvedAt,
+                            expiresAt:
+                                updateData.expiresAt !== undefined
+                                    ? updateData.expiresAt
+                                    : item.expiresAt,
+                        }
+                        : item
+                )
+            );
             /*
  * Якщо оголошення щойно
- * опубліковано — повідомляємо
+ * опубліковано та поставлено галочку — повідомляємо
  * користувачів Telegram-бота.
  */
+            // Надсилаємо Telegram тільки якщо адмін поставив галочку
             if (
                 newStatus === "approved" &&
-                listing.status !== "approved"
+                listing.status !== "approved" &&
+                confirmation.value === 1
             ) {
-                await notifyTelegramUsers(
-                    listing.id
-                );
+                await notifyTelegramUsers(listing.id);
             }
             let logAction =
                 ADMIN_LOG_ACTIONS.LISTING_UPDATED;
@@ -1309,16 +1354,10 @@ const AdminListings = () => {
                 targetName:
                     listing.title || "Без назви",
             });
-            await Swal.fire({
+            Toast.fire({
                 icon: "success",
                 title: "Статус змінено",
-                text: `Новий статус: ${selectedStatus?.label ||
-                    newStatus
-                    }.`,
-                confirmButtonText: "Добре",
-                confirmButtonColor: "#2563eb",
-                timer: 1800,
-                timerProgressBar: true,
+                text: `Новий статус: ${selectedStatus?.label || newStatus}`,
             });
         } catch (error) {
             console.error(
@@ -1326,12 +1365,11 @@ const AdminListings = () => {
                 error
             );
 
-            await Swal.fire({
+            Toast.fire({
                 icon: "error",
                 title: "Не вдалося змінити статус",
-                text: "Перевірте з’єднання та правила доступу Firestore.",
-                confirmButtonText: "Закрити",
-                confirmButtonColor: "#2563eb",
+                text: "Перевірте з’єднання та права доступу.",
+                timer: 4000,
             });
         } finally {
             setUpdatingId(null);
@@ -1364,14 +1402,11 @@ const AdminListings = () => {
             listing.status === "expired";
 
         if (!canExtend) {
-            await Swal.fire({
+            Toast.fire({
                 icon: "warning",
-                title:
-                    "Неможливо продовжити термін",
-                text:
-                    "Продовжувати можна тільки опубліковані або прострочені оголошення.",
-                confirmButtonColor:
-                    "#2563eb",
+                title: "Неможливо продовжити термін",
+                text: "Доступно лише для опублікованих або прострочених оголошень.",
+                timer: 4000,
             });
 
             return;
@@ -1499,6 +1534,23 @@ const AdminListings = () => {
                         : {}),
                 }
             );
+            // Оновлюємо термін дії та статус у React
+            setListings((previousListings) =>
+                previousListings.map((item) =>
+                    item.id === listing.id
+                        ? {
+                            ...item,
+                            expiresAt: Timestamp.fromDate(newExpiresAt),
+                            status: wasExpired
+                                ? "pending"
+                                : "approved",
+                            ...(wasExpired
+                                ? { approvedAt: null }
+                                : {}),
+                        }
+                        : item
+                )
+            );
             await createAdminLog({
                 action:
                     ADMIN_LOG_ACTIONS.LISTING_UPDATED,
@@ -1520,31 +1572,10 @@ const AdminListings = () => {
                 targetName:
                     listing.title || "Без назви",
             });
-            await Swal.fire({
+            Toast.fire({
                 icon: "success",
-
-                title:
-                    "Термін продовжено",
-
-                html: `
-                <div style="line-height:1.7">
-                    Оголошення активне до:
-                    <br>
-                    <strong>
-                        ${formatDate(newExpiresAt)}
-                    </strong>
-                </div>
-            `,
-
-                confirmButtonText:
-                    "Добре",
-
-                confirmButtonColor:
-                    "#2563eb",
-
-                timer: 2000,
-
-                timerProgressBar: true,
+                title: "Термін продовжено",
+                text: `Активне до: ${formatDate(newExpiresAt)}`,
             });
 
         } catch (error) {
@@ -1553,20 +1584,11 @@ const AdminListings = () => {
                 error
             );
 
-            await Swal.fire({
+            Toast.fire({
                 icon: "error",
-
-                title:
-                    "Не вдалося продовжити термін",
-
-                text:
-                    "Перевірте з’єднання та права доступу Firestore.",
-
-                confirmButtonText:
-                    "Закрити",
-
-                confirmButtonColor:
-                    "#2563eb",
+                title: "Не вдалося продовжити термін",
+                text: "Перевірте з’єднання та права доступу.",
+                timer: 4000,
             });
 
         } finally {
@@ -1593,11 +1615,10 @@ const AdminListings = () => {
         }
 
         if (listing.status !== "approved") {
-            await Swal.fire({
+            Toast.fire({
                 icon: "warning",
                 title: "Оголошення не опубліковане",
-                text: "Скоротити термін можна тільки для опублікованого оголошення.",
-                confirmButtonColor: "#2563eb",
+                text: "Скорочення доступне лише для активних оголошень.",
             });
 
             return;
@@ -1609,11 +1630,10 @@ const AdminListings = () => {
             );
 
         if (!oldExpiresAt) {
-            await Swal.fire({
+            Toast.fire({
                 icon: "warning",
                 title: "Термін не вказаний",
-                text: "Для цього оголошення відсутня дата завершення.",
-                confirmButtonColor: "#2563eb",
+                text: "У цього оголошення немає дати завершення.",
             });
 
             return;
@@ -1625,11 +1645,10 @@ const AdminListings = () => {
             oldExpiresAt.getTime() <=
             now.getTime()
         ) {
-            await Swal.fire({
+            Toast.fire({
                 icon: "warning",
                 title: "Термін уже закінчився",
-                text: "Неможливо скоротити термін оголошення, яке вже прострочене.",
-                confirmButtonColor: "#2563eb",
+                text: "Неможливо скоротити термін простроченого оголошення.",
             });
 
             return;
@@ -1726,6 +1745,20 @@ const AdminListings = () => {
                         serverTimestamp(),
                 }
             );
+            // Оновлюємо дату та статус без перезавантаження
+            setListings((previousListings) =>
+                previousListings.map((item) =>
+                    item.id === listing.id
+                        ? {
+                            ...item,
+                            expiresAt: Timestamp.fromDate(newExpiresAt),
+                            status: willExpire
+                                ? "expired"
+                                : item.status,
+                        }
+                        : item
+                )
+            );
             await createAdminLog({
                 action:
                     ADMIN_LOG_ACTIONS.LISTING_UPDATED,
@@ -1749,22 +1782,10 @@ const AdminListings = () => {
                 targetName:
                     listing.title || "Без назви",
             });
-            await Swal.fire({
+            Toast.fire({
                 icon: "success",
                 title: "Термін скорочено",
-                html: `
-                <div style="line-height:1.7">
-                    Оголошення активне до:
-                    <br>
-                    <strong>
-                        ${formatDate(newExpiresAt)}
-                    </strong>
-                </div>
-            `,
-                confirmButtonText: "Добре",
-                confirmButtonColor: "#2563eb",
-                timer: 2000,
-                timerProgressBar: true,
+                text: `Активне до: ${formatDate(newExpiresAt)}`,
             });
         } catch (error) {
             console.error(
@@ -1772,14 +1793,11 @@ const AdminListings = () => {
                 error
             );
 
-            await Swal.fire({
+            Toast.fire({
                 icon: "error",
-                title:
-                    "Не вдалося скоротити термін",
-                text:
-                    "Перевірте з’єднання та права доступу Firestore.",
-                confirmButtonText: "Закрити",
-                confirmButtonColor: "#2563eb",
+                title: "Не вдалося скоротити термін",
+                text: "Перевірте з’єднання та права доступу.",
+                timer: 4000,
             });
         } finally {
             setShorteningId(null);
@@ -1876,14 +1894,11 @@ const AdminListings = () => {
                 error
             );
 
-            await Swal.fire({
+            Toast.fire({
                 icon: "error",
                 title: "Не вдалося видалити",
-                text:
-                    error?.message ||
-                    "Сталася помилка під час видалення оголошення.",
-                confirmButtonText: "Закрити",
-                confirmButtonColor: "#2563eb",
+                text: error?.message || "Сталася помилка.",
+                timer: 5000,
             });
         } finally {
             setDeletingId(null);
@@ -2339,13 +2354,47 @@ const AdminListings = () => {
                                         </div>
 
                                         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                                            <InfoItem
-                                                label="Автор"
-                                                value={
-                                                    listing.authorName ||
-                                                    "Не вказано"
-                                                }
-                                            />
+                                            {/* Автор оголошення */}
+                                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                                                    Автор
+                                                </p>
+
+                                                {isAuthenticated && listing.author?.uid ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/dashboard/users/${encodeURIComponent(listing.author.uid)}`
+                                                            )
+                                                        }
+                                                        className="mt-2 inline-flex items-center gap-2 break-words text-left text-sm font-semibold text-blue-600 transition hover:text-blue-700 hover:underline hover:underline-offset-4"
+                                                        title="Перейти до профілю користувача"
+                                                    >
+                                                        <span>
+                                                            {listing.authorName || "Користувач"}
+                                                        </span>
+
+                                                        <svg
+                                                            className="h-4 w-4 shrink-0"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M7 17 17 7" />
+                                                            <path d="M7 7h10v10" />
+                                                        </svg>
+                                                    </button>
+                                                ) : (
+                                                    <p className="mt-2 break-words text-sm font-semibold text-slate-800">
+                                                        {listing.authorName || "Не вказано"}
+                                                    </p>
+                                                )}
+                                            </div>
                                             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                                                 <div className="flex items-center justify-between gap-3">
                                                     <p className="text-xs font-bold uppercase tracking-wide text-slate-400">

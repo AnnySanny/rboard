@@ -3,6 +3,7 @@ import {
   useMemo,
   useState,
 } from "react";
+
 import { Link } from "react-router-dom";
 import {
   arrayRemove,
@@ -24,9 +25,18 @@ import {
   createAdminLog,
   ADMIN_LOG_ACTIONS,
 } from "../../utils/adminLogger";
-import { db } from "../../firebase";
+import { auth, db } from "../../firebase";
+import { Settings } from "lucide-react";
 import UserStatisticsModal from "../../components/admin/UserStatisticsModal";
-
+import ResetPasswordModal from "../../components/admin/ResetPasswordModal";
+const Toast = Swal.mixin({
+  toast: true,
+  position: "top-end",
+  showConfirmButton: false,
+  showCloseButton: true,
+  timer: 3000,
+  timerProgressBar: true,
+});
 const STATUS_FILTERS = [
   {
     value: "all",
@@ -307,6 +317,13 @@ const AdminUsers = () => {
     deletingId,
     setDeletingId,
   ] = useState(null);
+  const [
+    resettingPasswordId,
+    setResettingPasswordId,
+  ] = useState(null);
+  const [passwordUser, setPasswordUser] = useState(null);
+  const [passwordResetError, setPasswordResetError] = useState("");
+
 
   const [
     statisticsUser,
@@ -391,44 +408,44 @@ const AdminUsers = () => {
 
 
 
-useEffect(() => {
-  const unsubscribe = onSnapshot(
-    collectionGroup(db, "sessions"),
-    (snapshot) => {
-      const presence = {};
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collectionGroup(db, "sessions"),
+      (snapshot) => {
+        const presence = {};
 
-      snapshot.docs.forEach((sessionDoc) => {
-        const uid = sessionDoc.ref.parent.parent?.id;
+        snapshot.docs.forEach((sessionDoc) => {
+          const uid = sessionDoc.ref.parent.parent?.id;
 
-        const lastSeenAt =
-          sessionDoc.data().lastSeenAt?.toMillis?.();
+          const lastSeenAt =
+            sessionDoc.data().lastSeenAt?.toMillis?.();
 
-        if (!uid || !Number.isFinite(lastSeenAt)) {
-          return;
-        }
+          if (!uid || !Number.isFinite(lastSeenAt)) {
+            return;
+          }
 
-        // Беремо найновішу сесію користувача
-        if (
-          !presence[uid] ||
-          lastSeenAt > presence[uid]
-        ) {
-          presence[uid] = lastSeenAt;
-        }
-      });
+          // Беремо найновішу сесію користувача
+          if (
+            !presence[uid] ||
+            lastSeenAt > presence[uid]
+          ) {
+            presence[uid] = lastSeenAt;
+          }
+        });
 
-      setUserPresence(presence);
-      setPresenceNow(Date.now());
-    },
-    (error) => {
-      console.error(
-        "Помилка завантаження онлайн-статусів:",
-        error
-      );
-    }
-  );
+        setUserPresence(presence);
+        setPresenceNow(Date.now());
+      },
+      (error) => {
+        console.error(
+          "Помилка завантаження онлайн-статусів:",
+          error
+        );
+      }
+    );
 
-  return unsubscribe;
-}, []);
+    return unsubscribe;
+  }, []);
 
 
   useEffect(() => {
@@ -749,6 +766,109 @@ useEffect(() => {
       sortOrder,
     ]);
 
+
+
+  const handleResetPassword = async (user, newPassword) => {
+    if (resettingPasswordId) return;
+
+    setResettingPasswordId(user.id);
+    setPasswordResetError("");
+
+    try {
+      const currentUser = auth.currentUser;
+
+      if (!currentUser) {
+        throw new Error(
+          "Сесія завершена. Увійдіть повторно."
+        );
+      }
+
+      const idToken = await currentUser.getIdToken();
+
+      const response = await fetch(
+        "/.netlify/functions/reset-user-password",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            uid: user.id,
+            newPassword,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Не вдалося змінити пароль."
+        );
+      }
+
+      // Закриваємо модалку
+      setPasswordUser(null);
+
+      // Журнал адміністратора — без пароля
+      try {
+        await createAdminLog({
+          action:
+            ADMIN_LOG_ACTIONS.USER_PASSWORD_RESET ||
+            "user_password_reset",
+          category: "users",
+          title: "Скинуто пароль користувача",
+          description:
+            `Скинуто пароль користувача «${user.login || "Без імені"
+            }».`,
+          targetId: user.id,
+          targetName: user.login || "Без імені",
+        });
+      } catch (logError) {
+        console.error(
+          "Помилка запису журналу:",
+          logError
+        );
+      }
+
+      Toast.fire({
+        icon:
+          data.sessionsRevoked === false
+            ? "warning"
+            : "success",
+        title:
+          data.sessionsRevoked === false
+            ? "Пароль змінено, але сесії не відкликано"
+            : "Пароль успішно змінено",
+        timer: 3500,
+      });
+
+    } catch (error) {
+      console.error(
+        "Помилка скидання пароля:",
+        error
+      );
+
+      setPasswordResetError(
+        error.message || "Не вдалося змінити пароль."
+      );
+
+      Toast.fire({
+        icon: "error",
+        title: "Не вдалося змінити пароль",
+        text: error.message,
+        timer: 4500,
+      });
+
+    } finally {
+      setResettingPasswordId(null);
+    }
+  };
+
+
+
+
   /*
    * Блокування /
    * розблокування
@@ -922,17 +1042,17 @@ useEffect(() => {
 
 
 
-const deleteUserPresence = async (uid) => {
-  await deleteDocuments(() =>
-    query(
-      collection(db, "userPresence", uid, "sessions"),
-      limit(DELETE_BATCH_SIZE)
-    )
-  );
+  const deleteUserPresence = async (uid) => {
+    await deleteDocuments(() =>
+      query(
+        collection(db, "userPresence", uid, "sessions"),
+        limit(DELETE_BATCH_SIZE)
+      )
+    );
 
-  // Видаляємо старий документ, якщо він існує
-  await deleteDoc(doc(db, "userPresence", uid));
-};
+    // Видаляємо старий документ, якщо він існує
+    await deleteDoc(doc(db, "userPresence", uid));
+  };
   /*
    * Видалення користувача
    * + ВСІХ його оголошень.
@@ -1227,8 +1347,15 @@ const deleteUserPresence = async (uid) => {
         0 && (
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             {/* DESKTOP */}
-            <div className="hidden overflow-x-auto xl:block">
-              <table className="w-full">
+            <div className="hidden w-full xl:block">
+              <table className="w-full table-fixed">
+                <colgroup>
+                  <col style={{ width: "26%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "28%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "18%" }} />
+                </colgroup>
                 <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
                     <TableHeader>
@@ -1286,6 +1413,13 @@ const deleteUserPresence = async (uid) => {
                             user
                           )
                         }
+                        resettingPassword={
+                          resettingPasswordId === user.id
+                        }
+                        onResetPassword={() => {
+                          setPasswordResetError("");
+                          setPasswordUser(user);
+                        }}
                       />
                     )
                   )}
@@ -1294,7 +1428,7 @@ const deleteUserPresence = async (uid) => {
             </div>
 
             {/* MOBILE / TABLET */}
-            <div className="divide-y divide-slate-100 xl:hidden">
+            <div className="space-y-4 bg-[#f5f8ff] p-3 sm:p-5 xl:hidden">
               {filteredUsers.map(
                 (user) => (
                   <UserMobileCard
@@ -1323,6 +1457,13 @@ const deleteUserPresence = async (uid) => {
                         user
                       )
                     }
+                    resettingPassword={
+                      resettingPasswordId === user.id
+                    }
+                    onResetPassword={() => {
+                      setPasswordResetError("");
+                      setPasswordUser(user);
+                    }}
                   />
                 )
               )}
@@ -1343,6 +1484,24 @@ const deleteUserPresence = async (uid) => {
           }
         />
       )}
+
+      {/* Модалка скидання пароля */}
+      {passwordUser && (
+        <ResetPasswordModal
+          user={passwordUser}
+          loading={resettingPasswordId === passwordUser.id}
+          error={passwordResetError}
+          onClose={() => {
+            if (resettingPasswordId) return;
+
+            setPasswordUser(null);
+            setPasswordResetError("");
+          }}
+          onSubmit={(newPassword) =>
+            handleResetPassword(passwordUser, newPassword)
+          }
+        />
+      )}
     </div>
   );
 };
@@ -1354,8 +1513,10 @@ const UserRow = ({
   user,
   changingBlock,
   deleting,
+  resettingPassword,
   onStatistics,
   onToggleBlock,
+  onResetPassword,
   onDelete,
 }) => {
   return (
@@ -1368,17 +1529,46 @@ const UserRow = ({
           />
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 
               <Link
                 to={`/dashboard/users/${encodeURIComponent(user.id)}`}
-                className="font-black text-slate-900 transition-colors hover:text-blue-600 hover:underline hover:underline-offset-4 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="
+      font-black text-slate-900
+      transition-colors hover:text-blue-600
+      hover:underline hover:underline-offset-4
+    "
                 title={`Переглянути профіль: ${user.login || "Без імені"}`}
               >
                 {user.login || "Без імені"}
               </Link>
 
+              <span
+                className={`
+      inline-flex items-center gap-1.5
+      whitespace-nowrap text-xs font-semibold
+      ${user.online
+                    ? "text-emerald-600"
+                    : "text-slate-400"
+                  }
+    `}
+              >
+                <span
+                  className={`
+        h-2 w-2 shrink-0 rounded-full
+        ${user.online
+                      ? "bg-emerald-500"
+                      : "bg-slate-400"
+                    }
+      `}
+                />
+
+                {user.online ? "На платформі" : "Не в мережі"}
+              </span>
+
             </div>
+
 
             <p className="mt-1 text-xs text-slate-400">
               {formatDate(
@@ -1388,13 +1578,17 @@ const UserRow = ({
           </div>
         </div>
       </td>
-
       {/* Контакт */}
-      <td className="px-6 py-5">
-        <p className="max-w-[220px] break-all text-sm font-bold text-blue-600">
-          {user.email ||
-            user.phone ||
-            "Не вказано"}
+      <td className="min-w-0 px-3 py-5">
+        <p
+          className="
+      w-full overflow-hidden text-ellipsis
+      whitespace-nowrap
+      text-xs font-bold text-blue-600
+    "
+          title={user.email || user.phone || "Не вказано"}
+        >
+          {user.email || user.phone || "Не вказано"}
         </p>
       </td>
 
@@ -1410,6 +1604,7 @@ const UserRow = ({
         <UserStatus
           blocked={user.blocked}
           online={user.online}
+          showPresence={false}
         />
       </td>
 
@@ -1433,7 +1628,11 @@ const UserRow = ({
               onToggleBlock
             }
           />
-
+          <ResetPasswordButton
+            loading={resettingPassword}
+            disabled={deleting || changingBlock}
+            onClick={onResetPassword}
+          />
           <DeleteButton
             loading={deleting}
             onClick={onDelete}
@@ -1452,12 +1651,37 @@ const UserMobileCard = ({
   user,
   changingBlock,
   deleting,
+  resettingPassword,
   onStatistics,
   onToggleBlock,
+  onResetPassword,
   onDelete,
 }) => {
   return (
-    <article className="p-4 sm:p-5">
+    <article
+      className="
+    relative overflow-hidden
+    rounded-2xl
+    border border-slate-200
+    bg-white
+    p-4 sm:p-5
+    shadow-sm
+    transition-all duration-200
+    hover:border-blue-200
+    hover:shadow-md
+  "
+    >
+      <div
+        className={`
+    absolute inset-x-0 top-0 h-[3px]
+    ${user.blocked
+            ? "bg-red-400"
+            : user.online
+              ? "bg-emerald-400"
+              : "bg-blue-500"
+          }
+  `}
+      />
       <div className="flex items-start gap-3">
         <UserAvatar name={user.login} />
 
@@ -1520,7 +1744,7 @@ const UserMobileCard = ({
         <ListingsStats user={user} mobile />
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <button
           type="button"
           onClick={onStatistics}
@@ -1536,8 +1760,8 @@ const UserMobileCard = ({
           onClick={onToggleBlock}
           disabled={changingBlock || deleting}
           className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-semibold transition disabled:opacity-50 ${user.blocked
-              ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-              : "border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            : "border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100"
             }`}
         >
           {changingBlock ? (
@@ -1552,7 +1776,31 @@ const UserMobileCard = ({
             {user.blocked ? "Розблок." : "Блокувати"}
           </span>
         </button>
-
+        <button
+          type="button"
+          onClick={onResetPassword}
+          disabled={
+            resettingPassword ||
+            deleting ||
+            changingBlock
+          }
+          className="
+    flex min-h-11 items-center justify-center
+    gap-1.5 rounded-xl border
+    border-slate-200 bg-slate-50
+    px-2 text-xs font-semibold
+    text-slate-700 transition
+    hover:bg-blue-50 hover:text-blue-700
+    disabled:opacity-50
+  "
+        >
+          {resettingPassword ? (
+            <Spinner />
+          ) : (
+            <Settings size={17} />
+          )}
+          <span>Пароль</span>
+        </button>
         <button
           type="button"
           onClick={onDelete}
@@ -1656,33 +1904,57 @@ const ListingCount = ({
  * Статус користувача
  */
 
-const UserStatus = ({ blocked, online }) => (
+const UserStatus = ({
+  blocked,
+  online,
+  showPresence = true,
+}) => (
   <div className="flex flex-col items-start gap-1.5">
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${blocked
-        ? "border-red-100 bg-red-50 text-red-700"
-        : "border-blue-100 bg-blue-50 text-blue-700"
-        }`}
+      className={`
+        inline-flex items-center gap-1.5
+        rounded-full border px-3 py-1
+        text-xs font-bold
+        ${blocked
+          ? "border-red-100 bg-red-50 text-red-700"
+          : "border-blue-100 bg-blue-50 text-blue-700"
+        }
+      `}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${blocked ? "bg-red-500" : "bg-blue-500"
-          }`}
+        className={`
+          h-1.5 w-1.5 rounded-full
+          ${blocked ? "bg-red-500" : "bg-blue-500"}
+        `}
       />
+
       {blocked ? "Заблокований" : "Активний"}
     </span>
 
-    <span
-      className={`inline-flex items-center gap-1.5 px-1 text-[11px] font-semibold ${online ? "text-emerald-600" : "text-red-500"
-        }`}
-    >
+    {showPresence && (
       <span
-        className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-500" : "bg-red-400"
-          }`}
-      />
-      {online ? "На платформі" : "Не в мережі"}
-    </span>
+        className={`
+          inline-flex items-center gap-1.5 px-1
+          text-[11px] font-semibold
+          ${online
+            ? "text-emerald-600"
+            : "text-red-500"
+          }
+        `}
+      >
+        <span
+          className={`
+            h-1.5 w-1.5 rounded-full
+            ${online ? "bg-emerald-500" : "bg-red-400"}
+          `}
+        />
+
+        {online ? "На платформі" : "Не в мережі"}
+      </span>
+    )}
   </div>
 );
+
 
 
 /*
@@ -1729,7 +2001,35 @@ const BlockButton = ({
     )}
   </button>
 );
-
+const ResetPasswordButton = ({
+  loading,
+  disabled,
+  onClick,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={loading || disabled}
+    className="
+      flex h-10 w-10 items-center justify-center
+      rounded-xl border border-slate-200
+      bg-slate-50 text-slate-600
+      transition
+      hover:border-blue-200
+      hover:bg-blue-50 hover:text-blue-600
+      disabled:cursor-not-allowed
+      disabled:opacity-50
+    "
+    title="Скинути пароль"
+    aria-label="Скинути пароль користувача"
+  >
+    {loading ? (
+      <Spinner />
+    ) : (
+      <Settings size={19} strokeWidth={2} />
+    )}
+  </button>
+);
 const DeleteButton = ({
   loading,
   onClick,

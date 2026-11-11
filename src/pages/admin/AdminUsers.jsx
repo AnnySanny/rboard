@@ -845,21 +845,11 @@ const AdminUsers = () => {
       });
 
     } catch (error) {
-      console.error(
-        "Помилка скидання пароля:",
-        error
-      );
+      console.error("Помилка скидання пароля:", error);
 
       setPasswordResetError(
         error.message || "Не вдалося змінити пароль."
       );
-
-      Toast.fire({
-        icon: "error",
-        title: "Не вдалося змінити пароль",
-        text: error.message,
-        timer: 4500,
-      });
 
     } finally {
       setResettingPasswordId(null);

@@ -1,19 +1,41 @@
 
-const admin = require("firebase-admin");
+const {
+    initializeApp,
+    getApps,
+    cert,
+} = require("firebase-admin/app");
 
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY
-                ?.replace(/\\n/g, "\n"),
-        }),
-    });
-}
+const { getAuth } = require("firebase-admin/auth");
+const { getFirestore } = require("firebase-admin/firestore");
 
-const auth = admin.auth();
-const db = admin.firestore();
+const getFirebaseServices = () => {
+    const apps = getApps();
+
+    if (!apps.length) {
+        const projectId = process.env.FIREBASE_PROJECT_ID;
+        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+        const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+        if (!projectId || !clientEmail || !privateKey) {
+            throw new Error(
+                "Відсутні змінні Firebase Admin SDK."
+            );
+        }
+
+        initializeApp({
+            credential: cert({
+                projectId,
+                clientEmail,
+                privateKey: privateKey.replace(/\\n/g, "\n"),
+            }),
+        });
+    }
+
+    return {
+        auth: getAuth(),
+        db: getFirestore(),
+    };
+};
 
 const jsonResponse = (statusCode, data) => ({
     statusCode,
@@ -35,6 +57,7 @@ exports.handler = async (event) => {
 
     try {
         // Отримуємо Firebase ID Token адміністратора
+        const { auth, db } = getFirebaseServices();
         const authorization =
             event.headers.authorization ||
             event.headers.Authorization ||

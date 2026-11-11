@@ -28,7 +28,20 @@ const createAuthEmail = (phone) => {
 
     return `${normalizedPhone}@rboard.local`;
 };
+const getAuthEmailVariants = (phone) => {
+    const digits = phone.replace(/\D/g, "");
 
+    const localNumber = digits.startsWith("380")
+        ? "0" + digits.slice(3)
+        : digits;
+
+    return [
+        createAuthEmail(phone),
+        createAuthEmail(localNumber),
+    ].filter((email, index, array) =>
+        array.indexOf(email) === index
+    );
+};
 const formatPhone = (value) => {
     let digits = value.replace(/\D/g, "");
 
@@ -137,17 +150,43 @@ export default function LoginModal() {
             sessionStorage.setItem("rboard_login_pending", "true");
             setLoading(true);
 
-            const authEmail =
-                createAuthEmail(
-                    normalizedPhone
-                );
 
-            const userCredential =
-                await signInWithEmailAndPassword(
-                    auth,
-                    authEmail,
-                    normalizedPassword
-                );
+            const authEmails = getAuthEmailVariants(normalizedPhone);
+
+            let userCredential = null;
+            let lastAuthError = null;
+
+            for (const authEmail of authEmails) {
+                try {
+                    userCredential = await signInWithEmailAndPassword(
+                        auth,
+                        authEmail,
+                        normalizedPassword
+                    );
+
+                    // Успішний вхід — більше нічого не перевіряємо
+                    break;
+
+                } catch (authError) {
+                    lastAuthError = authError;
+
+                    // Пробуємо інший формат тільки при
+                    // невірних облікових даних
+                    if (
+                        authError.code !== "auth/invalid-credential" &&
+                        authError.code !== "auth/user-not-found" &&
+                        authError.code !== "auth/wrong-password"
+                    ) {
+                        throw authError;
+                    }
+                }
+            }
+
+            if (!userCredential) {
+                throw lastAuthError ||
+                new Error("Не вдалося авторизуватися");
+            }
+
 
             const firebaseUser =
                 userCredential.user;
@@ -172,7 +211,7 @@ export default function LoginModal() {
                 userSnapshot.data();
 
             if (userData.blocked === true) {
-                
+
                 await signOut(auth);
 
                 setError("blocked");

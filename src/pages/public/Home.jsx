@@ -183,6 +183,11 @@ const Home = () => {
     } = useParams();
     const [currentUser, setCurrentUser] =
         useState(null);
+    const [canSeeFavorites, setCanSeeFavorites] =
+        useState(false);
+
+    const [favoritesRoleLoading, setFavoritesRoleLoading] =
+        useState(true);
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] =
         useState("");
@@ -205,17 +210,75 @@ const Home = () => {
     const searchBufferRef = useRef([]);
     const searchCursorRef = useRef(null);
     const searchHasMoreRef = useRef(true);
-    useEffect(() => {
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                (user) => {
-                    setCurrentUser(user);
-                }
-            );
 
-        return unsubscribe;
+    useEffect(() => {
+        let cancelled = false;
+        let requestId = 0;
+
+        const unsubscribe = onAuthStateChanged(
+            auth,
+            async (user) => {
+                const currentRequest = ++requestId;
+
+                setCurrentUser(user);
+                setCanSeeFavorites(false);
+                setFavoritesRoleLoading(true);
+
+                // Гість
+                if (!user) {
+                    setFavoritesRoleLoading(false);
+                    return;
+                }
+
+                try {
+                    const userSnapshot = await getDoc(
+                        doc(db, "users", user.uid)
+                    );
+
+                    if (
+                        cancelled ||
+                        currentRequest !== requestId
+                    ) {
+                        return;
+                    }
+
+                    const userData = userSnapshot.data();
+
+                    setCanSeeFavorites(
+                        userSnapshot.exists() &&
+                        userData?.role === "user" &&
+                        userData?.blocked !== true
+                    );
+                } catch (error) {
+                    console.error(
+                        "Помилка перевірки ролі користувача:",
+                        error
+                    );
+
+                    if (
+                        !cancelled &&
+                        currentRequest === requestId
+                    ) {
+                        setCanSeeFavorites(false);
+                    }
+                } finally {
+                    if (
+                        !cancelled &&
+                        currentRequest === requestId
+                    ) {
+                        setFavoritesRoleLoading(false);
+                    }
+                }
+            }
+        );
+
+        return () => {
+            cancelled = true;
+            requestId++;
+            unsubscribe();
+        };
     }, []);
+
     useEffect(() => {
         let phraseIndex = 0;
         let charIndex = 0;
@@ -1233,6 +1296,8 @@ const Home = () => {
                         setSortOrder={setSortOrder}
                         viewMode={viewMode}
                         setViewMode={setViewMode}
+                        canSeeFavorites={canSeeFavorites}
+                        favoritesRoleLoading={favoritesRoleLoading}
                         onOpenReels={() => {
                             if (!loading && !loadError && listings.length > 0) {
                                 setIsReelsOpen(true);
@@ -1273,6 +1338,7 @@ const Home = () => {
                                 listings={listings}
                                 viewMode={viewMode}
                                 onListingClick={openListing}
+                                canSeeFavorites={canSeeFavorites}
                             />
 
                             {hasMoreListings && !loading && (

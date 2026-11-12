@@ -26,6 +26,7 @@ const ListingCard = ({
   viewMode = "grid",
   onClick,
   compact = false,
+  canSeeFavorites = false,
 }) => {
   const isList = !compact && viewMode === "list";
 
@@ -253,18 +254,21 @@ const ListingCard = ({
           </span>
         </div>
 
-        {/* Обране */}
-        <div
-          className={
-            isList
-              ? "absolute right-[-20px] top-[55px] z-20 origin-center scale-150"
-              : "relative z-20"
-          }
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
-        >
-          <FavoriteButton listing={listing} />
-        </div>
+        {/* Обране — тільки для звичайних користувачів */}
+        {canSeeFavorites && (
+          <div
+            className={
+              isList
+                ? "absolute right-[-20px] top-[55px] z-20 origin-center scale-150"
+                : "relative z-20"
+            }
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            <FavoriteButton listing={listing} />
+          </div>
+        )}
+
       </div>
     </article>
   );

@@ -6,19 +6,11 @@ import {
 
 import { Link } from "react-router-dom";
 import {
-  arrayRemove,
   collection,
   collectionGroup,
-  deleteDoc,
   doc,
-  getDocs,
-  limit,
   onSnapshot,
-  query,
-  runTransaction,
   updateDoc,
-  where,
-  writeBatch,
 } from "firebase/firestore";
 import Swal from "sweetalert2";
 import {
@@ -84,198 +76,6 @@ const SORT_OPTIONS = [
   },
 ];
 
-
-const DELETE_BATCH_SIZE = 100;
-
-const deleteDocuments = async (createQuery) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(createQuery());
-
-    if (snapshot.empty) break;
-
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach((item) => {
-      batch.delete(item.ref);
-    });
-
-    await batch.commit();
-    count += snapshot.size;
-  }
-
-  return count;
-};
-
-const deleteUserReviews = async (uid) => {
-  const received = await deleteDocuments(() =>
-    query(
-      collection(db, "publicProfiles", uid, "reviews"),
-      limit(DELETE_BATCH_SIZE)
-    )
-  );
-
-  const written = await deleteDocuments(() =>
-    query(
-      collectionGroup(db, "reviews"),
-      where("reviewerUid", "==", uid),
-      limit(DELETE_BATCH_SIZE)
-    )
-  );
-
-  return { received, written };
-};
-
-const deleteUserChats = async (uid) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "chats"),
-        where("participants", "array-contains", uid),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    for (const chat of snapshot.docs) {
-      await deleteDocuments(() =>
-        query(
-          collection(db, "chats", chat.id, "messages"),
-          limit(DELETE_BATCH_SIZE)
-        )
-      );
-
-      await deleteDoc(chat.ref);
-      count++;
-    }
-  }
-
-  return count;
-};
-
-const deleteListingViews = async (listingId) => {
-  return deleteDocuments(() =>
-    query(
-      collection(db, "listingViews"),
-      where("listingId", "==", listingId),
-      limit(DELETE_BATCH_SIZE)
-    )
-  );
-};
-
-const deleteUserListings = async (uid) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "listings"),
-        where("author.uid", "==", uid),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    for (const listing of snapshot.docs) {
-      await deleteListingViews(listing.id);
-      await deleteDoc(listing.ref);
-      count++;
-    }
-  }
-
-  return count;
-};
-
-const deleteOwnListingViews = async (uid) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "listingViews"),
-        where("viewerType", "==", "user"),
-        where("viewerId", "==", `user_${uid}`),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    for (const view of snapshot.docs) {
-      const listingId = view.data().listingId;
-
-      if (!listingId) {
-        await deleteDoc(view.ref);
-        count++;
-        continue;
-      }
-
-      const listingRef = doc(db, "listings", listingId);
-
-      const deleted = await runTransaction(
-        db,
-        async (transaction) => {
-          const currentView = await transaction.get(view.ref);
-          const currentListing = await transaction.get(listingRef);
-
-          if (!currentView.exists()) return false;
-
-          transaction.delete(view.ref);
-
-          if (currentListing.exists()) {
-            const views = Number(
-              currentListing.data().views ?? 0
-            );
-
-            transaction.update(listingRef, {
-              views: Math.max(0, views - 1),
-            });
-          }
-
-          return true;
-        }
-      );
-
-      if (deleted) count++;
-    }
-  }
-
-  return count;
-};
-
-const removeUserFavorites = async (uid) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "listings"),
-        where("favoriteUserIds", "array-contains", uid),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach((listing) => {
-      batch.update(listing.ref, {
-        favoriteUserIds: arrayRemove(uid),
-      });
-    });
-
-    await batch.commit();
-    count += snapshot.size;
-  }
-
-  return count;
-};
 
 const AdminUsers = () => {
   const [users, setUsers] =
@@ -1032,26 +832,12 @@ const AdminUsers = () => {
 
 
 
-  const deleteUserPresence = async (uid) => {
-    await deleteDocuments(() =>
-      query(
-        collection(db, "userPresence", uid, "sessions"),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    // Видаляємо старий документ, якщо він існує
-    await deleteDoc(doc(db, "userPresence", uid));
-  };
-  /*
-   * Видалення користувача
-   * + ВСІХ його оголошень.
-   */
-
   const handleDelete = async (user) => {
+    if (deletingId) return;
+
     const result = await Swal.fire({
       icon: "warning",
-      title: "Видалити користувача?",
+      title: "Повністю видалити користувача?",
       html: `
       <div style="line-height:1.7;color:#64748b">
         <p>
@@ -1059,23 +845,28 @@ const AdminUsers = () => {
           <strong style="color:#0f172a">
             ${escapeHtml(user.login || "Без імені")}
           </strong>
-          та його дані буде назавжди видалено.
+          буде видалено назавжди.
         </p>
+
         <p style="margin-top:12px">
-          Будуть очищені профіль, оголошення, перегляди,
-          обране, чати, повідомлення та відгуки.
+          Будуть видалені акаунт Firebase Authentication,
+          профіль, оголошення, фотографії,
+          чати, повідомлення, відгуки,
+          перегляди та записи обраного.
         </p>
+
         <p style="margin-top:12px;color:#dc2626;font-weight:600">
           Цю дію неможливо скасувати.
         </p>
       </div>
     `,
       showCancelButton: true,
-      confirmButtonText: "Видалити дані",
+      confirmButtonText: "Повністю видалити",
       cancelButtonText: "Скасувати",
       confirmButtonColor: "#dc2626",
       cancelButtonColor: "#64748b",
       reverseButtons: true,
+      focusCancel: true,
     });
 
     if (!result.isConfirmed) return;
@@ -1083,66 +874,89 @@ const AdminUsers = () => {
     setDeletingId(user.id);
 
     try {
-      const uid = user.id;
-      await updateDoc(doc(db, "users", uid), {
-        blocked: true,
-      });
-      const reviews = await deleteUserReviews(uid);
-      const chatsCount = await deleteUserChats(uid);
-      const listingsCount = await deleteUserListings(uid);
-      const viewsCount = await deleteOwnListingViews(uid);
-      const favoritesCount = await removeUserFavorites(uid);
+      const currentAdmin = auth.currentUser;
 
-      await deleteUserPresence(uid);
-      await deleteDoc(doc(db, "publicProfiles", uid));
-      await deleteDoc(doc(db, "users", uid));
+      if (!currentAdmin) {
+        throw new Error(
+          "Сесія завершена. Увійдіть повторно."
+        );
+      }
 
-      setStatisticsUser((current) =>
-        current?.id === uid ? null : current
+      const idToken = await currentAdmin.getIdToken();
+
+      const response = await fetch(
+        "/.netlify/functions/delete-user",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            uid: user.id,
+          }),
+        }
       );
 
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.success !== true) {
+        throw new Error(
+          data?.message ||
+          "Не вдалося повністю видалити користувача."
+        );
+      }
+
+      // Закриваємо відкриту модалку статистики.
+      setStatisticsUser((current) =>
+        current?.id === user.id ? null : current
+      );
+
+      // Помилка журналу не скасовує успішне видалення.
       try {
         await createAdminLog({
           action: ADMIN_LOG_ACTIONS.USER_DELETED,
           category: "users",
-          title: "Видалено дані користувача",
+          title: "Повністю видалено користувача",
           description:
-            `Видалено дані користувача «${user.login || "Без імені"}». ` +
-            `Оголошень: ${listingsCount}, ` +
-            `власних переглядів: ${viewsCount}, ` +
-            `записів обраного: ${favoritesCount}, ` +
-            `чатів: ${chatsCount}, ` +
-            `отриманих відгуків: ${reviews.received}, ` +
-            `залишених відгуків: ${reviews.written}.`,
-          targetId: uid,
+            `Видалено користувача «${user.login || "Без імені"}» ` +
+            `з Firebase Authentication, Firestore та пов'язаних даних.`,
+          targetId: user.id,
           targetName: user.login || "Без імені",
         });
       } catch (logError) {
-        console.error("Помилка запису журналу:", logError);
+        console.error(
+          "Помилка запису адміністративного журналу:",
+          logError
+        );
       }
 
-      await Swal.fire({
-        toast: true,
-        position: "top-end",
+      await Toast.fire({
         icon: "success",
-        title: "Дані користувача видалено",
-        showConfirmButton: false,
-        timer: 2500,
-        timerProgressBar: true,
+        title: "Користувача повністю видалено",
+        timer: 3000,
       });
     } catch (error) {
-      console.error("Помилка видалення користувача:", error);
+      console.error(
+        "Помилка повного видалення користувача:",
+        error
+      );
 
       await Swal.fire({
         icon: "error",
         title: "Не вдалося завершити видалення",
-        text: "Частину даних уже могло бути видалено. Перевірте Firestore та повторіть операцію.",
+        text:
+          error?.message ||
+          "Перевірте логи Netlify.",
+        confirmButtonText: "Закрити",
         confirmButtonColor: "#2563eb",
       });
     } finally {
       setDeletingId(null);
     }
   };
+
+
 
 
   return (

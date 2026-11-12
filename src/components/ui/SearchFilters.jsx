@@ -1,16 +1,6 @@
 
-import {
-  useEffect,
-  useState,
-} from "react";
-
-import {
-  onAuthStateChanged,
-} from "firebase/auth";
+import { useEffect } from "react";
 import { Heart } from "lucide-react";
-import {
-  auth,
-} from "../../firebase";
 
 const categories = [
   "Усі",
@@ -39,46 +29,33 @@ const SearchFilters = ({
   viewMode,
   setViewMode,
   onOpenReels,
+    canSeeFavorites = false,
+    favoritesRoleLoading = false,
 }) => {
-  const [currentUser, setCurrentUser] =
-    useState(null);
 
-  const [authLoading, setAuthLoading] =
-    useState(true);
 
-  useEffect(() => {
-    const unsubscribe =
-      onAuthStateChanged(
-        auth,
-        (user) => {
-          setCurrentUser(user);
-          setAuthLoading(false);
-        }
-      );
+// Якщо користувач не має доступу до обраного,
+// скидаємо категорію на "Усі".
+useEffect(() => {
+  if (
+    !favoritesRoleLoading &&
+    !canSeeFavorites &&
+    activeCategory === "Обрані"
+  ) {
+    setActiveCategory("Усі");
+  }
+}, [
+  favoritesRoleLoading,
+  canSeeFavorites,
+  activeCategory,
+  setActiveCategory,
+]);
 
-    return unsubscribe;
-  }, []);
-  useEffect(() => {
-    if (
-      !authLoading &&
-      !currentUser &&
-      activeCategory === "Обрані"
-    ) {
-      setActiveCategory("Усі");
-    }
-  }, [
-    authLoading,
-    currentUser,
-    activeCategory,
-    setActiveCategory,
-  ]);
-  const visibleCategories =
-    !authLoading && currentUser
-      ? [
-        ...categories,
-        "Обрані",
-      ]
-      : categories;
+// Категорію "Обрані" бачать тільки
+// звичайні авторизовані користувачі.
+const visibleCategories = canSeeFavorites
+  ? [...categories, "Обрані"]
+  : categories;
 
 
 

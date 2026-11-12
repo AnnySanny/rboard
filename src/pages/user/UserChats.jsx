@@ -510,6 +510,40 @@ export default function UserChats() {
 
         let active = true;
 
+
+        // Кеш профілів та оголошень на 5 хвилин
+        const cache = new Map();
+
+        const getCachedDoc = (collectionName, id) => {
+            const key = `${collectionName}:${id}`;
+            const cached = cache.get(key);
+
+            if (
+                cached &&
+                Date.now() < cached.expiresAt
+            ) {
+                return cached.promise;
+            }
+
+            const promise = getDoc(
+                doc(db, collectionName, id)
+            );
+
+            cache.set(key, {
+                promise,
+                expiresAt: Date.now() + 5 * 60 * 1000,
+            });
+
+            // Не кешуємо помилки Firestore
+            promise.catch(() => {
+                if (cache.get(key)?.promise === promise) {
+                    cache.delete(key);
+                }
+            });
+
+            return promise;
+        };
+
         setLoadingChats(true);
         setError("");
 
@@ -532,7 +566,7 @@ export default function UserChats() {
 
                                 if (otherUid) {
                                     requests.push(
-                                        getDoc(doc(db, "publicProfiles", otherUid))
+                                        getCachedDoc("publicProfiles", otherUid)
                                     );
                                 } else {
                                     requests.push(Promise.resolve(null));
@@ -540,7 +574,7 @@ export default function UserChats() {
 
                                 if (chat.listingId) {
                                     requests.push(
-                                        getDoc(doc(db, "listings", chat.listingId))
+                                        getCachedDoc("listings", chat.listingId)
                                     );
                                 } else {
                                     requests.push(Promise.resolve(null));

@@ -94,13 +94,27 @@ export const registerListingView = async (
     const viewId =
         `${listingId}_${viewerId}`;
 
+    // Перевіряємо, чи перегляд уже зарахований
+    try {
+        if (
+            localStorage.getItem(
+                `rboardViewed_${viewId}`
+            ) === "1"
+        ) {
+            return null;
+        }
+    } catch {
+        // Якщо localStorage недоступний,
+        // продовжуємо роботу через Firestore
+    }
+
     const viewRef = doc(
         db,
         "listingViews",
         viewId
     );
 
-    return runTransaction(
+    const result = await runTransaction(
         db,
         async (transaction) => {
             /*
@@ -190,4 +204,19 @@ export const registerListingView = async (
             return newViews;
         }
     );
+
+    // Запам'ятовуємо успішний перегляд
+    if (result !== null) {
+        try {
+            localStorage.setItem(
+                `rboardViewed_${viewId}`,
+                "1"
+            );
+        } catch {
+            // Якщо localStorage недоступний,
+            // перегляд уже оброблений Firestore
+        }
+    }
+
+    return result;
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import {
@@ -518,7 +518,18 @@ const getRemainingTime = (expiresAt) => {
         minutes,
     };
 };
+const createAdminLogSafely = async (payload) => {
+    try {
+        await createAdminLog(payload);
+    } catch (error) {
+        console.error(
+            "Дію виконано, але не вдалося створити адміністративний лог:",
+            error
+        );
+    }
+};
 const AdminListings = () => {
+    const expireOldListingsPromiseRef = useRef(null);
     const navigate = useNavigate();
     const [listings, setListings] = useState([]);
     const [facebookListing, setFacebookListing] = useState(null);
@@ -915,8 +926,14 @@ const AdminListings = () => {
         setLoadError("");
 
         try {
-            await expireOldListings();
+            // Перевірка прострочених оголошень лише один раз
+            if (!expireOldListingsPromiseRef.current) {
+                expireOldListingsPromiseRef.current =
+                    expireOldListings();
+            }
 
+            // Чекаємо завершення перевірки
+            await expireOldListingsPromiseRef.current;
             if (debouncedSearch) {
                 const [
                     titleSnapshot,
@@ -1336,7 +1353,7 @@ const AdminListings = () => {
                     "Скасовано оголошення";
             }
 
-            await createAdminLog({
+            await createAdminLogSafely({
                 action: logAction,
 
                 category: "listings",
@@ -1551,7 +1568,7 @@ const AdminListings = () => {
                         : item
                 )
             );
-            await createAdminLog({
+            await createAdminLogSafely({
                 action:
                     ADMIN_LOG_ACTIONS.LISTING_UPDATED,
 
@@ -1759,7 +1776,7 @@ const AdminListings = () => {
                         : item
                 )
             );
-            await createAdminLog({
+            await createAdminLogSafely({
                 action:
                     ADMIN_LOG_ACTIONS.LISTING_UPDATED,
 
@@ -1869,8 +1886,11 @@ const AdminListings = () => {
                     "Не вдалося видалити оголошення."
                 );
             }
-
-            await createAdminLog({
+            // Одразу прибираємо видалене оголошення
+            setListings((previous) =>
+                previous.filter((item) => item.id !== listing.id)
+            );
+            await createAdminLogSafely({
                 action: ADMIN_LOG_ACTIONS.LISTING_DELETED,
                 category: "listings",
                 title: "Видалено оголошення",

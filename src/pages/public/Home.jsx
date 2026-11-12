@@ -835,7 +835,8 @@ const Home = () => {
         }
     };
 
-
+    const listingsUserId =
+        activeCategory === "Обрані" ? currentUser?.uid : null;
     useEffect(() => {
         requestVersionRef.current += 1;
 
@@ -853,7 +854,7 @@ const Home = () => {
     }, [
         activeCategory,
         sortOrder,
-        currentUser?.uid,
+        listingsUserId,
         debouncedSearch,
     ]);
 

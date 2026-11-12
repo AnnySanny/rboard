@@ -20,11 +20,13 @@ import {
     Clock,
     Loader2,
     LayoutDashboard,
+    MessageCircle,
+    CircleHelp,
 } from "lucide-react";
 
 import {
     collection,
-    onSnapshot,
+    getDocs,
     query,
     where,
 } from "firebase/firestore";
@@ -120,21 +122,14 @@ const UserHome = () => {
      * =========================================
      */
 
+
     useEffect(() => {
-        let unsubscribeListings = null;
+        let active = true;
 
         const unsubscribeAuth =
             onAuthStateChanged(
                 auth,
-                (currentUser) => {
-                    if (
-                        unsubscribeListings
-                    ) {
-                        unsubscribeListings();
-                        unsubscribeListings =
-                            null;
-                    }
-
+                async (currentUser) => {
                     if (!currentUser) {
                         setStatistics({
                             total: 0,
@@ -146,6 +141,8 @@ const UserHome = () => {
                         setLoading(false);
                         return;
                     }
+
+                    setLoading(true);
 
                     const listingsQuery =
                         query(
@@ -160,91 +157,86 @@ const UserHome = () => {
                             )
                         );
 
-                    unsubscribeListings =
-                        onSnapshot(
-                            listingsQuery,
-                            (
-                                snapshot
-                            ) => {
-                                const listings =
-                                    snapshot.docs.map(
-                                        (
-                                            document
-                                        ) => ({
-                                            id:
-                                                document.id,
+                    try {
+                        const snapshot =
+                            await getDocs(listingsQuery);
 
-                                            ...document.data(),
-                                        })
-                                    );
+                        if (
+                            !active ||
+                            auth.currentUser?.uid !== currentUser.uid
+                        ) {
+                            return;
+                        }
 
-                                const approved =
-                                    listings.filter(
-                                        (
-                                            listing
-                                        ) =>
-                                            listing.status ===
-                                            "approved"
-                                    ).length;
+                        const listings =
+                            snapshot.docs.map(
+                                (document) => ({
+                                    id: document.id,
+                                    ...document.data(),
+                                })
+                            );
 
-                                const pending =
-                                    listings.filter(
-                                        (
-                                            listing
-                                        ) =>
-                                            listing.status ===
-                                            "pending"
-                                    ).length;
+                        const approved =
+                            listings.filter(
+                                (listing) =>
+                                    listing.status ===
+                                    "approved"
+                            ).length;
 
-                                const views =
-                                    listings.reduce(
-                                        (
-                                            total,
-                                            listing
-                                        ) =>
-                                            total +
-                                            Number(
-                                                listing.views ??
-                                                    0
-                                            ),
-                                        0
-                                    );
+                        const pending =
+                            listings.filter(
+                                (listing) =>
+                                    listing.status ===
+                                    "pending"
+                            ).length;
 
-                                setStatistics({
-                                    total:
-                                        listings.length,
+                        const views =
+                            listings.reduce(
+                                (total, listing) =>
+                                    total +
+                                    Number(
+                                        listing.views ?? 0
+                                    ),
+                                0
+                            );
 
-                                    approved,
+                        setStatistics({
+                            total: listings.length,
+                            approved,
+                            pending,
+                            views,
+                        });
 
-                                    pending,
+                    } catch (error) {
+                        if (
+                            !active ||
+                            auth.currentUser?.uid !== currentUser.uid
+                        ) {
+                            return;
+                        }
 
-                                    views,
-                                });
-
-                                setLoading(false);
-                            },
-                            (error) => {
-                                console.error(
-                                    "Помилка завантаження статистики:",
-                                    error
-                                );
-
-                                setLoading(false);
-                            }
+                        console.error(
+                            "Помилка завантаження статистики:",
+                            error
                         );
+
+                    } finally {
+                        if (
+                            active &&
+                            auth.currentUser?.uid === currentUser.uid
+                        ) {
+                            setLoading(false);
+                        }
+                    }
                 }
             );
 
         return () => {
+            active = false;
             unsubscribeAuth();
-
-            if (
-                unsubscribeListings
-            ) {
-                unsubscribeListings();
-            }
         };
     }, []);
+
 
 
     /*
@@ -253,58 +245,45 @@ const UserHome = () => {
      * =========================================
      */
 
+
     const quickActions = [
         {
-            title:
-                "Додати оголошення",
-
-            description:
-                "Створіть нове оголошення та надішліть його на публікацію.",
-
-            path:
-                "/user/create-listing",
-
-            action:
-                "Створити",
-
-            icon:
-                Plus,
+            title: "Додати оголошення",
+            description: "Маєте що продати, запропонувати або шукаєте щось? Розмістіть оголошення на RBoard.",
+            path: "/create-listing",
+            action: "Створити оголошення",
+            icon: Plus,
         },
-
         {
-            title:
-                "Мої оголошення",
-
-            description:
-                "Переглядайте, редагуйте та керуйте власними оголошеннями.",
-
-            path:
-                "/user/listings",
-
-            action:
-                "Переглянути",
-
-            icon:
-                List,
+            title: "Мої оголошення",
+            description: "Керування публікаціями",
+            path: "/user/listings",
+            action: "Переглянути",
+            icon: List,
         },
-
         {
-            title:
-                "Мій профіль",
-
-            description:
-                "Переглядайте та змінюйте інформацію свого профілю.",
-
-            path:
-                "/user/profile",
-
-            action:
-                "Відкрити",
-
-            icon:
-                User,
+            title: "Мої чати",
+            description: "Повідомлення користувачів",
+            path: "/user/chats",
+            action: "Відкрити",
+            icon: MessageCircle,
+        },
+        {
+            title: "Мій профіль",
+            description: "Особисті дані",
+            path: "/user/profile",
+            action: "Переглянути",
+            icon: User,
+        },
+        {
+            title: "Допомога",
+            description: "Питання та відповіді",
+            path: "/help",
+            action: "Переглянути",
+            icon: CircleHelp,
         },
     ];
+
 
 
     return (
@@ -813,119 +792,137 @@ const UserHome = () => {
                         ШВИДКІ ДІЇ
                     ================================== */}
 
+
+                    {/* =================================
+    ШВИДКІ ДІЇ
+================================== */}
+
                     <section className="mt-10">
                         <div>
-                            <h2 className="
-                                text-xl
-                                font-black
-                                text-slate-950
-                                sm:text-2xl
-                            ">
+                            <h2 className="text-xl font-black text-slate-950 sm:text-2xl">
                                 Швидкі дії
                             </h2>
 
-                            <p className="
-                                mt-1
-                                text-sm
-                                text-slate-500
-                            ">
-                                Основні можливості
-                                особистого кабінету.
+                            <p className="mt-1 text-sm text-slate-500">
+                                Усе необхідне для керування акаунтом.
                             </p>
                         </div>
 
+                        <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
 
-                        <div className="
-                            mt-5
-                            grid
-                            gap-4
-                            md:grid-cols-3
-                        ">
-                            {quickActions.map(
-                                ({
+                            {/* ГОЛОВНА ДІЯ */}
+                            {quickActions.slice(0, 1).map(({
+                                title,
+                                description,
+                                path,
+                                action,
+                                icon: Icon,
+                            }) => (
+                                <Link
+                                    key={path}
+                                    to={path}
+                                    className="
+                    group relative flex flex-col
+                    justify-between overflow-hidden
+                    rounded-2xl border border-blue-200
+                    bg-gradient-to-br
+                    from-blue-50 via-white to-indigo-50
+                    p-5 shadow-sm
+                    transition-all duration-200
+                    hover:-translate-y-0.5
+                    hover:border-blue-400
+                    hover:shadow-md
+                    sm:p-6
+                "
+                                >
+                                    <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-blue-100/60 blur-2xl" />
+
+                                    <div className="relative">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                                            <Icon size={23} />
+                                        </div>
+
+                                        <h3 className="mt-4 text-lg font-black text-slate-950">
+                                            {title}
+                                        </h3>
+
+                                        <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
+                                            {description}
+                                        </p>
+                                    </div>
+
+                                    <div className="relative mt-5 flex items-center gap-2 text-sm font-bold text-blue-600">
+                                        <span>{action}</span>
+
+                                        <ArrowRight
+                                            size={17}
+                                            className="transition-transform group-hover:translate-x-1"
+                                        />
+                                    </div>
+                                </Link>
+                            ))}
+
+                            {/* ІНШІ ШВИДКІ ДІЇ */}
+                            <div className="grid grid-cols-2 gap-3">
+                                {quickActions.slice(1).map(({
                                     title,
                                     description,
                                     path,
-                                    action,
                                     icon: Icon,
                                 }) => (
                                     <Link
                                         key={path}
                                         to={path}
                                         className="
-                                            group
-                                            rounded-2xl
-                                            border
-                                            border-slate-200
-                                            bg-white
-                                            p-6
-                                            shadow-sm
-                                            transition
-                                            duration-200
-                                            hover:-translate-y-0.5
-                                            hover:border-blue-200
-                                            hover:shadow-md
-                                        "
+                        group flex min-w-0 flex-col
+                        rounded-2xl border border-slate-200
+                        bg-white p-3.5 shadow-sm
+                        transition-all duration-200
+                        hover:-translate-y-0.5
+                        hover:border-blue-300
+                        hover:shadow-md
+                        sm:p-4
+                    "
                                     >
-                                        <div className="
-                                            flex
-                                            h-11 w-11
-                                            items-center
-                                            justify-center
-                                            rounded-xl
-                                            bg-blue-50
-                                            text-blue-600
-                                            transition
-                                            group-hover:bg-blue-600
-                                            group-hover:text-white
-                                        ">
-                                            <Icon
-                                                size={22}
-                                            />
-                                        </div>
-
-                                        <h3 className="
-                                            mt-4
-                                            text-lg
-                                            font-bold
-                                            text-slate-950
-                                        ">
-                                            {title}
-                                        </h3>
-
-                                        <p className="
-                                            mt-2
-                                            text-sm
-                                            leading-6
-                                            text-slate-500
-                                        ">
-                                            {description}
-                                        </p>
-
-                                        <div className="
-                                            mt-5
-                                            flex
-                                            items-center
-                                            gap-2
-                                            text-sm
-                                            font-semibold
-                                            text-blue-600
-                                        ">
-                                            {action}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="
+                            flex h-10 w-10 shrink-0
+                            items-center justify-center
+                            rounded-xl bg-blue-50
+                            text-blue-600
+                            transition-colors
+                            group-hover:bg-blue-600
+                            group-hover:text-white
+                        ">
+                                                <Icon size={20} />
+                                            </div>
 
                                             <ArrowRight
                                                 size={16}
                                                 className="
-                                                    transition
-                                                    group-hover:translate-x-1
-                                                "
+                                mt-1 shrink-0 text-slate-300
+                                transition-all
+                                group-hover:translate-x-1
+                                group-hover:text-blue-600
+                            "
                                             />
                                         </div>
+
+                                        <div className="mt-auto pt-4">
+                                            <h3 className="text-sm font-bold leading-5 text-slate-900 transition-colors group-hover:text-blue-600 sm:text-base">
+                                                {title}
+                                            </h3>
+
+                                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                                                {description}
+                                            </p>
+                                        </div>
                                     </Link>
-                                )
-                            )}
+                                ))}
+                            </div>
                         </div>
                     </section>
+
 
                 </div>
             </main>

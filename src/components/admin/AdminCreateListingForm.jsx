@@ -178,7 +178,11 @@ const AdminCreateListingForm = ({
 
     const [submitting, setSubmitting] =
         useState(false);
+    const [publishImmediately, setPublishImmediately] =
+        useState(true);
 
+    const [notifyTelegram, setNotifyTelegram] =
+        useState(true);
     const handleChange = (event) => {
         const { name, value } =
             event.target;
@@ -386,14 +390,13 @@ const AdminCreateListingForm = ({
              */
             const now = new Date();
 
-            const expiresAt = new Date(
-                now.getTime() +
-                LISTING_LIFETIME_DAYS *
-                24 *
-                60 *
-                60 *
-                1000
-            );
+            const expiresAt = publishImmediately
+                ? new Date(
+                    now.getTime() +
+                    LISTING_LIFETIME_DAYS * 24 * 60 * 60 * 1000
+                )
+                : null;
+
             const searchTokens = buildListingSearchTokens({
                 authorName: form.authorName.trim(),
                 title: form.title.trim(),
@@ -447,9 +450,9 @@ const AdminCreateListingForm = ({
 
                         images:
                             uploadedImages,
-
-                        status:
-                            "approved",
+                        status: publishImmediately
+                            ? "approved"
+                            : "pending",
                         searchTokens,
                         views: 0,
 
@@ -473,14 +476,11 @@ const AdminCreateListingForm = ({
                         },
 
                         moderation: {
-                            reviewedBy:
-                                "admin",
-
-                            reviewedAt:
-                                serverTimestamp(),
-
-                            rejectionReason:
-                                null,
+                            reviewedBy: publishImmediately ? "admin" : null,
+                            reviewedAt: publishImmediately
+                                ? serverTimestamp()
+                                : null,
+                            rejectionReason: null,
                         },
 
                         createdAt:
@@ -489,13 +489,13 @@ const AdminCreateListingForm = ({
                         updatedAt:
                             serverTimestamp(),
 
-                        approvedAt:
-                            serverTimestamp(),
+                        approvedAt: publishImmediately
+                            ? serverTimestamp()
+                            : null,
 
-                        expiresAt:
-                            Timestamp.fromDate(
-                                expiresAt
-                            ),
+                        expiresAt: publishImmediately
+                            ? Timestamp.fromDate(expiresAt)
+                            : null,
 
                         createdByAdmin:
                             true,
@@ -514,9 +514,11 @@ const AdminCreateListingForm = ({
 * адміністратор не чекав завершення
 * всієї Telegram-розсилки.
 */
-            notifyUsersAboutListing(
-                createdListingRef.id
-            );
+            if (publishImmediately && notifyTelegram) {
+                notifyUsersAboutListing(createdListingRef.id);
+            }
+
+
             await createAdminLog({
                 action:
                     ADMIN_LOG_ACTIONS.LISTING_CREATED,
@@ -559,13 +561,16 @@ const AdminCreateListingForm = ({
             setForm(initialForm);
             setImages([]);
             setErrors({});
-
+            setPublishImmediately(true);
+            setNotifyTelegram(true);
             await Swal.fire({
                 icon: "success",
-                title:
-                    "Оголошення опубліковано",
-                text:
-                    "Оголошення створено та одразу опубліковано на 7 днів.",
+                title: publishImmediately
+                    ? "Оголошення опубліковано"
+                    : "Оголошення збережено",
+                text: publishImmediately
+                    ? "Оголошення створено та опубліковано на 7 днів."
+                    : "Оголошення збережено зі статусом «На перевірці». Його можна опублікувати пізніше.",
                 confirmButtonText:
                     "До оголошень",
                 confirmButtonColor:
@@ -903,44 +908,68 @@ const AdminCreateListingForm = ({
             {/* ІНФОРМАЦІЯ */}
             {/* ========================= */}
 
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                <div className="flex items-start gap-3">
-                    <svg
-                        className="mt-0.5 h-5 w-5 shrink-0 text-blue-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                    >
-                        <circle
-                            cx="12"
-                            cy="12"
-                            r="10"
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 space-y-4">
+
+                <h3 className="text-sm font-bold text-blue-900">
+                    Налаштування публікації
+                </h3>
+
+                <label className="flex items-start gap-3 rounded-xl bg-white p-4">
+                    <input
+                        type="checkbox"
+                        checked={publishImmediately}
+                        disabled={submitting}
+                        onChange={(event) => {
+                            const checked = event.target.checked;
+
+                            setPublishImmediately(checked);
+
+                            if (!checked) {
+                                setNotifyTelegram(false);
+                            }
+                        }}
+                        className="mt-1 h-4 w-4 accent-blue-600"
+                    />
+
+                    <span>
+                        <span className="block text-sm font-bold">
+                            Опублікувати одразу
+                        </span>
+                        <span className="text-xs text-slate-500">
+                            Якщо вимкнути, оголошення залишиться
+                            на модерації.
+                        </span>
+                    </span>
+                </label>
+
+                {publishImmediately && (
+                    <label className="flex items-start gap-3 rounded-xl bg-white p-4">
+                        <input
+                            type="checkbox"
+                            checked={notifyTelegram}
+                            disabled={submitting}
+                            onChange={(event) =>
+                                setNotifyTelegram(event.target.checked)
+                            }
+                            className="mt-1 h-4 w-4 accent-blue-600"
                         />
 
-                        <path d="M12 16v-4" />
-                        <path d="M12 8h.01" />
-                    </svg>
+                        <span>
+                            <span className="block text-sm font-bold">
+                                Сповістити користувачів у Telegram
+                            </span>
+                            <span className="text-xs text-slate-500">
+                                Надіслати сповіщення підписникам бота.
+                            </span>
+                        </span>
+                    </label>
+                )}
 
-                    <div>
-                        <p className="text-sm font-bold text-blue-900">
-                            Публікація адміністратором
-                        </p>
-
-                        <p className="mt-1 text-sm leading-6 text-blue-800">
-                            Оголошення не
-                            потребуватиме
-                            модерації та буде
-                            опубліковано одразу
-                            після створення.
-                            Стандартний термін
-                            публікації — 7 днів.
-                        </p>
-                    </div>
-                </div>
+                <p className="text-xs text-blue-800">
+                    {publishImmediately
+                        ? "Оголошення буде опубліковано на 7 днів."
+                        : "Оголошення очікуватиме на модерацію."}
+                </p>
             </div>
 
             {/* ========================= */}
@@ -954,13 +983,13 @@ const AdminCreateListingForm = ({
                     className="inline-flex min-w-[190px] items-center justify-center rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     {submitting ? (
-                        <>
-                            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-
-                            Публікація...
-                        </>
+                        publishImmediately
+                            ? "Публікація..."
+                            : "Збереження..."
                     ) : (
-                        "Опублікувати оголошення"
+                        publishImmediately
+                            ? "Опублікувати оголошення"
+                            : "Зберегти на модерацію"
                     )}
                 </button>
             </div>

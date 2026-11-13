@@ -56,14 +56,12 @@ exports.handler = async (event) => {
         });
     }
 
-    const requiredVariables = [
-        "GA4_PROPERTY_ID",
-        "GA4_CLIENT_EMAIL",
-        "GA4_PRIVATE_KEY",
-        "FIREBASE_PROJECT_ID",
-        "FIREBASE_CLIENT_EMAIL",
-        "FIREBASE_PRIVATE_KEY",
-    ];
+const requiredVariables = [
+    "GA4_PROPERTY_ID",
+    "FIREBASE_PROJECT_ID",
+    "FIREBASE_CLIENT_EMAIL",
+    "FIREBASE_PRIVATE_KEY",
+];
 
     const missingVariables = requiredVariables.filter(
         (name) => !process.env[name]
@@ -107,15 +105,15 @@ exports.handler = async (event) => {
             });
         }
 
-        const analyticsClient = new BetaAnalyticsDataClient({
-            credentials: {
-                client_email: process.env.GA4_CLIENT_EMAIL,
-                private_key: process.env.GA4_PRIVATE_KEY.replace(
-                    /\\n/g,
-                    "\n"
-                ),
-            },
-        });
+const analyticsClient = new BetaAnalyticsDataClient({
+    credentials: {
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(
+            /\\n/g,
+            "\n"
+        ),
+    },
+});
 
         const [response] = await analyticsClient.runReport({
             property: `properties/${PROPERTY_ID}`,

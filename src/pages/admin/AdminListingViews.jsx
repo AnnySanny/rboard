@@ -243,6 +243,7 @@ export default function AdminListingViews() {
 
             const constraints = [
                 where("listingId", "==", listingId),
+                where("viewerType", "==", "user"),
                 orderBy(documentId()),
             ];
 
@@ -261,15 +262,6 @@ export default function AdminListingViews() {
             const records = await Promise.all(
                 snapshot.docs.map(async (item) => {
                     const data = item.data();
-
-                    if (data.viewerType !== "user") {
-                        return {
-                            id: item.id,
-                            ...data,
-                            profile: null,
-                        };
-                    }
-
                     const uid = getUserId(data.viewerId);
 
                     return {
@@ -662,9 +654,7 @@ export default function AdminListingViews() {
                                 const data = visitors[listing.id];
                                 const records = data?.records || [];
 
-                                const registeredRecords = records.filter(
-                                    (item) => item.viewerType === "user"
-                                );
+                                const registeredRecords = records;
 
                                 return (
                                     <div

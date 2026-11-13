@@ -52,7 +52,7 @@ const formatDate = (value) => {
 const AdminContacts = () => {
   const [feedback, setFeedback] =
     useState([]);
-  const [usersMap, setUsersMap] = useState({});
+
   const [loading, setLoading] =
     useState(true);
 
@@ -70,32 +70,7 @@ const AdminContacts = () => {
 
   const [deletingId, setDeletingId] =
     useState(null);
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, "users"),
-      (snapshot) => {
-        const map = {};
 
-        snapshot.docs.forEach((document) => {
-          const data = document.data();
-
-          map[document.id] = {
-            login: data.login || "Без імені",
-          };
-        });
-
-        setUsersMap(map);
-      },
-      (error) => {
-        console.error(
-          "Помилка завантаження користувачів:",
-          error
-        );
-      }
-    );
-
-    return unsubscribe;
-  }, []);
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, "feedback"),
@@ -540,9 +515,7 @@ const AdminContacts = () => {
                                 className="break-words text-sm font-bold text-slate-900 transition hover:text-blue-600 hover:underline hover:underline-offset-4"
                                 title="Переглянути профіль користувача"
                               >
-                                {usersMap[item.userUid]?.login ||
-                                  item.name ||
-                                  "Користувач видалений"}
+                                {item.name || "Користувач RBoard"}
                               </Link>
 
                             </div>

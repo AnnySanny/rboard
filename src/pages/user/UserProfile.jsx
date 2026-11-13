@@ -26,15 +26,15 @@ import {
     MessageSquareText,
 } from "lucide-react";
 
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 import ProfileEditor from "../../components/profile/ProfileEditor";
 import ProfileContacts from "../../components/profile/ProfileContacts";
 import ProfileListings from "../../components/profile/ProfileListings";
 import ProfileListingStats from "../../components/profile/ProfileListingStats";
 import ProfileReviews from "../../components/profile/ProfileReviews";
 import { auth, db } from "../../firebase";
-import useUserPresence from "../../hooks/useUserPresence";
+import useUserPresence from "../../components/hooks/useUserPresence";
 export default function UserProfile({
     adminView = false,
 }) {
@@ -386,27 +386,32 @@ export default function UserProfile({
                                                     {profile.login || "Користувач RBoard"}
                                                 </h1>
 
-                                                <div className="mt-2 flex justify-center sm:justify-start">
-                                                    <span
-                                                        className={`inline-flex items-center gap-2 text-xs font-semibold ${presence.online
-                                                            ? "text-emerald-600"
-                                                            : presence.text === "Перевірка статусу..."
-                                                                ? "text-slate-400"
-                                                                : "text-red-500"
-                                                            }`}
-                                                    >
-                                                        <span
-                                                            className={`h-2 w-2 shrink-0 rounded-full ${presence.online
-                                                                ? "bg-emerald-500"
-                                                                : presence.text === "Перевірка статусу..."
-                                                                    ? "bg-slate-300"
-                                                                    : "bg-red-400"
-                                                                }`}
-                                                        />
 
-                                                        {presence.text}
-                                                    </span>
-                                                </div>
+                                                {/* Онлайн-статус бачать лише авторизовані */}
+                                                {currentUser && (
+                                                    <div className="mt-2 flex justify-center sm:justify-start">
+                                                        <span
+                                                            className={`inline-flex items-center gap-2 text-xs font-semibold ${presence.online
+                                                                    ? "text-emerald-600"
+                                                                    : presence.text === "Перевірка статусу..."
+                                                                        ? "text-slate-400"
+                                                                        : "text-red-500"
+                                                                }`}
+                                                        >
+                                                            <span
+                                                                className={`h-2 w-2 shrink-0 rounded-full ${presence.online
+                                                                        ? "bg-emerald-500"
+                                                                        : presence.text === "Перевірка статусу..."
+                                                                            ? "bg-slate-300"
+                                                                            : "bg-red-400"
+                                                                    }`}
+                                                            />
+
+                                                            {presence.text}
+                                                        </span>
+                                                    </div>
+                                                )}
+
 
                                                 {cityName && showCity && (
                                                     <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500 sm:justify-start">

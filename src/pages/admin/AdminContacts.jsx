@@ -15,7 +15,7 @@ import {
   ADMIN_LOG_ACTIONS,
 } from "../../utils/adminLogger";
 import Swal from "sweetalert2";
-
+import { Link } from "react-router-dom";
 import { db } from "../../firebase";
 
 const FEEDBACK_TYPES = [
@@ -87,7 +87,11 @@ const AdminContacts = () => {
 
               name:
                 data.name || "",
+              userUid: data.userUid || null,
 
+              senderType:
+                data.senderType ||
+                (data.userUid ? "user" : "guest"),
               type:
                 data.type || "Інше",
 
@@ -493,15 +497,41 @@ const AdminContacts = () => {
 
                       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-[180px_minmax(220px,0.8fr)_1fr]">
                         {/* Ім'я */}
+                        {/* Відправник */}
                         <div>
                           <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                            Ім’я
+                            Відправник
                           </p>
 
-                          <p className="mt-1 break-words text-sm font-bold text-slate-900">
-                            {item.name ||
-                              "Не вказано"}
-                          </p>
+                          {item.userUid ? (
+                            <div className="mt-1 flex flex-col items-start gap-1">
+
+                              <span className="text-xs font-semibold text-emerald-600">
+                                Користувач
+                              </span>
+
+                              <Link
+                                to={`/dashboard/users/${encodeURIComponent(item.userUid)}`}
+                                className="break-words text-sm font-bold text-slate-900 transition hover:text-blue-600 hover:underline hover:underline-offset-4"
+                                title="Переглянути профіль користувача"
+                              >
+                                {item.name || "Користувач RBoard"}
+                              </Link>
+
+                            </div>
+                          ) : (
+                            <div className="mt-1 flex flex-col items-start gap-1">
+
+                              <span className="text-xs font-semibold text-slate-400">
+                                Гість
+                              </span>
+
+                              <p className="break-words text-sm font-bold text-slate-900">
+                                {item.name || "Без імені"}
+                              </p>
+
+                            </div>
+                          )}
                         </div>
 
                         {/* Контакт */}

@@ -34,7 +34,7 @@ import { db } from "../../firebase";
 const CHAT_PAGE_SIZE = 20;
 const MESSAGE_PAGE_SIZE = 50;
 const DELETE_BATCH_SIZE = 200;
-
+const PROFILE_CACHE_TTL = 5 * 60 * 1000;
 const formatDate = (value) => {
     const date =
         value?.toDate?.() ||
@@ -228,37 +228,46 @@ export default function AdminChats() {
     const messagesBottomRef = useRef(null);
     const messagesContainerRef = useRef(null);
     const initializedRef = useRef(false);
-
+    const chatsLoadingRef = useRef(false);
+    const messagesLoadingRef = useRef(null);
     const selectedChat =
         chats.find((chat) => chat.id === selectedChatId) || null;
 
-    const resolveUser = useCallback(async (uid) => {
-        if (profilesCache.current.has(uid)) {
-            return profilesCache.current.get(uid);
+    const resolveUser = useCallback((uid) => {
+        const cached = profilesCache.current.get(uid);
+
+        if (
+            cached &&
+            Date.now() - cached.cachedAt < PROFILE_CACHE_TTL
+        ) {
+            return cached.promise;
         }
 
-        let profile = null;
+        const promise = (async () => {
+            let profile = null;
 
-        try {
-            const snapshot = await getDoc(
-                doc(db, "publicProfiles", uid)
-            );
+            try {
+                const snapshot = await getDoc(
+                    doc(db, "publicProfiles", uid)
+                );
 
-            if (snapshot.exists()) {
-                profile = snapshot.data();
+                if (snapshot.exists()) {
+                    profile = snapshot.data();
+                }
+            } catch (err) {
+                console.error("Помилка профілю:", err);
+                profilesCache.current.delete(uid);
             }
-        } catch (err) {
-            console.error("Помилка профілю:", err);
-        }
 
-        const user = {
-            uid,
-            profile,
-        };
+            return { uid, profile };
+        })();
 
-        profilesCache.current.set(uid, user);
+        profilesCache.current.set(uid, {
+            promise,
+            cachedAt: Date.now(),
+        });
 
-        return user;
+        return promise;
     }, []);
 
     const resolveChats = useCallback(
@@ -288,12 +297,15 @@ export default function AdminChats() {
 
     const loadChats = useCallback(
         async (loadMore = false) => {
+            if (chatsLoadingRef.current) return;
+
+            chatsLoadingRef.current = true;
+
             if (loadMore) {
                 setLoadingMoreChats(true);
             } else {
                 setLoadingChats(true);
                 setError("");
-                profilesCache.current.clear();
             }
 
             try {
@@ -349,6 +361,7 @@ export default function AdminChats() {
                 console.error("Помилка завантаження чатів:", err);
                 setError("Не вдалося завантажити чати.");
             } finally {
+                chatsLoadingRef.current = false;
                 setLoadingChats(false);
                 setLoadingMoreChats(false);
             }
@@ -367,6 +380,19 @@ export default function AdminChats() {
         async (chatId, loadMore = false) => {
             if (!chatId) return;
 
+            const requestId = messagesRequestId.current;
+
+            if (
+                messagesLoadingRef.current?.chatId === chatId &&
+                messagesLoadingRef.current?.requestId === requestId
+            ) {
+                return;
+            }
+
+            messagesLoadingRef.current = {
+                chatId,
+                requestId,
+            };
 
             if (loadMore) {
                 if (!messageCursorRef.current) return;
@@ -379,7 +405,7 @@ export default function AdminChats() {
             }
 
 
-            const requestId = messagesRequestId.current;
+
 
             try {
                 const messagesRef = collection(
@@ -449,6 +475,13 @@ export default function AdminChats() {
                     });
                 }
             } finally {
+                if (
+                    messagesLoadingRef.current?.chatId === chatId &&
+                    messagesLoadingRef.current?.requestId === requestId
+                ) {
+                    messagesLoadingRef.current = null;
+                }
+
                 if (requestId === messagesRequestId.current) {
                     setLoadingMessages(false);
                     setLoadingMoreMessages(false);
@@ -457,18 +490,18 @@ export default function AdminChats() {
         },
         []
     );
-useEffect(() => {
-  messagesRequestId.current += 1;
+    useEffect(() => {
+        messagesRequestId.current += 1;
 
-  if (!selectedChatId) {
-    setMessages([]);
-    messageCursorRef.current = null;
-    setHasMoreMessages(false);
-    return;
-  }
+        if (!selectedChatId) {
+            setMessages([]);
+            messageCursorRef.current = null;
+            setHasMoreMessages(false);
+            return;
+        }
 
-  loadMessages(selectedChatId, false);
-}, [selectedChatId, loadMessages]);
+        loadMessages(selectedChatId, false);
+    }, [selectedChatId, loadMessages]);
 
     useEffect(() => {
         if (!loadingMessages && selectedChatId) {

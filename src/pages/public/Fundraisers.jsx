@@ -15,10 +15,10 @@ import {
     AlertCircle,
 } from "lucide-react";
 
-import { db } from "../firebase";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
-import fundraisersBackground from "../image/fundraisers-background.webp";
+import { db } from "../../firebase";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
+import fundraisersBackground from "../../image/fundraisers-background.webp";
 // Форматування суми
 const formatMoney = (amount) => {
     const value = Number(amount);

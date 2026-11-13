@@ -3,30 +3,32 @@ import {
   useMemo,
   useState,
 } from "react";
+
 import { Link } from "react-router-dom";
 import {
-  arrayRemove,
   collection,
   collectionGroup,
-  deleteDoc,
   doc,
-  getDocs,
-  limit,
   onSnapshot,
-  query,
-  runTransaction,
   updateDoc,
-  where,
-  writeBatch,
 } from "firebase/firestore";
 import Swal from "sweetalert2";
 import {
   createAdminLog,
   ADMIN_LOG_ACTIONS,
 } from "../../utils/adminLogger";
-import { db } from "../../firebase";
+import { auth, db } from "../../firebase";
+import { Settings } from "lucide-react";
 import UserStatisticsModal from "../../components/admin/UserStatisticsModal";
-
+import ResetPasswordModal from "../../components/admin/ResetPasswordModal";
+const Toast = Swal.mixin({
+  toast: true,
+  position: "top-end",
+  showConfirmButton: false,
+  showCloseButton: true,
+  timer: 3000,
+  timerProgressBar: true,
+});
 const STATUS_FILTERS = [
   {
     value: "all",
@@ -75,198 +77,6 @@ const SORT_OPTIONS = [
 ];
 
 
-const DELETE_BATCH_SIZE = 100;
-
-const deleteDocuments = async (createQuery) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(createQuery());
-
-    if (snapshot.empty) break;
-
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach((item) => {
-      batch.delete(item.ref);
-    });
-
-    await batch.commit();
-    count += snapshot.size;
-  }
-
-  return count;
-};
-
-const deleteUserReviews = async (uid) => {
-  const received = await deleteDocuments(() =>
-    query(
-      collection(db, "publicProfiles", uid, "reviews"),
-      limit(DELETE_BATCH_SIZE)
-    )
-  );
-
-  const written = await deleteDocuments(() =>
-    query(
-      collectionGroup(db, "reviews"),
-      where("reviewerUid", "==", uid),
-      limit(DELETE_BATCH_SIZE)
-    )
-  );
-
-  return { received, written };
-};
-
-const deleteUserChats = async (uid) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "chats"),
-        where("participants", "array-contains", uid),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    for (const chat of snapshot.docs) {
-      await deleteDocuments(() =>
-        query(
-          collection(db, "chats", chat.id, "messages"),
-          limit(DELETE_BATCH_SIZE)
-        )
-      );
-
-      await deleteDoc(chat.ref);
-      count++;
-    }
-  }
-
-  return count;
-};
-
-const deleteListingViews = async (listingId) => {
-  return deleteDocuments(() =>
-    query(
-      collection(db, "listingViews"),
-      where("listingId", "==", listingId),
-      limit(DELETE_BATCH_SIZE)
-    )
-  );
-};
-
-const deleteUserListings = async (uid) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "listings"),
-        where("author.uid", "==", uid),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    for (const listing of snapshot.docs) {
-      await deleteListingViews(listing.id);
-      await deleteDoc(listing.ref);
-      count++;
-    }
-  }
-
-  return count;
-};
-
-const deleteOwnListingViews = async (uid) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "listingViews"),
-        where("viewerType", "==", "user"),
-        where("viewerId", "==", `user_${uid}`),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    for (const view of snapshot.docs) {
-      const listingId = view.data().listingId;
-
-      if (!listingId) {
-        await deleteDoc(view.ref);
-        count++;
-        continue;
-      }
-
-      const listingRef = doc(db, "listings", listingId);
-
-      const deleted = await runTransaction(
-        db,
-        async (transaction) => {
-          const currentView = await transaction.get(view.ref);
-          const currentListing = await transaction.get(listingRef);
-
-          if (!currentView.exists()) return false;
-
-          transaction.delete(view.ref);
-
-          if (currentListing.exists()) {
-            const views = Number(
-              currentListing.data().views ?? 0
-            );
-
-            transaction.update(listingRef, {
-              views: Math.max(0, views - 1),
-            });
-          }
-
-          return true;
-        }
-      );
-
-      if (deleted) count++;
-    }
-  }
-
-  return count;
-};
-
-const removeUserFavorites = async (uid) => {
-  let count = 0;
-
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "listings"),
-        where("favoriteUserIds", "array-contains", uid),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach((listing) => {
-      batch.update(listing.ref, {
-        favoriteUserIds: arrayRemove(uid),
-      });
-    });
-
-    await batch.commit();
-    count += snapshot.size;
-  }
-
-  return count;
-};
-
 const AdminUsers = () => {
   const [users, setUsers] =
     useState([]);
@@ -307,6 +117,13 @@ const AdminUsers = () => {
     deletingId,
     setDeletingId,
   ] = useState(null);
+  const [
+    resettingPasswordId,
+    setResettingPasswordId,
+  ] = useState(null);
+  const [passwordUser, setPasswordUser] = useState(null);
+  const [passwordResetError, setPasswordResetError] = useState("");
+
 
   const [
     statisticsUser,
@@ -390,27 +207,46 @@ const AdminUsers = () => {
   }, []);
 
 
+
   useEffect(() => {
     const unsubscribe = onSnapshot(
-      collection(db, "userPresence"),
+      collectionGroup(db, "sessions"),
       (snapshot) => {
         const presence = {};
 
-        snapshot.forEach((documentSnapshot) => {
-          presence[documentSnapshot.id] =
-            documentSnapshot.data().lastSeenAt?.toMillis?.() ?? null;
+        snapshot.docs.forEach((sessionDoc) => {
+          const uid = sessionDoc.ref.parent.parent?.id;
+
+          const lastSeenAt =
+            sessionDoc.data().lastSeenAt?.toMillis?.();
+
+          if (!uid || !Number.isFinite(lastSeenAt)) {
+            return;
+          }
+
+          // Беремо найновішу сесію користувача
+          if (
+            !presence[uid] ||
+            lastSeenAt > presence[uid]
+          ) {
+            presence[uid] = lastSeenAt;
+          }
         });
 
         setUserPresence(presence);
         setPresenceNow(Date.now());
       },
       (error) => {
-        console.error("Помилка завантаження онлайн-статусів:", error);
+        console.error(
+          "Помилка завантаження онлайн-статусів:",
+          error
+        );
       }
     );
 
     return unsubscribe;
   }, []);
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -730,6 +566,99 @@ const AdminUsers = () => {
       sortOrder,
     ]);
 
+
+
+  const handleResetPassword = async (user, newPassword) => {
+    if (resettingPasswordId) return;
+
+    setResettingPasswordId(user.id);
+    setPasswordResetError("");
+
+    try {
+      const currentUser = auth.currentUser;
+
+      if (!currentUser) {
+        throw new Error(
+          "Сесія завершена. Увійдіть повторно."
+        );
+      }
+
+      const idToken = await currentUser.getIdToken();
+
+      const response = await fetch(
+        "/.netlify/functions/reset-user-password",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            uid: user.id,
+            newPassword,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message || "Не вдалося змінити пароль."
+        );
+      }
+
+      // Закриваємо модалку
+      setPasswordUser(null);
+
+      // Журнал адміністратора — без пароля
+      try {
+        await createAdminLog({
+          action:
+            ADMIN_LOG_ACTIONS.USER_PASSWORD_RESET ||
+            "user_password_reset",
+          category: "users",
+          title: "Скинуто пароль користувача",
+          description:
+            `Скинуто пароль користувача «${user.login || "Без імені"
+            }».`,
+          targetId: user.id,
+          targetName: user.login || "Без імені",
+        });
+      } catch (logError) {
+        console.error(
+          "Помилка запису журналу:",
+          logError
+        );
+      }
+
+      Toast.fire({
+        icon:
+          data.sessionsRevoked === false
+            ? "warning"
+            : "success",
+        title:
+          data.sessionsRevoked === false
+            ? "Пароль змінено, але сесії не відкликано"
+            : "Пароль успішно змінено",
+        timer: 3500,
+      });
+
+    } catch (error) {
+      console.error("Помилка скидання пароля:", error);
+
+      setPasswordResetError(
+        error.message || "Не вдалося змінити пароль."
+      );
+
+    } finally {
+      setResettingPasswordId(null);
+    }
+  };
+
+
+
+
   /*
    * Блокування /
    * розблокування
@@ -901,104 +830,133 @@ const AdminUsers = () => {
       }
     };
 
-  /*
-   * Видалення користувача
-   * + ВСІХ його оголошень.
-   */
-  
-const handleDelete = async (user) => {
-  const result = await Swal.fire({
-    icon: "warning",
-    title: "Видалити користувача?",
-    html: `
+
+
+  const handleDelete = async (user) => {
+    if (deletingId) return;
+
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Повністю видалити користувача?",
+      html: `
       <div style="line-height:1.7;color:#64748b">
         <p>
           Користувача
           <strong style="color:#0f172a">
             ${escapeHtml(user.login || "Без імені")}
           </strong>
-          та його дані буде назавжди видалено.
+          буде видалено назавжди.
         </p>
+
         <p style="margin-top:12px">
-          Будуть очищені профіль, оголошення, перегляди,
-          обране, чати, повідомлення та відгуки.
+          Будуть видалені акаунт Firebase Authentication,
+          профіль, оголошення, фотографії,
+          чати, повідомлення, відгуки,
+          перегляди та записи обраного.
         </p>
+
         <p style="margin-top:12px;color:#dc2626;font-weight:600">
           Цю дію неможливо скасувати.
         </p>
       </div>
     `,
-    showCancelButton: true,
-    confirmButtonText: "Видалити дані",
-    cancelButtonText: "Скасувати",
-    confirmButtonColor: "#dc2626",
-    cancelButtonColor: "#64748b",
-    reverseButtons: true,
-  });
+      showCancelButton: true,
+      confirmButtonText: "Повністю видалити",
+      cancelButtonText: "Скасувати",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      reverseButtons: true,
+      focusCancel: true,
+    });
 
-  if (!result.isConfirmed) return;
+    if (!result.isConfirmed) return;
 
-  setDeletingId(user.id);
-
-  try {
-    const uid = user.id;
-
-    const reviews = await deleteUserReviews(uid);
-    const chatsCount = await deleteUserChats(uid);
-    const listingsCount = await deleteUserListings(uid);
-    const viewsCount = await deleteOwnListingViews(uid);
-    const favoritesCount = await removeUserFavorites(uid);
-
-    await deleteDoc(doc(db, "userPresence", uid));
-    await deleteDoc(doc(db, "publicProfiles", uid));
-    await deleteDoc(doc(db, "users", uid));
-
-    setStatisticsUser((current) =>
-      current?.id === uid ? null : current
-    );
+    setDeletingId(user.id);
 
     try {
-      await createAdminLog({
-        action: ADMIN_LOG_ACTIONS.USER_DELETED,
-        category: "users",
-        title: "Видалено дані користувача",
-        description:
-          `Видалено дані користувача «${user.login || "Без імені"}». ` +
-          `Оголошень: ${listingsCount}, ` +
-          `власних переглядів: ${viewsCount}, ` +
-          `записів обраного: ${favoritesCount}, ` +
-          `чатів: ${chatsCount}, ` +
-          `отриманих відгуків: ${reviews.received}, ` +
-          `залишених відгуків: ${reviews.written}.`,
-        targetId: uid,
-        targetName: user.login || "Без імені",
+      const currentAdmin = auth.currentUser;
+
+      if (!currentAdmin) {
+        throw new Error(
+          "Сесія завершена. Увійдіть повторно."
+        );
+      }
+
+      const idToken = await currentAdmin.getIdToken();
+
+      const response = await fetch(
+        "/.netlify/functions/delete-user",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            uid: user.id,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.success !== true) {
+        throw new Error(
+          data?.message ||
+          "Не вдалося повністю видалити користувача."
+        );
+      }
+
+      // Закриваємо відкриту модалку статистики.
+      setStatisticsUser((current) =>
+        current?.id === user.id ? null : current
+      );
+
+      // Помилка журналу не скасовує успішне видалення.
+      try {
+        await createAdminLog({
+          action: ADMIN_LOG_ACTIONS.USER_DELETED,
+          category: "users",
+          title: "Повністю видалено користувача",
+          description:
+            `Видалено користувача «${user.login || "Без імені"}» ` +
+            `з Firebase Authentication, Firestore та пов'язаних даних.`,
+          targetId: user.id,
+          targetName: user.login || "Без імені",
+        });
+      } catch (logError) {
+        console.error(
+          "Помилка запису адміністративного журналу:",
+          logError
+        );
+      }
+
+      await Toast.fire({
+        icon: "success",
+        title: "Користувача повністю видалено",
+        timer: 3000,
       });
-    } catch (logError) {
-      console.error("Помилка запису журналу:", logError);
+    } catch (error) {
+      console.error(
+        "Помилка повного видалення користувача:",
+        error
+      );
+
+      await Swal.fire({
+        icon: "error",
+        title: "Не вдалося завершити видалення",
+        text:
+          error?.message ||
+          "Перевірте логи Netlify.",
+        confirmButtonText: "Закрити",
+        confirmButtonColor: "#2563eb",
+      });
+    } finally {
+      setDeletingId(null);
     }
+  };
 
-    await Swal.fire({
-      toast: true,
-      position: "top-end",
-      icon: "success",
-      title: "Дані користувача видалено",
-      showConfirmButton: false,
-      timer: 2500,
-      timerProgressBar: true,
-    });
-  } catch (error) {
-    console.error("Помилка видалення користувача:", error);
 
-    await Swal.fire({
-      icon: "error",
-      title: "Не вдалося завершити видалення",
-      text: "Частину даних уже могло бути видалено. Перевірте Firestore та повторіть операцію.",
-      confirmButtonColor: "#2563eb",
-    });
-  } finally {
-    setDeletingId(null);
-  }
-};
 
 
   return (
@@ -1193,8 +1151,15 @@ const handleDelete = async (user) => {
         0 && (
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             {/* DESKTOP */}
-            <div className="hidden overflow-x-auto xl:block">
-              <table className="w-full">
+            <div className="hidden w-full xl:block">
+              <table className="w-full table-fixed">
+                <colgroup>
+                  <col style={{ width: "26%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "28%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "18%" }} />
+                </colgroup>
                 <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
                     <TableHeader>
@@ -1252,6 +1217,13 @@ const handleDelete = async (user) => {
                             user
                           )
                         }
+                        resettingPassword={
+                          resettingPasswordId === user.id
+                        }
+                        onResetPassword={() => {
+                          setPasswordResetError("");
+                          setPasswordUser(user);
+                        }}
                       />
                     )
                   )}
@@ -1260,7 +1232,7 @@ const handleDelete = async (user) => {
             </div>
 
             {/* MOBILE / TABLET */}
-            <div className="divide-y divide-slate-100 xl:hidden">
+            <div className="space-y-4 bg-[#f5f8ff] p-3 sm:p-5 xl:hidden">
               {filteredUsers.map(
                 (user) => (
                   <UserMobileCard
@@ -1289,6 +1261,13 @@ const handleDelete = async (user) => {
                         user
                       )
                     }
+                    resettingPassword={
+                      resettingPasswordId === user.id
+                    }
+                    onResetPassword={() => {
+                      setPasswordResetError("");
+                      setPasswordUser(user);
+                    }}
                   />
                 )
               )}
@@ -1309,6 +1288,24 @@ const handleDelete = async (user) => {
           }
         />
       )}
+
+      {/* Модалка скидання пароля */}
+      {passwordUser && (
+        <ResetPasswordModal
+          user={passwordUser}
+          loading={resettingPasswordId === passwordUser.id}
+          error={passwordResetError}
+          onClose={() => {
+            if (resettingPasswordId) return;
+
+            setPasswordUser(null);
+            setPasswordResetError("");
+          }}
+          onSubmit={(newPassword) =>
+            handleResetPassword(passwordUser, newPassword)
+          }
+        />
+      )}
     </div>
   );
 };
@@ -1320,8 +1317,10 @@ const UserRow = ({
   user,
   changingBlock,
   deleting,
+  resettingPassword,
   onStatistics,
   onToggleBlock,
+  onResetPassword,
   onDelete,
 }) => {
   return (
@@ -1334,17 +1333,46 @@ const UserRow = ({
           />
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 
               <Link
                 to={`/dashboard/users/${encodeURIComponent(user.id)}`}
-                className="font-black text-slate-900 transition-colors hover:text-blue-600 hover:underline hover:underline-offset-4 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="
+      font-black text-slate-900
+      transition-colors hover:text-blue-600
+      hover:underline hover:underline-offset-4
+    "
                 title={`Переглянути профіль: ${user.login || "Без імені"}`}
               >
                 {user.login || "Без імені"}
               </Link>
 
+              <span
+                className={`
+      inline-flex items-center gap-1.5
+      whitespace-nowrap text-xs font-semibold
+      ${user.online
+                    ? "text-emerald-600"
+                    : "text-slate-400"
+                  }
+    `}
+              >
+                <span
+                  className={`
+        h-2 w-2 shrink-0 rounded-full
+        ${user.online
+                      ? "bg-emerald-500"
+                      : "bg-slate-400"
+                    }
+      `}
+                />
+
+                {user.online ? "На платформі" : "Не в мережі"}
+              </span>
+
             </div>
+
 
             <p className="mt-1 text-xs text-slate-400">
               {formatDate(
@@ -1354,13 +1382,17 @@ const UserRow = ({
           </div>
         </div>
       </td>
-
       {/* Контакт */}
-      <td className="px-6 py-5">
-        <p className="max-w-[220px] break-all text-sm font-bold text-blue-600">
-          {user.email ||
-            user.phone ||
-            "Не вказано"}
+      <td className="min-w-0 px-3 py-5">
+        <p
+          className="
+      w-full overflow-hidden text-ellipsis
+      whitespace-nowrap
+      text-xs font-bold text-blue-600
+    "
+          title={user.email || user.phone || "Не вказано"}
+        >
+          {user.email || user.phone || "Не вказано"}
         </p>
       </td>
 
@@ -1376,6 +1408,7 @@ const UserRow = ({
         <UserStatus
           blocked={user.blocked}
           online={user.online}
+          showPresence={false}
         />
       </td>
 
@@ -1399,7 +1432,11 @@ const UserRow = ({
               onToggleBlock
             }
           />
-
+          <ResetPasswordButton
+            loading={resettingPassword}
+            disabled={deleting || changingBlock}
+            onClick={onResetPassword}
+          />
           <DeleteButton
             loading={deleting}
             onClick={onDelete}
@@ -1418,12 +1455,37 @@ const UserMobileCard = ({
   user,
   changingBlock,
   deleting,
+  resettingPassword,
   onStatistics,
   onToggleBlock,
+  onResetPassword,
   onDelete,
 }) => {
   return (
-    <article className="p-4 sm:p-5">
+    <article
+      className="
+    relative overflow-hidden
+    rounded-2xl
+    border border-slate-200
+    bg-white
+    p-4 sm:p-5
+    shadow-sm
+    transition-all duration-200
+    hover:border-blue-200
+    hover:shadow-md
+  "
+    >
+      <div
+        className={`
+    absolute inset-x-0 top-0 h-[3px]
+    ${user.blocked
+            ? "bg-red-400"
+            : user.online
+              ? "bg-emerald-400"
+              : "bg-blue-500"
+          }
+  `}
+      />
       <div className="flex items-start gap-3">
         <UserAvatar name={user.login} />
 
@@ -1486,7 +1548,7 @@ const UserMobileCard = ({
         <ListingsStats user={user} mobile />
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <button
           type="button"
           onClick={onStatistics}
@@ -1501,11 +1563,10 @@ const UserMobileCard = ({
           type="button"
           onClick={onToggleBlock}
           disabled={changingBlock || deleting}
-          className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-semibold transition disabled:opacity-50 ${
-            user.blocked
-              ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-              : "border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100"
-          }`}
+          className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-semibold transition disabled:opacity-50 ${user.blocked
+            ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            : "border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            }`}
         >
           {changingBlock ? (
             <Spinner />
@@ -1519,7 +1580,31 @@ const UserMobileCard = ({
             {user.blocked ? "Розблок." : "Блокувати"}
           </span>
         </button>
-
+        <button
+          type="button"
+          onClick={onResetPassword}
+          disabled={
+            resettingPassword ||
+            deleting ||
+            changingBlock
+          }
+          className="
+    flex min-h-11 items-center justify-center
+    gap-1.5 rounded-xl border
+    border-slate-200 bg-slate-50
+    px-2 text-xs font-semibold
+    text-slate-700 transition
+    hover:bg-blue-50 hover:text-blue-700
+    disabled:opacity-50
+  "
+        >
+          {resettingPassword ? (
+            <Spinner />
+          ) : (
+            <Settings size={17} />
+          )}
+          <span>Пароль</span>
+        </button>
         <button
           type="button"
           onClick={onDelete}
@@ -1623,33 +1708,57 @@ const ListingCount = ({
  * Статус користувача
  */
 
-const UserStatus = ({ blocked, online }) => (
+const UserStatus = ({
+  blocked,
+  online,
+  showPresence = true,
+}) => (
   <div className="flex flex-col items-start gap-1.5">
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${blocked
+      className={`
+        inline-flex items-center gap-1.5
+        rounded-full border px-3 py-1
+        text-xs font-bold
+        ${blocked
           ? "border-red-100 bg-red-50 text-red-700"
           : "border-blue-100 bg-blue-50 text-blue-700"
-        }`}
+        }
+      `}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${blocked ? "bg-red-500" : "bg-blue-500"
-          }`}
+        className={`
+          h-1.5 w-1.5 rounded-full
+          ${blocked ? "bg-red-500" : "bg-blue-500"}
+        `}
       />
+
       {blocked ? "Заблокований" : "Активний"}
     </span>
 
-    <span
-      className={`inline-flex items-center gap-1.5 px-1 text-[11px] font-semibold ${online ? "text-emerald-600" : "text-red-500"
-        }`}
-    >
+    {showPresence && (
       <span
-        className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-500" : "bg-red-400"
-          }`}
-      />
-      {online ? "На платформі" : "Не в мережі"}
-    </span>
+        className={`
+          inline-flex items-center gap-1.5 px-1
+          text-[11px] font-semibold
+          ${online
+            ? "text-emerald-600"
+            : "text-red-500"
+          }
+        `}
+      >
+        <span
+          className={`
+            h-1.5 w-1.5 rounded-full
+            ${online ? "bg-emerald-500" : "bg-red-400"}
+          `}
+        />
+
+        {online ? "На платформі" : "Не в мережі"}
+      </span>
+    )}
   </div>
 );
+
 
 
 /*
@@ -1696,7 +1805,35 @@ const BlockButton = ({
     )}
   </button>
 );
-
+const ResetPasswordButton = ({
+  loading,
+  disabled,
+  onClick,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={loading || disabled}
+    className="
+      flex h-10 w-10 items-center justify-center
+      rounded-xl border border-slate-200
+      bg-slate-50 text-slate-600
+      transition
+      hover:border-blue-200
+      hover:bg-blue-50 hover:text-blue-600
+      disabled:cursor-not-allowed
+      disabled:opacity-50
+    "
+    title="Скинути пароль"
+    aria-label="Скинути пароль користувача"
+  >
+    {loading ? (
+      <Spinner />
+    ) : (
+      <Settings size={19} strokeWidth={2} />
+    )}
+  </button>
+);
 const DeleteButton = ({
   loading,
   onClick,

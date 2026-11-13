@@ -27,7 +27,6 @@ import {
 import Swal from "sweetalert2";
 
 import { db } from "../../firebase";
-
 const COLLECTION_NAME = "fundraisers";
 
 const initialForm = {

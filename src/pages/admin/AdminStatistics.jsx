@@ -5,7 +5,6 @@ import {
   collectionGroup,
   getAggregateFromServer,
   getCountFromServer,
-  getDocs,
   query,
   where,
   Timestamp,
@@ -64,7 +63,36 @@ const STATUS_COLORS = {
   expired: "#64748b",
   other: "#94a3b8",
 };
+const STATS_CACHE_TTL = 5 * 60 * 1000;
 
+let statisticsCache = null;
+
+const getStatisticsCache = () => {
+  if (
+    statisticsCache &&
+    Date.now() - statisticsCache.savedAt < STATS_CACHE_TTL
+  ) {
+    return statisticsCache;
+  }
+
+  return null;
+};
+const CATEGORY_FILTERS = [
+  { name: "Продаж", values: ["Продаж"] },
+  { name: "Купівля", values: ["Купівля"] },
+  { name: "Оренда", values: ["Оренда"] },
+  { name: "Послуга", values: ["Послуга", "Послуги"] },
+  { name: "Робота", values: ["Робота"] },
+  { name: "Питання", values: ["Питання"] },
+  { name: "Обмін", values: ["Обмін"] },
+  { name: "Віддам безкоштовно", values: ["Віддам безкоштовно"] },
+  {
+    name: "Загублено / знайдено",
+    values: ["Загублено / знайдено", "Загублено/знайдено"],
+  },
+  { name: "Подія", values: ["Подія"] },
+  { name: "Оголошення громади", values: ["Оголошення громади"] },
+];
 const formatNumber = (value) =>
   Number(value || 0).toLocaleString("uk-UA");
 
@@ -80,53 +108,6 @@ const formatShortDate = (date) =>
     month: "2-digit",
   }).format(date);
 
-const getListingCategory = (listing) => {
-  const raw = listing.type || listing.category;
-
-  if (typeof raw === "string" && raw.trim()) {
-    return raw.trim();
-  }
-
-  if (raw && typeof raw === "object") {
-    const name =
-      raw.name ||
-      raw.label ||
-      raw.value ||
-      raw.title;
-
-    if (typeof name === "string" && name.trim()) {
-      return name.trim();
-    }
-  }
-
-  return "Інше";
-};
-
-const normalizeCategory = (name) => {
-  const normalized = name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-
-  const categories = {
-    "продаж": "Продаж",
-    "купівля": "Купівля",
-    "оренда": "Оренда",
-    "послуга": "Послуга",
-    "послуги": "Послуга",
-    "робота": "Робота",
-    "питання": "Питання",
-    "обмін": "Обмін",
-    "віддам безкоштовно": "Віддам безкоштовно",
-    "загублено / знайдено": "Загублено / знайдено",
-    "загублено/знайдено": "Загублено / знайдено",
-    "подія": "Подія",
-    "оголошення громади": "Оголошення громади",
-    "інше": "Інше",
-  };
-
-  return categories[normalized] || name.trim();
-};
 
 const StatisticCard = ({
   title,
@@ -195,11 +176,19 @@ const EmptyChart = ({ message = "Недостатньо даних" }) => (
 );
 
 export default function AdminStatistics() {
-  const [stats, setStats] = useState(null);
-  const [daily, setDaily] = useState([]);
+  const [stats, setStats] = useState(
+    () => getStatisticsCache()?.stats ?? null
+  );
+
+  const [daily, setDaily] = useState(
+    () => getStatisticsCache()?.daily ?? []
+  );
+
   const [categories, setCategories] = useState(null);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => !getStatisticsCache()
+  );
   const [loadingCategories, setLoadingCategories] = useState(false);
 
   const [error, setError] = useState("");
@@ -369,13 +358,13 @@ export default function AdminStatistics() {
       const other = Math.max(
         0,
         listingCount -
-          approvedCount -
-          pendingCount -
-          cancelledCount -
-          explicitlyExpiredCount
+        approvedCount -
+        pendingCount -
+        cancelledCount -
+        explicitlyExpiredCount
       );
 
-      setStats({
+      const nextStats = {
         users: userCount,
         blocked: blockedCount,
         listings: listingCount,
@@ -393,7 +382,21 @@ export default function AdminStatistics() {
             ? totalRating / reviewCount
             : null,
         reviewError: Boolean(reviewResult.error),
-      });
+      };
+
+      const nextDaily = lastDays.map((day, index) => ({
+        name: day.name,
+        count: dayResults[index],
+      }));
+
+      statisticsCache = {
+        stats: nextStats,
+        daily: nextDaily,
+        savedAt: Date.now(),
+      };
+
+      setStats(nextStats);
+      setDaily(nextDaily);
 
       setDaily(
         lastDays.map((day, index) => ({
@@ -416,7 +419,9 @@ export default function AdminStatistics() {
   }, []);
 
   useEffect(() => {
-    loadStatistics();
+    if (!getStatisticsCache()) {
+      loadStatistics();
+    }
   }, [loadStatistics]);
 
   const loadCategories = useCallback(async () => {
@@ -426,37 +431,54 @@ export default function AdminStatistics() {
     setCategoriesError("");
 
     try {
-      const snapshot = await getDocs(
-        collection(db, "listings")
+
+
+      const listingsRef = collection(db, "listings");
+
+      const [totalResult, ...countResults] = await Promise.all([
+        getCountFromServer(listingsRef),
+
+        ...CATEGORY_FILTERS.map(({ values }) =>
+          getCountFromServer(
+            query(
+              listingsRef,
+              values.length > 1
+                ? where("type", "in", values)
+                : where("type", "==", values[0])
+            )
+          )
+        ),
+      ]);
+
+      const results = CATEGORY_FILTERS.map((category, index) => ({
+        name: category.name,
+        value: countResults[index].data().count,
+      }));
+
+      const counted = results.reduce(
+        (sum, item) => sum + item.value,
+        0
       );
 
-      const counts = new Map();
+      const other = Math.max(
+        0,
+        totalResult.data().count - counted
+      );
 
-      snapshot.forEach((documentSnapshot) => {
-        const listing = documentSnapshot.data();
+      if (other > 0) {
+        results.push({
+          name: "Інше",
+          value: other,
+        });
+      }
 
-        const category = normalizeCategory(
-          getListingCategory(listing)
-        );
+      results.sort((a, b) => b.value - a.value);
 
-        counts.set(
-          category,
-          (counts.get(category) || 0) + 1
-        );
-      });
+      setCategories(
+        results.filter((item) => item.value > 0)
+      );
 
-      const results = Array.from(
-        counts.entries()
-      )
-        .map(([name, value]) => ({
-          name,
-          value,
-        }))
-        .sort(
-          (a, b) => b.value - a.value
-        );
 
-      setCategories(results);
     } catch (err) {
       console.error(
         "Помилка завантаження категорій:",
@@ -543,8 +565,14 @@ export default function AdminStatistics() {
 
         <button
           type="button"
-          onClick={loadStatistics}
-          disabled={loading}
+          onClick={() => {
+            loadStatistics();
+
+            if (categories !== null) {
+              loadCategories();
+            }
+          }}
+          disabled={loading || loadingCategories}
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50"
         >
           <RefreshCw
@@ -890,7 +918,7 @@ export default function AdminStatistics() {
                             key={item.name}
                             fill={
                               TYPE_COLORS[
-                                index % TYPE_COLORS.length
+                              index % TYPE_COLORS.length
                               ]
                             }
                           />

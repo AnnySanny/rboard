@@ -13,7 +13,7 @@ import {
 
 import Swal from "sweetalert2";
 
-import { auth, db } from "../firebase";
+import { auth, db } from "../../firebase";
 
 export default function AdminLogin() {
   const navigate = useNavigate();

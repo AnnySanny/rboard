@@ -24,21 +24,21 @@ import {
     onAuthStateChanged,
 } from "firebase/auth";
 
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
-import SearchFilters from "../components/SearchFilters";
-import ListingsSection from "../components/listings/ListingsSection";
-import AddListingButton from "../components/listings/AddListingButton";
-import ListingDetailsModal from "../components/listings/ListingDetailsModal";
-import { mapListingDocument } from "../utils/listingMapper";
-import ListingReels from "../components/listings/ListingReels";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
+import SearchFilters from "../../components/ui/SearchFilters";
+import ListingsSection from "../../components/listings/ListingsSection";
+import AddListingButton from "../../components/listings/AddListingButton";
+import ListingDetailsModal from "../../components/listings/ListingDetailsModal";
+import { mapListingDocument } from "../../utils/listingMapper";
+import ListingReels from "../../components/listings/ListingReels";
 import {
     normalizeSearchText,
-} from "../utils/listingSearch";
+} from "../../utils/listingSearch";
 import {
     auth,
     db,
-} from "../firebase";
+} from "../../firebase";
 
 
 const searchPhrases = [
@@ -183,6 +183,11 @@ const Home = () => {
     } = useParams();
     const [currentUser, setCurrentUser] =
         useState(null);
+    const [canSeeFavorites, setCanSeeFavorites] =
+        useState(false);
+
+    const [favoritesRoleLoading, setFavoritesRoleLoading] =
+        useState(true);
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] =
         useState("");
@@ -205,17 +210,75 @@ const Home = () => {
     const searchBufferRef = useRef([]);
     const searchCursorRef = useRef(null);
     const searchHasMoreRef = useRef(true);
-    useEffect(() => {
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                (user) => {
-                    setCurrentUser(user);
-                }
-            );
 
-        return unsubscribe;
+    useEffect(() => {
+        let cancelled = false;
+        let requestId = 0;
+
+        const unsubscribe = onAuthStateChanged(
+            auth,
+            async (user) => {
+                const currentRequest = ++requestId;
+
+                setCurrentUser(user);
+                setCanSeeFavorites(false);
+                setFavoritesRoleLoading(true);
+
+                // Гість
+                if (!user) {
+                    setFavoritesRoleLoading(false);
+                    return;
+                }
+
+                try {
+                    const userSnapshot = await getDoc(
+                        doc(db, "users", user.uid)
+                    );
+
+                    if (
+                        cancelled ||
+                        currentRequest !== requestId
+                    ) {
+                        return;
+                    }
+
+                    const userData = userSnapshot.data();
+
+                    setCanSeeFavorites(
+                        userSnapshot.exists() &&
+                        userData?.role === "user" &&
+                        userData?.blocked !== true
+                    );
+                } catch (error) {
+                    console.error(
+                        "Помилка перевірки ролі користувача:",
+                        error
+                    );
+
+                    if (
+                        !cancelled &&
+                        currentRequest === requestId
+                    ) {
+                        setCanSeeFavorites(false);
+                    }
+                } finally {
+                    if (
+                        !cancelled &&
+                        currentRequest === requestId
+                    ) {
+                        setFavoritesRoleLoading(false);
+                    }
+                }
+            }
+        );
+
+        return () => {
+            cancelled = true;
+            requestId++;
+            unsubscribe();
+        };
     }, []);
+
     useEffect(() => {
         let phraseIndex = 0;
         let charIndex = 0;
@@ -835,7 +898,8 @@ const Home = () => {
         }
     };
 
-
+    const listingsUserId =
+        activeCategory === "Обрані" ? currentUser?.uid : null;
     useEffect(() => {
         requestVersionRef.current += 1;
 
@@ -853,7 +917,7 @@ const Home = () => {
     }, [
         activeCategory,
         sortOrder,
-        currentUser?.uid,
+        listingsUserId,
         debouncedSearch,
     ]);
 
@@ -1232,6 +1296,8 @@ const Home = () => {
                         setSortOrder={setSortOrder}
                         viewMode={viewMode}
                         setViewMode={setViewMode}
+                        canSeeFavorites={canSeeFavorites}
+                        favoritesRoleLoading={favoritesRoleLoading}
                         onOpenReels={() => {
                             if (!loading && !loadError && listings.length > 0) {
                                 setIsReelsOpen(true);
@@ -1272,6 +1338,7 @@ const Home = () => {
                                 listings={listings}
                                 viewMode={viewMode}
                                 onListingClick={openListing}
+                                canSeeFavorites={canSeeFavorites}
                             />
 
                             {hasMoreListings && !loading && (

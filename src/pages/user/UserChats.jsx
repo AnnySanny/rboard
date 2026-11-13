@@ -12,13 +12,15 @@ import {
 import {
     LoaderCircle,
     AlertCircle,
+    House,
+    MessagesSquare,
 } from "lucide-react";
 import Swal from "sweetalert2";
 
 import { auth, db } from "../../firebase";
 
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 
 import ChatSidebar from "../../components/chats/ChatSidebar";
 import ChatWindow from "../../components/chats/ChatWindow";
@@ -508,6 +510,40 @@ export default function UserChats() {
 
         let active = true;
 
+
+        // Кеш профілів та оголошень на 5 хвилин
+        const cache = new Map();
+
+        const getCachedDoc = (collectionName, id) => {
+            const key = `${collectionName}:${id}`;
+            const cached = cache.get(key);
+
+            if (
+                cached &&
+                Date.now() < cached.expiresAt
+            ) {
+                return cached.promise;
+            }
+
+            const promise = getDoc(
+                doc(db, collectionName, id)
+            );
+
+            cache.set(key, {
+                promise,
+                expiresAt: Date.now() + 5 * 60 * 1000,
+            });
+
+            // Не кешуємо помилки Firestore
+            promise.catch(() => {
+                if (cache.get(key)?.promise === promise) {
+                    cache.delete(key);
+                }
+            });
+
+            return promise;
+        };
+
         setLoadingChats(true);
         setError("");
 
@@ -530,7 +566,7 @@ export default function UserChats() {
 
                                 if (otherUid) {
                                     requests.push(
-                                        getDoc(doc(db, "publicProfiles", otherUid))
+                                        getCachedDoc("publicProfiles", otherUid)
                                     );
                                 } else {
                                     requests.push(Promise.resolve(null));
@@ -538,7 +574,7 @@ export default function UserChats() {
 
                                 if (chat.listingId) {
                                     requests.push(
-                                        getDoc(doc(db, "listings", chat.listingId))
+                                        getCachedDoc("listings", chat.listingId)
                                     );
                                 } else {
                                     requests.push(Promise.resolve(null));
@@ -1084,13 +1120,56 @@ export default function UserChats() {
                 rememberChoice = confirmation.remember;
             }
 
-            await sendChatMessage({
+
+            const sentMessage = await sendChatMessage({
                 listingId: chat.listing.id,
                 recipientUid: chat.otherUser.uid,
                 senderUid: currentUser.uid,
                 text,
                 replyTo,
             });
+
+            // Telegram-сповіщення після успішного запису в Firestore
+            try {
+                const idToken = await currentUser.getIdToken();
+
+                const response = await fetch(
+                    "/.netlify/functions/notify-chat-message",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${idToken}`,
+                        },
+                        body: JSON.stringify({
+                            chatId: sentMessage.chatId,
+                            messageId: sentMessage.messageId,
+                        }),
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `Telegram notification HTTP ${response.status}`
+                    );
+                }
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(
+                        result.error || "Помилка Telegram-сповіщення"
+                    );
+                }
+            } catch (notificationError) {
+                // Повідомлення у Firestore вже успішно збережене.
+                // Помилка Telegram не повинна заважати роботі чату.
+                console.warn(
+                    "Telegram-сповіщення не надіслано:",
+                    notificationError
+                );
+            }
+
 
             if (rememberChoice) {
                 localStorage.setItem(safetyKey, "true");
@@ -1237,9 +1316,56 @@ export default function UserChats() {
 
 
                     {currentUser === null && (
-                        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                            Для використання чатів потрібно увійти
-                            до свого облікового запису RBoard.
+                        <div
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="chat-auth-title"
+                            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-md"
+                        >
+                            <div className="w-full max-w-sm rounded-3xl bg-white p-7 text-center shadow-2xl sm:p-9">
+
+                                {/* Іконка */}
+                                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-50 text-blue-600">
+                                    <MessagesSquare
+                                        size={38}
+                                        strokeWidth={1.8}
+                                    />
+                                </div>
+
+                                {/* Заголовок */}
+                                <h2
+                                    id="chat-auth-title"
+                                    className="mt-6 text-2xl font-black text-slate-900"
+                                >
+                                    Йой, ви ще не увійшли!
+                                </h2>
+
+                                {/* Опис */}
+                                <p className="mt-3 text-sm leading-6 text-slate-500">
+                                    Схоже, ви ще не увійшли до свого
+                                    облікового запису RBoard.
+                                    Щоб користуватися чатами та спілкуватися
+                                    з авторами оголошень, перейдіть
+                                    на головну сторінку й увійдіть у свій профіль.
+                                </p>
+
+                                {/* Кнопка */}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/")}
+                                    className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700"
+                                >
+                                    <House size={18} />
+                                    На головну
+                                </button>
+
+                                {/* Підказка */}
+                                <p className="mt-5 text-xs leading-5 text-slate-400">
+                                    Після входу ви зможете переглядати
+                                    повідомлення та починати нові розмови.
+                                </p>
+
+                            </div>
                         </div>
                     )}
 

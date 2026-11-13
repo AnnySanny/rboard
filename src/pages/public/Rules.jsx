@@ -1,5 +1,5 @@
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 
 const Rules = () => {
     const allowedItems = [

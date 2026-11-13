@@ -1,5 +1,10 @@
 
-import { useEffect, useState } from "react";
+import {
+    lazy,
+    Suspense,
+    useEffect,
+    useState,
+} from "react";
 import { NavLink } from "react-router-dom";
 import {
     collection,
@@ -36,7 +41,9 @@ import {
     saveSocialStats,
     getLocalDayKey,
 } from "../../utils/socialStats";
-
+const GoogleAnalyticsStats = lazy(() =>
+    import("../../components/admin/GoogleAnalyticsStats")
+);
 const getStartOfToday = () => {
     const now = new Date();
 
@@ -74,7 +81,8 @@ const formatTime = (date) =>
 
 const Dashboard = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
-
+    const [showGoogleAnalytics, setShowGoogleAnalytics] =
+        useState(false);
     const [statistics, setStatistics] = useState({
         listings: 0,
         newListings: 0,
@@ -742,6 +750,56 @@ const Dashboard = () => {
 
             <div>
                 <div className="mb-5">
+
+                    {/* GOOGLE ANALYTICS */}
+
+                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                    <BarChart3 size={23} />
+                                </div>
+
+                                <div>
+                                    <h2 className="text-lg font-black text-slate-950">
+                                        Google Analytics
+                                    </h2>
+
+                                    <p className="mt-1 text-sm text-slate-500">
+                                        Відвідувачі, перегляди та активність RBoard.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowGoogleAnalytics((previous) => !previous)
+                                }
+                                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+                            >
+                                {showGoogleAnalytics
+                                    ? "Приховати аналітику"
+                                    : "Відкрити аналітику"}
+                            </button>
+                        </div>
+
+                        {showGoogleAnalytics && (
+                            <Suspense
+                                fallback={
+                                    <div className="flex justify-center py-8">
+                                        <Loader2
+                                            size={25}
+                                            className="animate-spin text-blue-600"
+                                        />
+                                    </div>
+                                }
+                            >
+                                <GoogleAnalyticsStats />
+                            </Suspense>
+                        )}
+                    </div>
+
                     <h2 className="text-xl font-black text-slate-950">
                         Керування сервісом
                     </h2>

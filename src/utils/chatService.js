@@ -277,7 +277,10 @@ export const sendChatMessage = async ({
         transaction.set(messageRef, messageData);
     });
 
-    return chatId;
+    return {
+    chatId,
+    messageId: messageRef.id,
+};
 };
 
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth } from "../../firebase";
 const Footer = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);

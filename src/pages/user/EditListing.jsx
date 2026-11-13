@@ -10,8 +10,8 @@ import {
 import {
     onAuthStateChanged,
 } from "firebase/auth";
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 import EditListingForm from "../../components/listings/EditListingForm";
 import {
     auth,

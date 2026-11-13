@@ -7,9 +7,9 @@ import {
 } from "firebase/firestore";
 import Swal from "sweetalert2";
 import { useLocation } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
-import { db } from "../firebase";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
+import { auth, db } from "../../firebase";
 const MAX_FEEDBACK_PER_DAY = 3;
 const FEEDBACK_LIMIT_HOURS = 24;
 
@@ -101,8 +101,11 @@ const Contacts = () => {
     setSubmitting(true);
 
     try {
-      const visitorId =
-        getVisitorId();
+      const visitorId = getVisitorId();
+
+      const currentUser = auth.currentUser;
+
+      const userUid = currentUser?.uid || null;
 
       const limitRef = doc(
         db,
@@ -198,10 +201,13 @@ const Contacts = () => {
 
               status: "new",
 
+              // Ідентифікація відправника
+              userUid,
+              senderType: userUid ? "user" : "guest",
+
               visitorId,
 
-              createdAt:
-                serverTimestamp(),
+              createdAt: serverTimestamp(),
             }
           );
 

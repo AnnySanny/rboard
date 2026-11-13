@@ -1,6 +1,6 @@
 
 import FavoriteButton from "./FavoriteButton";
-
+import { Link } from "react-router-dom";
 const formatDate = (date) => {
   if (!date) {
     return "Дата не вказана";
@@ -26,36 +26,20 @@ const ListingCard = ({
   viewMode = "grid",
   onClick,
   compact = false,
+  canSeeFavorites = false,
 }) => {
   const isList = !compact && viewMode === "list";
 
-  const handleKeyDown = (event) => {
-    if (event.target !== event.currentTarget) {
-      return;
-    }
 
-    if (
-      event.key === "Enter" ||
-      event.key === " "
-    ) {
-      event.preventDefault();
-      onClick?.();
-    }
-  };
 
   return (
     <article
-      className={`group relative h-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm outline-none transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg focus-visible:ring-4 focus-visible:ring-blue-100 ${compact
+      className={`group relative h-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg ${compact
         ? "min-h-[185px] p-3 sm:min-h-[195px] sm:p-4"
         : isList
           ? "min-h-[180px] p-5 sm:flex sm:items-center sm:justify-between sm:p-6"
           : "min-h-[230px] p-5"
         }`}
-      onClick={onClick}
-      onKeyDown={handleKeyDown}
-      role="button"
-      tabIndex={0}
-      aria-label={`Відкрити оголошення: ${listing.title}`}
     >
       {/* Декоративний фон */}
       <div
@@ -64,8 +48,29 @@ const ListingCard = ({
           : "h-24 w-24"
           }`}
       />
+      {/* SEO-посилання на оголошення */}
+      <Link
+        to={`/listing/${listing.id}`}
+        aria-label={`Відкрити оголошення: ${listing.title}`}
+        className="absolute inset-0 z-10 rounded-2xl focus-visible:outline focus-visible:outline-4 focus-visible:outline-blue-500"
+        onClick={(event) => {
+          if (!onClick) return;
 
-      <div className="relative z-10 flex h-full min-w-0 flex-1 flex-col">
+          if (
+            event.button !== 0 ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            event.altKey
+          ) {
+            return;
+          }
+
+          event.preventDefault();
+          onClick();
+        }}
+      />
+      <div className="relative flex h-full min-w-0 flex-1 flex-col">
 
         {/* Категорія, дата, перегляди */}
 
@@ -73,7 +78,7 @@ const ListingCard = ({
         <div
           className={`flex ${compact
             ? "flex-col items-start gap-1.5"
-            : "flex-row flex-wrap items-center gap-2"
+            : "flex-col items-start gap-2 min-[400px]:flex-row min-[400px]:flex-wrap min-[400px]:items-center"
             }`}
         >
           {/* Категорія */}
@@ -92,9 +97,9 @@ const ListingCard = ({
 
           {/* Дата та перегляди */}
           <div
-            className={`flex flex-wrap items-center ${compact
-              ? "gap-x-2 gap-y-1"
-              : "contents"
+            className={`flex items-center gap-x-3 gap-y-1 ${compact
+              ? "flex-wrap"
+              : "flex-nowrap min-[400px]:contents"
               }`}
           >
             {/* Дата */}
@@ -249,18 +254,21 @@ const ListingCard = ({
           </span>
         </div>
 
-        {/* Обране */}
-        <div
-          className={
-            isList
-              ? "absolute right-[-20px] top-[55px] z-20 origin-center scale-150"
-              : ""
-          }
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
-        >
-          <FavoriteButton listing={listing} />
-        </div>
+        {/* Обране — тільки для звичайних користувачів */}
+        {canSeeFavorites && (
+          <div
+            className={
+              isList
+                ? "absolute right-[-20px] top-[55px] z-20 origin-center scale-150"
+                : "relative z-20"
+            }
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            <FavoriteButton listing={listing} />
+          </div>
+        )}
+
       </div>
     </article>
   );

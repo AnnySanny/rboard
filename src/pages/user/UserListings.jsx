@@ -13,8 +13,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import UserListingsStatistics from "../../components/listings/UserListingsStatistics";
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
+import Navbar from "../../components/pageComponent/Navbar";
+import Footer from "../../components/pageComponent/Footer";
 import {
     auth,
     db,
@@ -58,7 +58,8 @@ const STATUS_OPTIONS = [
     },
 ];
 
-const formatDate = (value) => {
+
+const formatDate = (value, compact = false) => {
     if (!value) {
         return "Дата не вказана";
     }
@@ -73,6 +74,14 @@ const formatDate = (value) => {
         return "Дата не вказана";
     }
 
+    if (compact) {
+        return date.toLocaleDateString("uk-UA", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        });
+    }
+
     return date.toLocaleString("uk-UA", {
         day: "2-digit",
         month: "long",
@@ -81,6 +90,7 @@ const formatDate = (value) => {
         minute: "2-digit",
     });
 };
+
 
 const getStatusData = (status) => {
     switch (status) {
@@ -319,6 +329,8 @@ const UserListings = () => {
         useState("newest");
 
     const [deletingId, setDeletingId] =
+        useState(null);
+    const [expandedDescriptionId, setExpandedDescriptionId] =
         useState(null);
     const [
         showStatistics,
@@ -617,106 +629,106 @@ const UserListings = () => {
         );
     };
 
-const handleDelete = async (listing) => {
-    const result = await Swal.fire({
-        icon: "warning",
-        title: "Видалити оголошення?",
-        html: `
+    const handleDelete = async (listing) => {
+        const result = await Swal.fire({
+            icon: "warning",
+            title: "Видалити оголошення?",
+            html: `
             <div style="margin-top:8px">
                 Оголошення
                 <strong>«${listing.title || "Без назви"}»</strong>
                 буде назавжди видалено.
             </div>
         `,
-        showCancelButton: true,
-        confirmButtonText: "Видалити",
-        cancelButtonText: "Скасувати",
-        confirmButtonColor: "#dc2626",
-        cancelButtonColor: "#64748b",
-        reverseButtons: true,
-        focusCancel: true,
-    });
+            showCancelButton: true,
+            confirmButtonText: "Видалити",
+            cancelButtonText: "Скасувати",
+            confirmButtonColor: "#dc2626",
+            cancelButtonColor: "#64748b",
+            reverseButtons: true,
+            focusCancel: true,
+        });
 
-    if (!result.isConfirmed) {
-        return;
-    }
-
-    setDeletingId(listing.id);
-
-    try {
-        const currentUser = auth.currentUser;
-
-        if (!currentUser) {
-            throw new Error(
-                "Необхідна авторизація."
-            );
+        if (!result.isConfirmed) {
+            return;
         }
 
-        const idToken =
-            await currentUser.getIdToken();
-
-        const response = await fetch(
-            "/.netlify/functions/delete-listing",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type":
-                        "application/json",
-                    Authorization:
-                        `Bearer ${idToken}`,
-                },
-                body: JSON.stringify({
-                    listingId: listing.id,
-                }),
-            }
-        );
-
-        let responseData = null;
+        setDeletingId(listing.id);
 
         try {
-            responseData =
-                await response.json();
-        } catch {
-            responseData = null;
-        }
+            const currentUser = auth.currentUser;
 
-        if (!response.ok) {
-            throw new Error(
-                responseData?.message ||
-                    "Не вдалося видалити оголошення."
+            if (!currentUser) {
+                throw new Error(
+                    "Необхідна авторизація."
+                );
+            }
+
+            const idToken =
+                await currentUser.getIdToken();
+
+            const response = await fetch(
+                "/.netlify/functions/delete-listing",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                        Authorization:
+                            `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({
+                        listingId: listing.id,
+                    }),
+                }
             );
+
+            let responseData = null;
+
+            try {
+                responseData =
+                    await response.json();
+            } catch {
+                responseData = null;
+            }
+
+            if (!response.ok) {
+                throw new Error(
+                    responseData?.message ||
+                    "Не вдалося видалити оголошення."
+                );
+            }
+
+            await Swal.fire({
+                toast: true,
+                position: "top-end",
+                icon: "success",
+                title: "Оголошення видалено",
+                showConfirmButton: false,
+                timer: 2500,
+                timerProgressBar: true,
+            });
+        } catch (error) {
+            console.error(
+                "Помилка видалення оголошення:",
+                error
+            );
+
+            await Swal.fire({
+                toast: true,
+                position: "top-end",
+                icon: "error",
+                title:
+                    error?.message ||
+                    "Не вдалося видалити оголошення",
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+            });
+        } finally {
+            setDeletingId(null);
         }
-
-        await Swal.fire({
-            toast: true,
-            position: "top-end",
-            icon: "success",
-            title: "Оголошення видалено",
-            showConfirmButton: false,
-            timer: 2500,
-            timerProgressBar: true,
-        });
-    } catch (error) {
-        console.error(
-            "Помилка видалення оголошення:",
-            error
-        );
-
-        await Swal.fire({
-            toast: true,
-            position: "top-end",
-            icon: "error",
-            title:
-                error?.message ||
-                "Не вдалося видалити оголошення",
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true,
-        });
-    } finally {
-        setDeletingId(null);
-    }
-};
+    };
 
     return (
         <div className="flex min-h-screen flex-col bg-slate-100">
@@ -1024,76 +1036,121 @@ const handleDelete = async (listing) => {
                                                     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                                                         <div className="min-w-0 flex-1">
                                                             {/* Верх картки */}
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                {/* Тип оголошення */}
-                                                                <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                                                                    {listing.type}
-                                                                </span>
 
-                                                                {/* Статус */}
-                                                                <span
-                                                                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${status.className}`}
-                                                                >
-                                                                    {status.label}
-                                                                </span>
+                                                            {/* Верх картки */}
+                                                            <div className="space-y-2">
+
+                                                                <div className="flex items-start justify-between gap-2 sm:block">
+
+                                                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 sm:gap-2">
+
+                                                                        {/* Тип оголошення */}
+                                                                        <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700 sm:px-3 sm:text-xs">
+                                                                            {listing.type}
+                                                                        </span>
+
+                                                                        {/* Статус */}
+                                                                        <span
+                                                                            className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-bold sm:px-3 sm:text-xs ${status.className}`}
+                                                                        >
+                                                                            {status.label}
+                                                                        </span>
+
+                                                                        {/* Дата публікації — ПК */}
+                                                                        <span className="hidden items-center gap-1.5 text-xs font-medium text-slate-400 sm:inline-flex">
+                                                                            <ClockIcon />
+                                                                            {formatDate(listing.createdAt)}
+                                                                        </span>
+
+                                                                        {/* Активне до — ПК */}
+                                                                        {listing.status === "approved" &&
+                                                                            listing.expiresAt && (
+                                                                                <span className="hidden items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs sm:inline-flex">
+                                                                                    <ClockIcon />
+
+                                                                                    <span className="font-medium text-slate-500">
+                                                                                        Активне до:
+                                                                                    </span>
+
+                                                                                    <span className="font-bold text-emerald-700">
+                                                                                        {formatDate(listing.expiresAt)}
+                                                                                    </span>
+                                                                                </span>
+                                                                            )}
+
+                                                                        {/* Перегляди — ПК */}
+                                                                        <span className="hidden items-center gap-1.5 text-xs font-bold text-blue-600 sm:inline-flex">
+                                                                            <EyeIcon />
+                                                                            {listing.views}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    {/* Кнопки дій — мобільні */}
+                                                                    <div className="flex shrink-0 items-center gap-1.5 sm:hidden">
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                navigate(
+                                                                                    `/user/listings/${listing.id}/edit`
+                                                                                )
+                                                                            }
+                                                                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 transition hover:bg-blue-100"
+                                                                            aria-label="Редагувати оголошення"
+                                                                            title="Редагувати оголошення"
+                                                                        >
+                                                                            <EditIcon />
+                                                                        </button>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleDelete(listing)}
+                                                                            disabled={deletingId === listing.id}
+                                                                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-500 transition hover:bg-red-100 disabled:opacity-50"
+                                                                            aria-label="Видалити оголошення"
+                                                                            title="Видалити оголошення"
+                                                                        >
+                                                                            {deletingId === listing.id ? (
+                                                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
+                                                                            ) : (
+                                                                                <TrashIcon />
+                                                                            )}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+
+                                                            {/* Назва */}
+                                                            <h2 className="mt-4 text-xl font-black leading-snug text-slate-950 sm:text-2xl">
+                                                                {listing.title || "Без назви"}
+                                                            </h2>
+
+                                                            {/* Компактна інформація — мобільні */}
+                                                            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 sm:hidden">
 
                                                                 {/* Дата публікації */}
-                                                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                                                                <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-slate-400">
                                                                     <ClockIcon />
-
-                                                                    <span>
-                                                                        {formatDate(
-                                                                            listing.createdAt
-                                                                        )}
-                                                                    </span>
+                                                                    {formatDate(listing.createdAt, true)}
                                                                 </span>
 
-                                                                {/* Активне до */}
+                                                                {/* Термін дії */}
                                                                 {listing.status === "approved" &&
                                                                     listing.expiresAt && (
-                                                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs">
-                                                                            <svg
-                                                                                className="h-3.5 w-3.5 shrink-0 text-emerald-600"
-                                                                                viewBox="0 0 24 24"
-                                                                                fill="none"
-                                                                                stroke="currentColor"
-                                                                                strokeWidth="2"
-                                                                                strokeLinecap="round"
-                                                                                strokeLinejoin="round"
-                                                                            >
-                                                                                <circle
-                                                                                    cx="12"
-                                                                                    cy="12"
-                                                                                    r="9"
-                                                                                />
-                                                                                <path d="M12 7v5l3 2" />
-                                                                            </svg>
-
-                                                                            <span className="font-medium text-slate-500">
-                                                                                Активне до:
-                                                                            </span>
-
-                                                                            <span className="font-bold text-emerald-700">
-                                                                                {formatDate(
-                                                                                    listing.expiresAt
-                                                                                )}
-                                                                            </span>
+                                                                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-emerald-700">
+                                                                            <ClockIcon />
+                                                                            До {formatDate(listing.expiresAt, true)}
                                                                         </span>
                                                                     )}
 
                                                                 {/* Перегляди */}
-                                                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600">
+                                                                <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-bold text-blue-600">
                                                                     <EyeIcon />
-
                                                                     {listing.views}
                                                                 </span>
                                                             </div>
 
-                                                            {/* Назва */}
-                                                            <h2 className="mt-4 text-xl font-black leading-snug text-slate-950 sm:text-2xl">
-                                                                {listing.title ||
-                                                                    "Без назви"}
-                                                            </h2>
 
                                                             {/* Дані */}
                                                             <div className="mt-5 grid gap-5 border-t border-slate-100 pt-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -1171,23 +1228,57 @@ const handleDelete = async (listing) => {
                                                             </div>
 
                                                             {/* Опис */}
+
+                                                            {/* Опис */}
                                                             <div className="mt-5 rounded-2xl bg-slate-50 p-4">
                                                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                                                                     Опис
                                                                 </p>
 
-                                                                <p className="mt-2 whitespace-pre-line break-words text-sm leading-6 text-slate-700">
-                                                                    {listing.comment ||
-                                                                        "Опис не вказано"}
+                                                                <p
+                                                                    className={`
+            mt-2 whitespace-pre-line break-words
+            text-sm leading-6 text-slate-700
+            ${expandedDescriptionId === listing.id
+                                                                            ? ""
+                                                                            : "line-clamp-2 sm:line-clamp-none"
+                                                                        }
+        `}
+                                                                >
+                                                                    {listing.comment || "Опис не вказано"}
                                                                 </p>
+
+                                                                {listing.comment?.length > 90 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setExpandedDescriptionId(
+                                                                                expandedDescriptionId === listing.id
+                                                                                    ? null
+                                                                                    : listing.id
+                                                                            )
+                                                                        }
+                                                                        className="
+                mt-2 inline-flex items-center
+                text-sm font-semibold text-blue-600
+                transition hover:text-blue-700
+                sm:hidden
+            "
+                                                                    >
+                                                                        {expandedDescriptionId === listing.id
+                                                                            ? "Згорнути ↑"
+                                                                            : "Детальніше ↓"}
+                                                                    </button>
+                                                                )}
                                                             </div>
+
                                                             <ListingImageGallery
                                                                 images={listing.images}
                                                             />
                                                         </div>
 
                                                         {/* Дії */}
-                                                        <div className="flex shrink-0 items-center gap-2 self-end lg:self-start">
+                                                        <div className="hidden shrink-0 items-center gap-2 self-end sm:flex lg:self-start">
                                                             {/* Редагувати */}
                                                             <button
                                                                 type="button"

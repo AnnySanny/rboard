@@ -1,7 +1,7 @@
 import { useNavigate, Link } from "react-router-dom";
 
-import Navbar from "../components/Navbar";
-import CreateListingForm from "../components/listings/CreateListingForm";
+import Navbar from "../../components/pageComponent/Navbar";
+import CreateListingForm from "../../components/listings/CreateListingForm";
 
 const CreateListing = () => {
     const navigate = useNavigate();

@@ -6,6 +6,7 @@ import {
     doc,
     serverTimestamp,
     updateDoc,
+    Timestamp,
 } from "firebase/firestore";
 import {
     createAdminLog,
@@ -32,7 +33,7 @@ const LISTING_TYPES = [
     "Оголошення громади",
     "Інше",
 ];
-
+const LISTING_LIFETIME_DAYS = 7;
 const CLOUDINARY_CLOUD_NAME = "djjhf64uc";
 const CLOUDINARY_UPLOAD_PRESET = "user_photos";
 
@@ -73,7 +74,33 @@ const uploadToCloudinary = async (file) => {
         imagePublicId: data.public_id,
     };
 };
+const notifyUsersAboutListing = async (listingId) => {
+    try {
+        const response = await fetch(
+            "/.netlify/functions/notify-users",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    listingId,
+                }),
+            }
+        );
 
+        if (!response.ok) {
+            console.error(
+                "Не вдалося надіслати Telegram-сповіщення."
+            );
+        }
+    } catch (error) {
+        console.error(
+            "Помилка Telegram-розсилки:",
+            error
+        );
+    }
+};
 const normalizeName = (name) => {
     return name
         .trim()
@@ -243,7 +270,14 @@ const AdminEditListingForm = ({
 
     const [submitting, setSubmitting] =
         useState(false);
+    // Поточний стан публікації
+    const [publishImmediately, setPublishImmediately] =
+        useState(listing.status === "approved");
 
+    // Telegram за замовчуванням вимкнений,
+    // щоб уникнути випадкової повторної розсилки.
+    const [notifyTelegram, setNotifyTelegram] =
+        useState(false);
     const handleChange = (event) => {
         const { name, value } =
             event.target;
@@ -576,7 +610,59 @@ const AdminEditListingForm = ({
                 street: newStreet,
                 comment: newComment,
             });
+            // Чи публікуємо оголошення зараз?
+            const publishingNow =
+                publishImmediately &&
+                listing.status !== "approved";
 
+            // Чи повертаємо опубліковане оголошення
+            // назад на модерацію?
+            const movingToModeration =
+                !publishImmediately &&
+                listing.status === "approved";
+
+            // Визначаємо кінцевий статус.
+            const nextStatus = publishingNow
+                ? "approved"
+                : movingToModeration
+                    ? "pending"
+                    : listing.status;
+
+            // Формуємо зміни публікації.
+            let publicationUpdates = {};
+
+            if (publishingNow) {
+                const expiresAt = new Date(
+                    Date.now() +
+                    LISTING_LIFETIME_DAYS * 24 * 60 * 60 * 1000
+                );
+
+                publicationUpdates = {
+                    status: "approved",
+                    approvedAt: serverTimestamp(),
+                    expiresAt: Timestamp.fromDate(expiresAt),
+                    "moderation.reviewedBy": "admin",
+                    "moderation.reviewedAt": serverTimestamp(),
+                    "moderation.rejectionReason": null,
+                };
+
+                changes.push("оголошення опубліковано");
+            }
+
+            if (movingToModeration) {
+                publicationUpdates = {
+                    status: "pending",
+                    approvedAt: null,
+                    expiresAt: null,
+                    "moderation.reviewedBy": null,
+                    "moderation.reviewedAt": null,
+                    "moderation.rejectionReason": null,
+                };
+
+                changes.push(
+                    "оголошення перенесено на модерацію"
+                );
+            }
             if (
                 newAuthorName !==
                 (listing.authorName || "")
@@ -706,19 +792,26 @@ const AdminEditListingForm = ({
 
                     comment:
                         form.comment.trim(),
-                    // Оновлюємо пошукові токени лише
-                    // для схвалених оголошень.
-                    ...(listing.status === "approved"
+                    // Оновлюємо пошукові токени,
+                    // якщо після збереження оголошення опубліковане.
+                    ...(nextStatus === "approved"
                         ? { searchTokens }
                         : {}),
-                    images:
-                        finalImages,
 
-                    updatedAt:
-                        serverTimestamp(),
+                    images: finalImages,
+
+                    // Оновлюємо статус і дати лише за потреби.
+                    ...publicationUpdates,
+
+                    updatedAt: serverTimestamp(),
                 }
             );
-
+            // Надсилаємо сповіщення лише тоді,
+            // коли оголошення опубліковане
+            // і адміністратор увімкнув Telegram.
+            if (nextStatus === "approved" && notifyTelegram) {
+                notifyUsersAboutListing(listing.id);
+            }
             /*
              * Звільняємо blob URL
              * нових локальних фото.
@@ -1078,38 +1171,87 @@ const AdminEditListingForm = ({
                 )}
             </div>
 
-            {/* Інформація */}
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                <div className="flex items-start gap-3">
-                    <svg
-                        className="mt-0.5 h-5 w-5 shrink-0 text-blue-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    >
-                        <circle
-                            cx="12"
-                            cy="12"
-                            r="10"
-                        />
-                        <path d="M12 16v-4" />
-                        <path d="M12 8h.01" />
-                    </svg>
+            {/* Налаштування публікації */}
+            <div className="space-y-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 sm:p-5">
 
-                    <p className="text-sm leading-6 text-blue-900">
-                        Ви редагуєте
-                        оголошення як
-                        адміністратор.
-                        Поточний статус,
-                        кількість переглядів
-                        та термін дії
-                        оголошення не будуть
-                        змінені.
+                <div>
+                    <h3 className="text-sm font-bold text-blue-900">
+                        Налаштування публікації
+                    </h3>
+
+                    <p className="mt-1 text-xs text-blue-700">
+                        Оберіть, чи потрібно опублікувати
+                        оголошення після збереження.
                     </p>
                 </div>
+
+                {/* Публікація */}
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-blue-100 bg-white p-4">
+                    <input
+                        type="checkbox"
+                        checked={publishImmediately}
+                        disabled={submitting}
+                        onChange={(event) => {
+                            const checked = event.target.checked;
+
+                            setPublishImmediately(checked);
+
+                            if (!checked) {
+                                setNotifyTelegram(false);
+                            }
+                        }}
+                        className="mt-0.5 h-5 w-5 shrink-0 accent-blue-600"
+                    />
+
+                    <span className="flex-1">
+                        <span className="block text-sm font-bold text-slate-900">
+                            Опублікувати одразу
+                        </span>
+
+                        <span className="mt-1 block text-xs leading-5 text-slate-500">
+                            Якщо вимкнути для опублікованого
+                            оголошення, воно перейде на модерацію.
+                        </span>
+                    </span>
+                </label>
+
+                {/* Telegram */}
+                {publishImmediately && (
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-blue-100 bg-white p-4">
+                        <input
+                            type="checkbox"
+                            checked={notifyTelegram}
+                            disabled={submitting}
+                            onChange={(event) =>
+                                setNotifyTelegram(event.target.checked)
+                            }
+                            className="mt-0.5 h-5 w-5 shrink-0 accent-blue-600"
+                        />
+
+                        <span className="flex-1">
+                            <span className="block text-sm font-bold text-slate-900">
+                                Надіслати сповіщення в Telegram
+                            </span>
+
+                            <span className="mt-1 block text-xs leading-5 text-slate-500">
+                                Повідомити підписників бота
+                                про це оголошення.
+                            </span>
+                        </span>
+                    </label>
+                )}
+
+                {/* Пояснення */}
+                <p className="text-xs leading-5 text-blue-800">
+                    {publishImmediately
+                        ? listing.status === "approved"
+                            ? "Оголошення залишиться опублікованим. Поточний термін дії не зміниться."
+                            : "Оголошення буде опубліковано на 7 днів після збереження."
+                        : ["expired", "cancelled"].includes(listing.status)
+                            ? "Поточний статус збережеться. Для публікації увімкніть відповідну галочку."
+                            : "Оголошення матиме статус «На перевірці»."
+                    }
+                </p>
             </div>
 
             {/* Кнопки */}

@@ -5,6 +5,7 @@ const ListingsSection = ({
   viewMode,
   onListingClick,
   compact = false,
+  canSeeFavorites = false,
 }) => {
   if (!listings.length) {
     return (
@@ -55,6 +56,7 @@ const ListingsSection = ({
           viewMode={viewMode}
           compact={compact}
           onClick={() => onListingClick(listing)}
+          canSeeFavorites={canSeeFavorites}
         />
       ))}
     </section>

@@ -369,3 +369,37 @@ code {
     }
 }
 
+
+/* Скролбар модального вікна оголошення */
+
+.listing-modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+
+/* Ширина скролбара */
+.listing-modal-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* Прозора доріжка */
+.listing-modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 18px;
+}
+
+/* Повзунок */
+.listing-modal-scroll::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+}
+
+/* При наведенні */
+.listing-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
+}
+
+/* Приховуємо стандартні стрілки */
+.listing-modal-scroll::-webkit-scrollbar-button {
+  display: none;
+}

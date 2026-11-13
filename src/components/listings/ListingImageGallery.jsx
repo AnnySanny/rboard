@@ -19,7 +19,7 @@ export default function ListingImageGallery({
     const closeViewer = () => {
         setActiveIndex(null);
     };
-
+    
     const showPrevious = () => {
         setActiveIndex(
             (previousIndex) =>

@@ -13,6 +13,12 @@ import {
 } from "../../utils/adminLogger";
 import { db } from "../../firebase";
 import ListingContacts from "../listings/ListingContacts";
+import ListingAdditionalLinks from "../listings/ListingAdditionalLinks";
+
+import {
+    MAX_ADDITIONAL_LINKS,
+    parseAdditionalLink,
+} from "../../utils/additionalLinks";
 import CityAutocomplete from "../listings/CityAutocomplete";
 import ListingImageUploader from "../listings/ListingImageUploader";
 import {
@@ -52,6 +58,7 @@ const initialForm = {
     city: null,
     street: "",
     comment: "",
+    additionalLinks: [],
 };
 
 const normalizeName = (name) => {
@@ -208,7 +215,19 @@ const AdminCreateListingForm = ({
             ...previousErrors,
             city: "",
         }));
+ 
     };
+    const handleAdditionalLinksChange = (additionalLinks) => {
+    setForm((previousForm) => ({
+        ...previousForm,
+        additionalLinks,
+    }));
+
+    setErrors((previousErrors) => ({
+        ...previousErrors,
+        additionalLinks: "",
+    }));
+};
     const [hidePhone, setHidePhone] = useState(false);
 
     const [additionalContacts, setAdditionalContacts] = useState({
@@ -323,6 +342,33 @@ const AdminCreateListingForm = ({
                 "Опис не може перевищувати 1500 символів.";
         }
 
+        const filledLinks = form.additionalLinks
+            .map((link) => link.trim())
+            .filter(Boolean);
+
+        const parsedLinks = filledLinks.map(
+            parseAdditionalLink
+        );
+
+        if (form.additionalLinks.length > MAX_ADDITIONAL_LINKS) {
+            newErrors.additionalLinks =
+                "Можна додати не більше 5 посилань.";
+        } else if (
+            parsedLinks.some(
+                (link) => !link || link.url.length > 500
+            )
+        ) {
+            newErrors.additionalLinks =
+                "Перевірте правильність додаткових посилань.";
+        } else if (
+            new Set(
+                parsedLinks.map((link) => link.url)
+            ).size !== parsedLinks.length
+        ) {
+            newErrors.additionalLinks =
+                "Однакові посилання не можна додавати двічі.";
+        }
+
         setErrors(newErrors);
 
         return (
@@ -405,6 +451,9 @@ const AdminCreateListingForm = ({
                 street: form.street.trim(),
                 comment: form.comment.trim(),
             });
+            const additionalLinks = form.additionalLinks
+                .filter((link) => link.trim())
+                .map((link) => parseAdditionalLink(link).url);
             /*
              * 3. Створюємо документ.
              */
@@ -501,6 +550,9 @@ const AdminCreateListingForm = ({
                             true,
                         additionalContacts:
                             cleanAdditionalContacts,
+                        ...(additionalLinks.length > 0 && {
+                            additionalLinks,
+                        }),
 
                         hidePhone,
                     }
@@ -846,6 +898,13 @@ const AdminCreateListingForm = ({
                     setHidePhone(event.target.checked)
                 }
                 disabled={submitting}
+            />
+            {/* Додаткові посилання */}
+            <ListingAdditionalLinks
+                value={form.additionalLinks}
+                onChange={handleAdditionalLinksChange}
+                disabled={submitting}
+                error={errors.additionalLinks}
             />
             {/* ========================= */}
             {/* ФОТО */}

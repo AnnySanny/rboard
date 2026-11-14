@@ -35,15 +35,18 @@ export const mapListingDocument = (document) => {
 
         additionalContacts:
             data.additionalContacts &&
-            typeof data.additionalContacts === "object"
+                typeof data.additionalContacts === "object"
                 ? data.additionalContacts
                 : {},
-
+        additionalLinks:
+            Array.isArray(data.additionalLinks)
+                ? data.additionalLinks
+                : [],
         authorName: data.authorName || "",
 
         author:
             data.author &&
-            typeof data.author === "object"
+                typeof data.author === "object"
                 ? data.author
                 : null,
 

@@ -23,6 +23,7 @@ import {
     onAuthStateChanged,
 } from "firebase/auth";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
+import ListingAdditionalLinksDisplay from "../../components/listings/ListingAdditionalLinksDisplay";
 const LISTING_TYPES = [
     "Усі типи",
     "Продаж",
@@ -414,7 +415,10 @@ const UserListings = () => {
                                                         "object"
                                                         ? data.additionalContacts
                                                         : {},
-
+                                                additionalLinks:
+                                                    Array.isArray(data.additionalLinks)
+                                                        ? data.additionalLinks
+                                                        : [],
                                                 city:
                                                     data.city ||
                                                     null,
@@ -1153,7 +1157,12 @@ const UserListings = () => {
 
 
                                                             {/* Дані */}
-                                                            <div className="mt-5 grid gap-5 border-t border-slate-100 pt-5 sm:grid-cols-2 lg:grid-cols-3">
+                                                            <div
+                                                                className={`mt-5 grid gap-5 border-t border-slate-100 pt-5 sm:grid-cols-2 ${listing.additionalLinks.length > 0
+                                                                    ? "lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,1fr)]"
+                                                                    : "lg:grid-cols-3"
+                                                                    }`}
+                                                            >
                                                                 <InfoItem
                                                                     label="Автор"
                                                                     value={
@@ -1218,7 +1227,11 @@ const UserListings = () => {
                                                                         </div>
                                                                     )}
                                                                 </div>
-
+                                                                {(listing.additionalLinks?.length ?? 0) > 0 && (
+                                                                    <ListingAdditionalLinksDisplay
+                                                                        links={listing.additionalLinks}
+                                                                    />
+                                                                )}
                                                                 <InfoItem
                                                                     label="Місце"
                                                                     value={getLocation(

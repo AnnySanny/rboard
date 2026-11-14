@@ -16,6 +16,12 @@ import { db } from "../../firebase";
 import CityAutocomplete from "../listings/CityAutocomplete";
 import ListingImageUploader from "../listings/ListingImageUploader";
 import ListingContacts from "../listings/ListingContacts";
+import ListingAdditionalLinks from "../listings/ListingAdditionalLinks";
+
+import {
+    MAX_ADDITIONAL_LINKS,
+    parseAdditionalLink,
+} from "../../utils/additionalLinks";
 import {
     buildListingSearchTokens,
 } from "../../utils/listingSearch";
@@ -238,6 +244,12 @@ const AdminEditListingForm = ({
             createInitialAdditionalContacts(
                 listing.additionalContacts
             ),
+        additionalLinks:
+            Array.isArray(listing.additionalLinks)
+                ? listing.additionalLinks.filter(
+                    (link) => typeof link === "string"
+                )
+                : [],
     });
     const [hidePhone, setHidePhone] =
         useState(listing.hidePhone === true);
@@ -315,6 +327,17 @@ const AdminEditListingForm = ({
         setErrors((previousErrors) => ({
             ...previousErrors,
             additionalContacts: "",
+        }));
+    };
+    const handleAdditionalLinksChange = (additionalLinks) => {
+        setForm((previousForm) => ({
+            ...previousForm,
+            additionalLinks,
+        }));
+
+        setErrors((previousErrors) => ({
+            ...previousErrors,
+            additionalLinks: "",
         }));
     };
     const getCleanAdditionalContacts = () => {
@@ -482,6 +505,34 @@ const AdminEditListingForm = ({
             newErrors.additionalContacts =
                 "Заповніть вибрані способи зв’язку або вимкніть їх.";
         }
+
+        const filledLinks = form.additionalLinks
+            .map((link) => link.trim())
+            .filter(Boolean);
+
+        const parsedLinks = filledLinks.map(
+            parseAdditionalLink
+        );
+
+        if (form.additionalLinks.length > MAX_ADDITIONAL_LINKS) {
+            newErrors.additionalLinks =
+                "Можна додати не більше 5 посилань.";
+        } else if (
+            parsedLinks.some(
+                (link) => !link || link.url.length > 500
+            )
+        ) {
+            newErrors.additionalLinks =
+                "Перевірте правильність додаткових посилань.";
+        } else if (
+            new Set(
+                parsedLinks.map((link) => link.url)
+            ).size !== parsedLinks.length
+        ) {
+            newErrors.additionalLinks =
+                "Однакові посилання не можна додавати двічі.";
+        }
+
         setErrors(newErrors);
 
         return (
@@ -585,7 +636,9 @@ const AdminEditListingForm = ({
             const additionalContacts =
                 getCleanAdditionalContacts();
             const changes = [];
-
+            const additionalLinks = form.additionalLinks
+                .filter((link) => link.trim())
+                .map((link) => parseAdditionalLink(link).url);
             const newAuthorName =
                 form.authorName.trim();
 
@@ -775,7 +828,10 @@ const AdminEditListingForm = ({
                         ).length > 0
                             ? additionalContacts
                             : deleteField(),
-
+                    additionalLinks:
+                        additionalLinks.length > 0
+                            ? additionalLinks
+                            : deleteField(),
                     title:
                         form.title.trim(),
 
@@ -1121,7 +1177,13 @@ const AdminEditListingForm = ({
                 )}
             </div>
 
-
+            {/* Додаткові посилання */}
+            <ListingAdditionalLinks
+                value={form.additionalLinks}
+                onChange={handleAdditionalLinksChange}
+                disabled={submitting}
+                error={errors.additionalLinks}
+            />
             {/* Фотографії */}
             <ListingImageUploader
                 images={images}

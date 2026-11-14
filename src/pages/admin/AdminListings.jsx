@@ -18,6 +18,7 @@ import { FaFacebookF } from "react-icons/fa";
 import FacebookPostModal from "../../components/admin/FacebookPostModal";
 import { db, auth } from "../../firebase";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
+import ListingAdditionalLinksDisplay from "../../components/listings/ListingAdditionalLinksDisplay";
 import {
     RAKHIV_DISTRICT_PLACES,
 } from "../../components/listings/CityAutocomplete";
@@ -2550,7 +2551,15 @@ const AdminListings = () => {
                                                     </p>
                                                 )}
                                             </div>
-
+                                            {/* Додаткові посилання */}
+                                            {Array.isArray(listing.additionalLinks) &&
+                                                listing.additionalLinks.length > 0 && (
+                                                    <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                                        <ListingAdditionalLinksDisplay
+                                                            links={listing.additionalLinks}
+                                                        />
+                                                    </div>
+                                                )}
                                             <InfoItem
                                                 label="Місто та адреса"
                                                 value={

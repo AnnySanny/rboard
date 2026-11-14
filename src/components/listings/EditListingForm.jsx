@@ -15,6 +15,12 @@ import { db } from "../../firebase";
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
 import ListingContacts from "./ListingContacts";
+import ListingAdditionalLinks from "./ListingAdditionalLinks";
+
+import {
+    MAX_ADDITIONAL_LINKS,
+    parseAdditionalLink,
+} from "../../utils/additionalLinks";
 const LISTING_TYPES = [
     "Продаж",
     "Купівля",
@@ -209,6 +215,12 @@ export default function EditListingForm({
             createInitialAdditionalContacts(
                 listing.additionalContacts
             ),
+        additionalLinks:
+            Array.isArray(listing.additionalLinks)
+                ? listing.additionalLinks.filter(
+                    (link) => typeof link === "string"
+                )
+                : [],
     });
 
     /*
@@ -284,6 +296,18 @@ export default function EditListingForm({
         setErrors((previousErrors) => ({
             ...previousErrors,
             additionalContacts: "",
+            form: "",
+        }));
+    };
+    const handleAdditionalLinksChange = (additionalLinks) => {
+        setForm((previousForm) => ({
+            ...previousForm,
+            additionalLinks,
+        }));
+
+        setErrors((previousErrors) => ({
+            ...previousErrors,
+            additionalLinks: "",
             form: "",
         }));
     };
@@ -444,6 +468,34 @@ export default function EditListingForm({
             newErrors.additionalContacts =
                 "Заповніть вибрані способи зв’язку або вимкніть їх.";
         }
+
+        const filledLinks = form.additionalLinks
+            .map((link) => link.trim())
+            .filter(Boolean);
+
+        const parsedLinks = filledLinks.map(
+            parseAdditionalLink
+        );
+
+        if (form.additionalLinks.length > MAX_ADDITIONAL_LINKS) {
+            newErrors.additionalLinks =
+                "Можна додати не більше 5 посилань.";
+        } else if (
+            parsedLinks.some(
+                (link) => !link || link.url.length > 500
+            )
+        ) {
+            newErrors.additionalLinks =
+                "Перевірте правильність додаткових посилань.";
+        } else if (
+            new Set(
+                parsedLinks.map((link) => link.url)
+            ).size !== parsedLinks.length
+        ) {
+            newErrors.additionalLinks =
+                "Однакові посилання не можна додавати двічі.";
+        }
+
         setErrors(newErrors);
 
         return (
@@ -605,7 +657,14 @@ export default function EditListingForm({
                         ).length > 0
                             ? additionalContacts
                             : deleteField(),
-
+                    additionalLinks:
+                        form.additionalLinks.some((link) => link.trim())
+                            ? form.additionalLinks
+                                .filter((link) => link.trim())
+                                .map((link) =>
+                                    parseAdditionalLink(link).url
+                                )
+                            : deleteField(),
                     contactOriginal:
                         form.contact.trim(),
 
@@ -952,7 +1011,13 @@ export default function EditListingForm({
                     {errors.additionalContacts}
                 </p>
             )}
-
+            {/* Додаткові посилання */}
+            <ListingAdditionalLinks
+                value={form.additionalLinks}
+                onChange={handleAdditionalLinksChange}
+                disabled={submitting}
+                error={errors.additionalLinks}
+            />
             {/* Фото */}
             <ListingImageUploader
                 images={images}

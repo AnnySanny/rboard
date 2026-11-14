@@ -9,8 +9,11 @@ import {
   collection,
   collectionGroup,
   doc,
+  getDoc,
   onSnapshot,
+  serverTimestamp,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import Swal from "sweetalert2";
 import {
@@ -18,7 +21,7 @@ import {
   ADMIN_LOG_ACTIONS,
 } from "../../utils/adminLogger";
 import { auth, db } from "../../firebase";
-import { Settings } from "lucide-react";
+import { Settings, Handshake } from "lucide-react";
 import UserStatisticsModal from "../../components/admin/UserStatisticsModal";
 import ResetPasswordModal from "../../components/admin/ResetPasswordModal";
 const Toast = Swal.mixin({
@@ -50,6 +53,10 @@ const STATUS_FILTERS = [
     value: "offline",
     label: "Не в мережі",
   },
+  {
+  value: "partners",
+  label: "Партнери",
+},
 ];
 
 
@@ -112,7 +119,10 @@ const AdminUsers = () => {
     changingBlockId,
     setChangingBlockId,
   ] = useState(null);
-
+  const [
+    changingPartnerId,
+    setChangingPartnerId,
+  ] = useState(null);
   const [
     deletingId,
     setDeletingId,
@@ -175,7 +185,8 @@ const AdminUsers = () => {
                   blocked:
                     data.blocked ===
                     true,
-
+                  partner:
+                    data.partner === true,
                   createdAt:
                     data.createdAt ||
                     null,
@@ -471,6 +482,7 @@ const AdminUsers = () => {
             const matchesStatus =
               statusFilter === "all" ||
               (statusFilter === "blocked" && user.blocked) ||
+              (statusFilter === "partners" && user.partner) ||
               (statusFilter === "active" && !user.blocked) ||
               (statusFilter === "online" && user.online) ||
               (statusFilter === "offline" && !user.online);
@@ -832,6 +844,131 @@ const AdminUsers = () => {
 
 
 
+  const handleTogglePartner = async (user) => {
+    if (changingPartnerId || deletingId || changingBlockId) return;
+
+    const willEnable = !user.partner;
+
+    if (willEnable && user.blocked) {
+      Toast.fire({
+        icon: "warning",
+        title: "Спочатку розблокуйте користувача",
+      });
+      return;
+    }
+
+    const result = await Swal.fire({
+      icon: "question",
+      title: willEnable
+        ? "Зробити користувача партнером?"
+        : "Скасувати партнерство?",
+      text: willEnable
+        ? `Користувач «${user.login || "Без імені"}» отримає партнерський статус RBoard.`
+        : `Партнерство користувача «${user.login || "Без імені"}» буде деактивовано. Його бізнес-дані збережуться.`,
+      showCancelButton: true,
+      confirmButtonText: willEnable
+        ? "Надати партнерство"
+        : "Скасувати партнерство",
+      cancelButtonText: "Назад",
+      confirmButtonColor: willEnable
+        ? "#B8860B"
+        : "#2563eb",
+      reverseButtons: true,
+                cancelButtonColor:
+            "#64748b",
+    });
+
+    if (!result.isConfirmed) return;
+
+    setChangingPartnerId(user.id);
+
+    try {
+      const userRef = doc(db, "users", user.id);
+      const partnerRef = doc(db, "partners", user.id);
+
+      const partnerSnapshot = willEnable
+        ? await getDoc(partnerRef)
+        : null;
+
+      const batch = writeBatch(db);
+
+      batch.update(userRef, {
+        partner: willEnable,
+      });
+
+      if (willEnable) {
+        if (partnerSnapshot.exists()) {
+          batch.update(partnerRef, {
+            active: true,
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          batch.set(partnerRef, {
+            ownerUid: user.id,
+            businessName: user.login || "",
+            description: "",
+            logoUrl: "",
+            coverUrl: "",
+            city: "",
+            address: "",
+            contacts: {},
+            active: true,
+            published: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      } else {
+        batch.set(
+          partnerRef,
+          {
+            ownerUid: user.id,
+            active: false,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
+      await batch.commit();
+
+      try {
+        await createAdminLog({
+          action: willEnable
+            ? "user_partner_enabled"
+            : "user_partner_disabled",
+          category: "users",
+          title: willEnable
+            ? "Надано партнерський статус"
+            : "Скасовано партнерський статус",
+          description: willEnable
+            ? `Користувач «${user.login || "Без імені"}» став партнером RBoard.`
+            : `Партнерство користувача «${user.login || "Без імені"}» деактивовано.`,
+          targetId: user.id,
+          targetName: user.login || "Без імені",
+        });
+      } catch (logError) {
+        console.error("Помилка запису журналу:", logError);
+      }
+
+      Toast.fire({
+        icon: "success",
+        title: willEnable
+          ? "Партнерство успішно надано"
+          : "Партнерство скасовано",
+      });
+    } catch (error) {
+      console.error("Помилка зміни партнерства:", error);
+
+      Toast.fire({
+        icon: "error",
+        title: "Не вдалося змінити партнерський статус",
+      });
+    } finally {
+      setChangingPartnerId(null);
+    }
+  };
+
   const handleDelete = async (user) => {
     if (deletingId) return;
 
@@ -1154,11 +1291,11 @@ const AdminUsers = () => {
             <div className="hidden w-full xl:block">
               <table className="w-full table-fixed">
                 <colgroup>
-                  <col style={{ width: "26%" }} />
-                  <col style={{ width: "16%" }} />
-                  <col style={{ width: "28%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "24%" }} />
+                  <col style={{ width: "15%" }} />
+                  <col style={{ width: "27%" }} />
+                  <col style={{ width: "11%" }} />
+                  <col style={{ width: "23%" }} />
                 </colgroup>
                 <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
@@ -1201,6 +1338,12 @@ const AdminUsers = () => {
                         deleting={
                           deletingId ===
                           user.id
+                        }
+                        changingPartner={
+                          changingPartnerId === user.id
+                        }
+                        onTogglePartner={() =>
+                          handleTogglePartner(user)
                         }
                         onStatistics={() =>
                           setStatisticsUser(
@@ -1245,6 +1388,12 @@ const AdminUsers = () => {
                     deleting={
                       deletingId ===
                       user.id
+                    }
+                    changingPartner={
+                      changingPartnerId === user.id
+                    }
+                    onTogglePartner={() =>
+                      handleTogglePartner(user)
                     }
                     onStatistics={() =>
                       setStatisticsUser(
@@ -1322,6 +1471,8 @@ const UserRow = ({
   onToggleBlock,
   onResetPassword,
   onDelete,
+  changingPartner,
+  onTogglePartner,
 }) => {
   return (
     <tr className="transition hover:bg-slate-50/80">
@@ -1347,7 +1498,11 @@ const UserRow = ({
               >
                 {user.login || "Без імені"}
               </Link>
-
+              {user.partner && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">
+                  Партнер
+                </span>
+              )}
               <span
                 className={`
       inline-flex items-center gap-1.5
@@ -1420,7 +1575,17 @@ const UserRow = ({
               onStatistics
             }
           />
-
+          <PartnerButton
+            partner={user.partner}
+            loading={changingPartner}
+            disabled={
+              deleting ||
+              changingBlock ||
+              resettingPassword ||
+              (!user.partner && user.blocked)
+            }
+            onClick={onTogglePartner}
+          />
           <BlockButton
             blocked={
               user.blocked
@@ -1460,6 +1625,8 @@ const UserMobileCard = ({
   onToggleBlock,
   onResetPassword,
   onDelete,
+  changingPartner,
+  onTogglePartner,
 }) => {
   return (
     <article
@@ -1497,7 +1664,12 @@ const UserMobileCard = ({
           >
             {user.login || "Без імені"}
           </Link>
-
+          {user.partner && (
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">
+              <Handshake size={12} />
+              Партнер RBoard
+            </span>
+          )}
           <p className="mt-1 break-all text-xs font-medium text-slate-500">
             {user.email || user.phone || "Контакт не вказано"}
           </p>
@@ -1613,6 +1785,27 @@ const UserMobileCard = ({
         >
           {deleting ? <Spinner /> : <TrashIcon />}
           <span>Видалити</span>
+        </button>
+        <button
+          type="button"
+          onClick={onTogglePartner}
+          disabled={
+            changingPartner ||
+            deleting ||
+            changingBlock ||
+            resettingPassword ||
+            (!user.partner && user.blocked)
+          }
+          className={`mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition disabled:opacity-50 ${user.partner
+            ? "border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-200"
+            : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-amber-50"
+            }`}
+        >
+          {changingPartner ? <Spinner /> : <Handshake size={17} />}
+
+          {user.partner
+            ? "Скасувати партнерство"
+            : "Зробити партнером"}
         </button>
       </div>
     </article>
@@ -1776,7 +1969,26 @@ const StatisticsButton = ({
     <ChartIcon />
   </button>
 );
-
+const PartnerButton = ({
+  partner,
+  loading,
+  disabled,
+  onClick,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={loading || disabled}
+    title={partner ? "Скасувати партнерство" : "Зробити партнером"}
+    aria-label={partner ? "Скасувати партнерство" : "Зробити партнером"}
+    className={`flex h-10 w-10 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-50 ${partner
+      ? "border-amber-200 bg-amber-100 text-amber-700 hover:bg-amber-200"
+      : "border-slate-200 bg-slate-50 text-slate-500 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
+      }`}
+  >
+    {loading ? <Spinner /> : <Handshake size={19} />}
+  </button>
+);
 const BlockButton = ({
   blocked,
   loading,

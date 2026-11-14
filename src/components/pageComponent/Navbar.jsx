@@ -75,11 +75,11 @@ const Navbar = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-const [currentUser, setCurrentUser] =
-    useState(() => auth.currentUser);
+    const [currentUser, setCurrentUser] =
+        useState(() => auth.currentUser);
 
-const [authLoading, setAuthLoading] =
-    useState(() => !auth.currentUser);
+    const [authLoading, setAuthLoading] =
+        useState(() => !auth.currentUser);
 
     const [loginChecking, setLoginChecking] = useState(false);
     const userMode = Boolean(currentUser);
@@ -90,81 +90,81 @@ const [authLoading, setAuthLoading] =
 
 
 
-        
-useEffect(() => {
-    let active = true;
-    let generation = 0;
 
-    const unsubscribe = onAuthStateChanged(
-        auth,
-        async (user) => {
-            const currentGeneration = ++generation;
+    useEffect(() => {
+        let active = true;
+        let generation = 0;
 
-            if (!user) {
+        const unsubscribe = onAuthStateChanged(
+            auth,
+            async (user) => {
+                const currentGeneration = ++generation;
+
+                if (!user) {
+                    if (active) {
+                        setCurrentUser(null);
+                        setAuthLoading(false);
+                        setLoginChecking(false);
+                    }
+                    return;
+                }
+
                 if (active) {
-                    setCurrentUser(null);
-                    setAuthLoading(false);
-                    setLoginChecking(false);
-                }
-                return;
-            }
-
-            if (active) {
-                setLoginChecking(true);
-            }
-
-            try {
-                const { doc, getDoc } = await import("firebase/firestore");
-                const { db } = await import("../../firebase");
-
-                const userSnapshot = await getDoc(
-                    doc(db, "users", user.uid)
-                );
-
-                if (!active || currentGeneration !== generation) {
-                    return;
+                    setLoginChecking(true);
                 }
 
-                if (
-                    !userSnapshot.exists() ||
-                    userSnapshot.data().blocked === true
-                ) {
-                    setCurrentUser(null);
-                    return;
-                }
+                try {
+                    const { doc, getDoc } = await import("firebase/firestore");
+                    const { db } = await import("../../firebase");
 
-                setCurrentUser(user);
-            } catch (error) {
-                console.error(
-                    "Помилка перевірки користувача:",
-                    error
-                );
+                    const userSnapshot = await getDoc(
+                        doc(db, "users", user.uid)
+                    );
 
-                if (active && currentGeneration === generation) {
-                    setCurrentUser(null);
-                }
-            } finally {
-                if (active && currentGeneration === generation) {
-                    setLoginChecking(false);
-                    setAuthLoading(false);
+                    if (!active || currentGeneration !== generation) {
+                        return;
+                    }
+
+                    if (
+                        !userSnapshot.exists() ||
+                        userSnapshot.data().blocked === true
+                    ) {
+                        setCurrentUser(null);
+                        return;
+                    }
+
+                    setCurrentUser(user);
+                } catch (error) {
+                    console.error(
+                        "Помилка перевірки користувача:",
+                        error
+                    );
+
+                    if (active && currentGeneration === generation) {
+                        setCurrentUser(null);
+                    }
+                } finally {
+                    if (active && currentGeneration === generation) {
+                        setLoginChecking(false);
+                        setAuthLoading(false);
+                    }
                 }
             }
+        );
+
+        return () => {
+            active = false;
+            generation++;
+            unsubscribe();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (currentUser && !loginChecking) {
+            setShowLogin(false);
+            setShowRegister(false);
         }
-    );
-
-    return () => {
-        active = false;
-        generation++;
-        unsubscribe();
-    };
-}, []);
-
-useEffect(() => {
-    if (currentUser && !loginChecking) {
-        setShowLogin(false);
-        setShowRegister(false);
-    }
-}, [currentUser, loginChecking]);
+    }, [currentUser, loginChecking]);
     useEffect(() => {
         if (authLoading) {
             return;
@@ -588,6 +588,17 @@ useEffect(() => {
                                 >
                                     Допомога
                                 </NavLink>
+
+                                <NavLink
+                                    to="/user/partner"
+                                    className="group inline-flex items-center text-sm font-medium"
+                                >
+                                    <span className="partner-gradient-text">
+                                        Партнерство
+                                    </span>
+                                </NavLink>
+
+
                                 <NavLink
                                     to="/fundraisers"
                                     className={fundraiserNavClass}
@@ -838,12 +849,23 @@ useEffect(() => {
                                     >
                                         Допомога
                                     </NavLink>
+
+                                    <NavLink
+                                        to="/user/partner"
+                                        className="group inline-flex items-center text-sm font-medium"
+                                    >
+                                        <span className="partner-gradient-text">
+                                            Партнерство
+                                        </span>
+                                    </NavLink>
+
                                     <NavLink
                                         to="/fundraisers"
                                         className={fundraiserNavClass}
                                     >
                                         Збір для ЗСУ
                                     </NavLink>
+                                    
                                     <NavLink
                                         to="/user/profile"
                                         onClick={closeMobileMenu}

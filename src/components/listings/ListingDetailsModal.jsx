@@ -28,6 +28,7 @@ import Swal from "sweetalert2";
 import ListingImageGallery from "./ListingImageGallery";
 import RelatedListings from "./RelatedListings";
 import ListingAuthor from "./ListingAuthor";
+import ListingAdditionalLinksDisplay from "./ListingAdditionalLinksDisplay";
 const formatDate = (value) => {
   if (!value) {
     return "Не вказано";
@@ -1078,6 +1079,16 @@ const ListingDetailsModal = ({
                   </div>
                 )}
               </div>
+
+              {/* Додаткові посилання */}
+              {Array.isArray(listing.additionalLinks) &&
+                listing.additionalLinks.length > 0 && (
+                  <div className="border-t border-slate-200 pt-4">
+                    <ListingAdditionalLinksDisplay
+                      links={listing.additionalLinks}
+                    />
+                  </div>
+                )}
 
               {authorUid && currentUser?.uid !== authorUid && (
                 <button

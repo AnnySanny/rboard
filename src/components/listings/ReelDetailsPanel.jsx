@@ -26,7 +26,7 @@ import {
   detectContactType,
   getContactHref,
 } from "../../utils/contactUtils";
-
+import ListingAdditionalLinksDisplay from "./ListingAdditionalLinksDisplay";
 const services = {
   telegram: {
     label: "Telegram",
@@ -207,8 +207,15 @@ const ReelDetailsPanel = ({
   theme = "dark",
 }) => {
   const [copiedPhone, setCopiedPhone] = useState("");
+  const [expandedDescriptionId, setExpandedDescriptionId] = useState(null);
 
   if (!listing) return null;
+
+  const isDescriptionExpanded =
+    expandedDescriptionId === listing.id;
+
+  const hasLongDescription =
+    (listing.description || "").trim().length > 100;
 
   const isDark = theme === "dark";
   const { phones, links } = getContacts(listing);
@@ -349,16 +356,45 @@ const ReelDetailsPanel = ({
           )}
         </div>
 
-        <div className={`rounded-2xl border p-4 transition-colors duration-200 ${ui.card}`}>
+
+        <div
+          className={`rounded-2xl border p-4 transition-colors duration-200 ${ui.card}`}
+        >
           <h4 className={`mb-3 text-sm font-bold ${ui.title}`}>
             Опис оголошення
           </h4>
 
-          <p className={`whitespace-pre-line break-words text-sm leading-7 ${ui.text}`}>
+          <p
+            className={`whitespace-pre-line break-words text-sm leading-7 ${ui.text} ${hasLongDescription && !isDescriptionExpanded
+              ? "line-clamp-2"
+              : ""
+              }`}
+          >
             {listing.description ||
               "Детальний опис оголошення не вказано."}
           </p>
+
+          {hasLongDescription && (
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedDescriptionId((previous) =>
+                  previous === listing.id ? null : listing.id
+                )
+              }
+              aria-expanded={isDescriptionExpanded}
+              className={`mt-2 text-sm font-semibold transition hover:underline ${isDark
+                ? "text-blue-300 hover:text-blue-200"
+                : "text-blue-600 hover:text-blue-700"
+                }`}
+            >
+              {isDescriptionExpanded
+                ? "Згорнути"
+                : "Детальніше"}
+            </button>
+          )}
         </div>
+
 
         <div className={`rounded-2xl border p-4 transition-colors duration-200 ${ui.card}`}>
           <h4 className={`mb-2 text-sm font-bold ${ui.title}`}>
@@ -371,8 +407,8 @@ const ReelDetailsPanel = ({
               to={profileUrl}
               title={`Переглянути профіль: ${listing.authorName || "Користувач RBoard"}`}
               className={`group flex items-center gap-3 border-b py-3 transition-colors ${ui.border} ${isDark
-                  ? "hover:text-blue-300"
-                  : "hover:text-blue-600"
+                ? "hover:text-blue-300"
+                : "hover:text-blue-600"
                 }`}
             >
               <div
@@ -510,6 +546,19 @@ const ReelDetailsPanel = ({
               })}
             </div>
           )}
+
+          {/* Додаткові посилання */}
+          {Array.isArray(listing.additionalLinks) &&
+            listing.additionalLinks.length > 0 && (
+              <div
+                className={`rounded-2xl border p-4 transition-colors duration-200 ${ui.card}`}
+              >
+                <ListingAdditionalLinksDisplay
+                  links={listing.additionalLinks}
+                />
+              </div>
+            )}
+
         </div>
       </div>
     </section>

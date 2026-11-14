@@ -29,6 +29,8 @@ import {
     getDocs,
     query,
     where,
+    doc,
+    onSnapshot,
 } from "firebase/firestore";
 
 import {
@@ -94,7 +96,7 @@ const UserHome = () => {
 
     const [loading, setLoading] =
         useState(true);
-
+    const [isPartner, setIsPartner] = useState(false);
 
     /*
      * =========================================
@@ -237,7 +239,45 @@ const UserHome = () => {
         };
     }, []);
 
+    useEffect(() => {
+        let unsubscribeProfile = () => { };
 
+        const unsubscribeAuth = onAuthStateChanged(
+            auth,
+            (currentUser) => {
+                unsubscribeProfile();
+                setIsPartner(false);
+
+                if (!currentUser) return;
+
+                unsubscribeProfile = onSnapshot(
+                    doc(db, "users", currentUser.uid),
+                    (snapshot) => {
+                        const data = snapshot.data();
+
+                        setIsPartner(
+                            snapshot.exists() &&
+                            data?.role === "user" &&
+                            data?.blocked !== true &&
+                            data?.partner === true
+                        );
+                    },
+                    (error) => {
+                        console.error(
+                            "Помилка перевірки партнерства:",
+                            error
+                        );
+                        setIsPartner(false);
+                    }
+                );
+            }
+        );
+
+        return () => {
+            unsubscribeAuth();
+            unsubscribeProfile();
+        };
+    }, []);
 
     /*
      * =========================================
@@ -793,10 +833,6 @@ const UserHome = () => {
                     ================================== */}
 
 
-                    {/* =================================
-    ШВИДКІ ДІЇ
-================================== */}
-
                     <section className="mt-10">
                         <div>
                             <h2 className="text-xl font-black text-slate-950 sm:text-2xl">
@@ -921,6 +957,41 @@ const UserHome = () => {
                                 ))}
                             </div>
                         </div>
+
+                        {/* ПАРТНЕРСЬКА СТОРІНКА */}
+
+                        {isPartner && (
+                            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
+                                    <div className="min-w-0">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                                            Партнер RBoard
+                                        </span>
+
+                                        <h2 className="mt-2 text-lg font-black text-slate-950">
+                                            Моя партнерська сторінка
+                                        </h2>
+
+                                        <p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">
+                                            Керуйте інформацією про свій бізнес,
+                                            контактами та публічною сторінкою.
+                                        </p>
+                                    </div>
+
+                                    <Link
+                                        to="/user/partner"
+                                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                    >
+                                        Керувати сторінкою
+                                        <ArrowRight size={17} />
+                                    </Link>
+
+                                </div>
+                            </section>
+                        )}
+
+
                     </section>
 
 

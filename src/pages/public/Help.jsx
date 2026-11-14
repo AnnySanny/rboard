@@ -34,6 +34,7 @@ import {
     Wifi,
     MessageSquareX,
     UserRoundX,
+    Link2,
 } from "lucide-react";
 
 import Navbar from "../../components/pageComponent/Navbar";
@@ -269,6 +270,26 @@ const helpItems = [
             "Натисніть кнопку додавання до улюблених.",
             "Оголошення буде збережене серед ваших улюблених.",
             "Щоб прибрати його з улюблених, натисніть відповідну кнопку ще раз.",
+        ],
+    },
+
+    {
+        id: "additional-links",
+        title: "Додаткові посилання в оголошенні",
+        description:
+            "Додавайте до 5 посилань на вебсайти, соцмережі та інші корисні ресурси.",
+        icon: Link2,
+        access: "user",
+        accessLabel: "Потрібна реєстрація",
+        steps: [
+            "Увійдіть у свій обліковий запис RBoard.",
+            "Створіть нове оголошення або відкрийте редагування власного оголошення.",
+            "Знайдіть блок «Додаткові посилання» та натисніть на його заголовок, щоб розгорнути.",
+            "Натисніть «Додати посилання» та введіть адресу потрібного вебсайту, сторінки в соцмережі або іншого ресурсу.",
+            "Система автоматично визначить тип посилання та покаже відповідну іконку, наприклад YouTube, TikTok, Facebook, Instagram або LinkedIn.",
+            "За потреби додайте інші посилання. Максимальна кількість — 5.",
+            "Щоб змінити посилання, відредагуйте його адресу. Щоб видалити — натисніть кнопку з іконкою кошика.",
+            "Збережіть оголошення. Посилання відображатимуться у його деталях у вигляді клікабельних іконок.",
         ],
     },
     {
@@ -683,6 +704,27 @@ const HELP_KEYWORDS = {
         "знайти збережені оголошення",
         "закладки",
     ],
+    "additional-links": [
+    "як додати посилання",
+    "додаткові посилання",
+    "додати сайт",
+    "посилання на вебсайт",
+    "додати ютуб",
+    "додати youtube",
+    "додати тікток",
+    "додати tiktok",
+    "додати фейсбук",
+    "додати facebook",
+    "додати linkedin",
+    "додати лінкедін",
+    "додати інстаграм",
+    "додати соцмережу",
+    "як змінити посилання",
+    "як видалити посилання",
+    "скільки посилань можна додати",
+    "іконки посилань",
+    "додати url",
+],
 
     contacts: [
         "як додати телеграм",
@@ -1074,42 +1116,42 @@ const Help = () => {
                             {showSuggestions && searchWords.length > 0 && suggestions.length > 0 && (
                                 <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
 
-                                  
-                                            <p className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-                                                Знайдені інструкції
-                                            </p>
 
-                                            {suggestions.map((item) => {
-                                                const Icon = item.icon;
+                                    <p className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                                        Знайдені інструкції
+                                    </p>
 
-                                                return (
-                                                    <button
-                                                        key={item.id}
-                                                        type="button"
-                                                        onMouseDown={(event) =>
-                                                            event.preventDefault()
-                                                        }
-                                                        onClick={() =>
-                                                            handleSuggestionClick(item)
-                                                        }
-                                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-blue-50"
-                                                    >
-                                                        <Icon
-                                                            size={19}
-                                                            className="shrink-0 text-blue-500"
-                                                        />
+                                    {suggestions.map((item) => {
+                                        const Icon = item.icon;
 
-                                                        <span className="min-w-0 flex-1 text-sm font-medium text-slate-700">
-                                                            {item.title}
-                                                        </span>
+                                        return (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onMouseDown={(event) =>
+                                                    event.preventDefault()
+                                                }
+                                                onClick={() =>
+                                                    handleSuggestionClick(item)
+                                                }
+                                                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-blue-50"
+                                            >
+                                                <Icon
+                                                    size={19}
+                                                    className="shrink-0 text-blue-500"
+                                                />
 
-                                                        <ChevronDown
-                                                            size={16}
-                                                            className="-rotate-90 shrink-0 text-slate-400"
-                                                        />
-                                                    </button>
-                                                );
-                                            })}
+                                                <span className="min-w-0 flex-1 text-sm font-medium text-slate-700">
+                                                    {item.title}
+                                                </span>
+
+                                                <ChevronDown
+                                                    size={16}
+                                                    className="-rotate-90 shrink-0 text-slate-400"
+                                                />
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
 

@@ -403,3 +403,47 @@ code {
 .listing-modal-scroll::-webkit-scrollbar-button {
   display: none;
 }
+
+
+
+/* Плавний синій перелив тексту партнерства */
+.partner-gradient-text {
+    display: inline-block;
+    background: linear-gradient(
+        110deg,
+        #1d4ed8 0%,
+        #2563eb 25%,
+        #38bdf8 45%,
+        #2563eb 65%,
+        #1d4ed8 100%
+    );
+    background-size: 250% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: partnerGradient 4s ease-in-out infinite;
+}
+
+@keyframes partnerGradient {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .partner-gradient-text {
+        animation: none;
+    }
+}
+.partner-gradient-text:hover,
+.group:focus-visible .partner-gradient-text {
+    animation: none;
+    background: none;
+    color: #38bdf8;
+    -webkit-text-fill-color: #38bdf8;
+}

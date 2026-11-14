@@ -22,6 +22,12 @@ import {
 import CityAutocomplete from "./CityAutocomplete";
 import ListingImageUploader from "./ListingImageUploader";
 import ListingContacts from "./ListingContacts";
+import ListingAdditionalLinks from "./ListingAdditionalLinks";
+
+import {
+    MAX_ADDITIONAL_LINKS,
+    parseAdditionalLink,
+} from "../../utils/additionalLinks";
 import GuestContactInput from "./GuestContactInput";
 import ListingQualityProgress from "./ListingQualityProgress";
 const MAX_GUEST_LISTINGS = 3;
@@ -116,6 +122,7 @@ const initialForm = {
     street: "",
     comment: "",
     additionalContacts: initialAdditionalContacts,
+    additionalLinks: [],
 };
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -362,6 +369,18 @@ export default function CreateListingForm({
             form: "",
         }));
     };
+    const handleAdditionalLinksChange = (additionalLinks) => {
+        setForm((previousForm) => ({
+            ...previousForm,
+            additionalLinks,
+        }));
+
+        setErrors((previousErrors) => ({
+            ...previousErrors,
+            additionalLinks: "",
+            form: "",
+        }));
+    };
     const handleCityChange = (city) => {
         setForm((previousForm) => ({
             ...previousForm,
@@ -469,6 +488,39 @@ export default function CreateListingForm({
                     "Заповніть усі вибрані способи зв’язку або вимкніть їх.";
             }
         }
+
+        if (isAuthenticated) {
+            const filledLinks = form.additionalLinks
+                .map((link) => link.trim())
+                .filter(Boolean);
+
+            const parsedLinks = filledLinks.map(
+                parseAdditionalLink
+            );
+
+            if (
+                form.additionalLinks.length >
+                MAX_ADDITIONAL_LINKS
+            ) {
+                newErrors.additionalLinks =
+                    "Можна додати не більше 5 посилань.";
+            } else if (
+                parsedLinks.some(
+                    (link) => !link || link.url.length > 500
+                )
+            ) {
+                newErrors.additionalLinks =
+                    "Перевірте адреси посилань. Дозволені лише коректні HTTP/HTTPS URL до 500 символів.";
+            } else if (
+                new Set(
+                    parsedLinks.map((link) => link.url)
+                ).size !== parsedLinks.length
+            ) {
+                newErrors.additionalLinks =
+                    "Однакові посилання не можна додавати двічі.";
+            }
+        }
+
         setErrors(newErrors);
 
         return Object.keys(newErrors).length === 0;
@@ -647,7 +699,18 @@ export default function CreateListingForm({
             listingData.additionalContacts =
                 additionalContacts;
         }
+        if (isAuthenticated) {
+            const additionalLinks = form.additionalLinks
+                .filter((link) => link.trim())
+                .map((link) =>
+                    parseAdditionalLink(link)?.url
+                )
+                .filter(Boolean);
 
+            if (additionalLinks.length > 0) {
+                listingData.additionalLinks = additionalLinks;
+            }
+        }
         return listingData;
     };
     const createAuthenticatedListing =
@@ -1357,6 +1420,7 @@ export default function CreateListingForm({
                     </p>
                 )}
             </div>
+
             {isAuthenticated && (
                 <>
                     <ListingContacts
@@ -1371,13 +1435,19 @@ export default function CreateListingForm({
 
                     {errors.additionalContacts && (
                         <p className="-mt-4 text-sm font-medium text-red-600">
-                            {
-                                errors.additionalContacts
-                            }
+                            {errors.additionalContacts}
                         </p>
                     )}
+
+                    <ListingAdditionalLinks
+                        value={form.additionalLinks}
+                        onChange={handleAdditionalLinksChange}
+                        disabled={submitting}
+                        error={errors.additionalLinks}
+                    />
                 </>
             )}
+
 
             {isAuthenticated && (
                 <ListingImageUploader

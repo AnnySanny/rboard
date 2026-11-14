@@ -67,6 +67,9 @@ const UserProfile = lazy(() =>
 const UserSettings = lazy(() =>
   import("./pages/user/UserSettings")
 );
+const UserPartner = lazy(() =>
+  import("./pages/user/UserPartner")
+);
 const EditListing = lazy(() =>
   import("./pages/user/EditListing")
 );
@@ -205,9 +208,9 @@ const App = () => {
             <Route
               path="/user"
               element={
-               
-                  <UserHome />
-                
+
+                <UserHome />
+
               }
             />
 
@@ -215,9 +218,9 @@ const App = () => {
             <Route
               path="/user/listings"
               element={
-               
-                  <UserListings />
-                
+
+                <UserListings />
+
               }
             />
 
@@ -225,9 +228,9 @@ const App = () => {
             <Route
               path="/user/chats"
               element={
-               
-                  <UserChats />
-                
+
+                <UserChats />
+
               }
             />
 
@@ -235,12 +238,16 @@ const App = () => {
             <Route
               path="/user/profile"
               element={
-               
-                  <UserProfile />
-                
+
+                <UserProfile />
+
               }
             />
-
+            {/* Особиста сторінка партнера */}
+            <Route
+              path="/user/partner"
+              element={<UserPartner />}
+            />
             {/* Публічний профіль за UID */}
             <Route
               path="/user/:uid"
@@ -251,9 +258,9 @@ const App = () => {
             <Route
               path="/user/settings"
               element={
-               
-                  <UserSettings />
-                
+
+                <UserSettings />
+
               }
             />
 
@@ -261,9 +268,9 @@ const App = () => {
             <Route
               path="/user/listings/:listingId/edit"
               element={
-               
-                  <EditListing />
-                
+
+                <EditListing />
+
               }
             />
 

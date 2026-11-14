@@ -111,6 +111,8 @@ export default function ListingContacts({
     hidePhone = false,
     onHidePhoneChange,
     disabled = false,
+    showPhonePrivacy = true,
+    variant = "default",
 }) {
 
 
@@ -156,82 +158,87 @@ export default function ListingContacts({
 
 
 
-return (
-    <div className="rounded-2xl border border-blue-300 bg-blue-50 p-4 sm:p-5">
-        <button
-            type="button"
-            onClick={() => setIsOpen((previous) => !previous)}
-            aria-expanded={isOpen}
-            className="flex w-full items-center gap-3 text-left"
-        >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
-                <MessageCircle size={20} />
-            </span>
-
-            <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-slate-900 sm:text-base">
-                    Додатковий зв’язок із вами
-                </span>
-
-                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                    {activeCount > 0
-                        ? `Додано способів зв’язку: ${activeCount}`
-                        : "Telegram, Viber, WhatsApp та інші"}
-                </span>
-            </span>
-
-            <ChevronDown
-                size={20}
-                className={`shrink-0 text-blue-600 transition-transform duration-200 ${
-                    isOpen ? "rotate-180" : ""
+    return (
+        <div
+            className={`rounded-2xl border p-4 sm:p-5 ${variant === "partner"
+                    ? "border-slate-200 bg-white shadow-sm"
+                    : "border-blue-300 bg-blue-50"
                 }`}
-            />
-        </button>
+        >
+            <button
+                type="button"
+                onClick={() => setIsOpen((previous) => !previous)}
+                aria-expanded={isOpen}
+                className="flex w-full items-center gap-3 text-left"
+            >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
+                    <MessageCircle size={20} />
+                </span>
 
-        {isOpen && (
-            <div className="mt-5 border-t border-blue-200 pt-4">
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-slate-900 sm:text-base">
+                        Додатковий зв’язок із вами
+                    </span>
+
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">
+                        {activeCount > 0
+                            ? `Додано способів зв’язку: ${activeCount}`
+                            : "Telegram, Viber, WhatsApp та інші"}
+                    </span>
+                </span>
+
+                <ChevronDown
+                    size={20}
+                    className={`shrink-0 text-blue-600 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+                        }`}
+                />
+            </button>
+
+            {isOpen && (
+                <div className="mt-5 border-t border-blue-200 pt-4">
 
 
-            {/* Видимість основного номера */}
-            <div
-                className={`
+                    {/* Видимість основного номера */}
+                    {showPhonePrivacy && (
+                    <div
+                        className={`
                     mt-5
                     rounded-2xl
                     border
                     bg-white
                     transition
                  ${hidePhone
-                        ? "border-red-300 shadow-sm"
-                        : "border-slate-200"
-                    }
+                                ? "border-red-300 shadow-sm"
+                                : "border-slate-200"
+                            }
                 `}
-            >
-                <label
-                    className={`
+                    >
+                        <label
+                            className={`
         flex
         items-center
         gap-3
         p-4
         ${disabled
-                            ? "cursor-not-allowed opacity-60"
-                            : "cursor-pointer"
-                        }
+                                    ? "cursor-not-allowed opacity-60"
+                                    : "cursor-pointer"
+                                }
     `}
-                >
-                    <input
-                        type="checkbox"
-                        checked={hidePhone}
-                        onChange={(event) => {
-                            if (typeof onHidePhoneChange === "function") {
-                                onHidePhoneChange(event);
-                            }
-                        }}
-                        disabled={disabled}
-                        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-red-500"
-                    />
+                        >
+                            <input
+                                type="checkbox"
+                                checked={hidePhone}
+                                onChange={(event) => {
+                                    if (typeof onHidePhoneChange === "function") {
+                                        onHidePhoneChange(event);
+                                    }
+                                }}
+                                disabled={disabled}
+                                className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-red-500"
+                            />
 
-                    <span
-                        className={`
+                            <span
+                                className={`
                             flex
                             h-9
                             w-9
@@ -241,156 +248,156 @@ return (
                             rounded-xl
                             transition
 ${hidePhone
-                                ? "bg-red-50 text-red-500 ring-1 ring-red-200"
-                                : "bg-slate-100 text-slate-500"
-                            }
+                                        ? "bg-red-50 text-red-500 ring-1 ring-red-200"
+                                        : "bg-slate-100 text-slate-500"
+                                    }
                         `}
-                    >
-                        <PhoneOff
-                            size={18}
-                            strokeWidth={2}
-                        />
-                    </span>
-
-                    <div className="min-w-0">
-                        <span className="block text-sm font-bold text-slate-700">
-                            Не показувати номер телефону
-                        </span>
-                        <span className="mt-0.5 block text-xs leading-5 text-slate-400">
-                            Приховати основний номер
-                            телефону в цьому оголошенні
-                        </span>
-                    </div>
-                </label>
-
-                {hidePhone && (
-                    <div className="border-t border-blue-100 px-4 py-3">
-                        <p className="text-xs leading-5 text-blue-700">
-                            Рекомендуємо додати хоча б
-                            один додатковий спосіб
-                            зв’язку, щоб користувачі
-                            могли зв’язатися з вами.
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* Додаткові контакти */}
-            <div className="mt-3 grid items-start gap-3 sm:grid-cols-2">
-                {CONTACT_TYPES.map(
-                    (contact) => {
-                        const Icon =
-                            contact.icon;
-
-                        const contactState =
-                            value[
-                            contact.key
-                            ];
-
-                        return (
-                            <div
-                                key={
-                                    contact.key
-                                }
-                                className={`rounded-2xl border bg-white transition ${contactState.enabled
-                                    ? contact.borderActive
-                                    : "border-slate-200"
-                                    }`}
                             >
-                                <label
-                                    className={`flex items-center gap-3 p-4 ${disabled
-                                        ? "cursor-not-allowed opacity-60"
-                                        : "cursor-pointer"
-                                        }`}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={
-                                            contactState.enabled
-                                        }
-                                        onChange={() =>
-                                            handleToggle(
-                                                contact.key
-                                            )
-                                        }
-                                        disabled={
-                                            disabled
-                                        }
-                                        className={`h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 ${contact.checkboxColor}`}
-                                    />
+                                <PhoneOff
+                                    size={18}
+                                    strokeWidth={2}
+                                />
+                            </span>
 
-                                    <span
-                                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${contactState.enabled
-                                            ? contact.iconActive
-                                            : "bg-slate-100 text-slate-500"
+                            <div className="min-w-0">
+                                <span className="block text-sm font-bold text-slate-700">
+                                    Не показувати номер телефону
+                                </span>
+                                <span className="mt-0.5 block text-xs leading-5 text-slate-400">
+                                    Приховати основний номер
+                                    телефону в цьому оголошенні
+                                </span>
+                            </div>
+                        </label>
+
+                        {hidePhone && (
+                            <div className="border-t border-blue-100 px-4 py-3">
+                                <p className="text-xs leading-5 text-blue-700">
+                                    Рекомендуємо додати хоча б
+                                    один додатковий спосіб
+                                    зв’язку, щоб користувачі
+                                    могли зв’язатися з вами.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+)}
+                    {/* Додаткові контакти */}
+                    <div className="mt-3 grid items-start gap-3 sm:grid-cols-2">
+                        {CONTACT_TYPES.map(
+                            (contact) => {
+                                const Icon =
+                                    contact.icon;
+
+                                const contactState =
+                                    value[
+                                    contact.key
+                                    ];
+
+                                return (
+                                    <div
+                                        key={
+                                            contact.key
+                                        }
+                                        className={`rounded-2xl border bg-white transition ${contactState.enabled
+                                            ? contact.borderActive
+                                            : "border-slate-200"
                                             }`}
                                     >
-                                        <Icon
-                                            size={
-                                                18
-                                            }
-                                            strokeWidth={
-                                                2
-                                            }
-                                        />
-                                    </span>
+                                        <label
+                                            className={`flex items-center gap-3 p-4 ${disabled
+                                                ? "cursor-not-allowed opacity-60"
+                                                : "cursor-pointer"
+                                                }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    contactState.enabled
+                                                }
+                                                onChange={() =>
+                                                    handleToggle(
+                                                        contact.key
+                                                    )
+                                                }
+                                                disabled={
+                                                    disabled
+                                                }
+                                                className={`h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 ${contact.checkboxColor}`}
+                                            />
 
-                                    <span className="text-sm font-bold text-slate-700">
-                                        {
-                                            contact.label
-                                        }
-                                    </span>
-                                </label>
+                                            <span
+                                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${contactState.enabled
+                                                    ? contact.iconActive
+                                                    : "bg-slate-100 text-slate-500"
+                                                    }`}
+                                            >
+                                                <Icon
+                                                    size={
+                                                        18
+                                                    }
+                                                    strokeWidth={
+                                                        2
+                                                    }
+                                                />
+                                            </span>
 
-                                {contactState.enabled && (
-                                    <div className="px-4 pb-4">
-                                        <input
-                                            type={
-                                                contact.type
-                                            }
-                                            inputMode={
-                                                contact.inputMode
-                                            }
-                                            value={
-                                                contactState.value
-                                            }
-                                            onChange={(
-                                                event
-                                            ) =>
-                                                handleChange(
-                                                    contact.key,
-                                                    event
-                                                        .target
-                                                        .value
-                                                )
-                                            }
-                                            placeholder={
-                                                contact.placeholder
-                                            }
-                                            disabled={
-                                                disabled
-                                            }
-                                            autoComplete="off"
-                                            maxLength={
-                                                250
-                                            }
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
-                                        />
+                                            <span className="text-sm font-bold text-slate-700">
+                                                {
+                                                    contact.label
+                                                }
+                                            </span>
+                                        </label>
 
-                                        <p className="mt-2 text-xs leading-5 text-slate-400">
-                                            {
-                                                contact.hint
-                                            }
-                                        </p>
+                                        {contactState.enabled && (
+                                            <div className="px-4 pb-4">
+                                                <input
+                                                    type={
+                                                        contact.type
+                                                    }
+                                                    inputMode={
+                                                        contact.inputMode
+                                                    }
+                                                    value={
+                                                        contactState.value
+                                                    }
+                                                    onChange={(
+                                                        event
+                                                    ) =>
+                                                        handleChange(
+                                                            contact.key,
+                                                            event
+                                                                .target
+                                                                .value
+                                                        )
+                                                    }
+                                                    placeholder={
+                                                        contact.placeholder
+                                                    }
+                                                    disabled={
+                                                        disabled
+                                                    }
+                                                    autoComplete="off"
+                                                    maxLength={
+                                                        250
+                                                    }
+                                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
+                                                />
+
+                                                <p className="mt-2 text-xs leading-5 text-slate-400">
+                                                    {
+                                                        contact.hint
+                                                    }
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        );
-                    }
-                )}
-            </div>
-            </div>
-        )}
+                                );
+                            }
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

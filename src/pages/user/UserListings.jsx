@@ -24,6 +24,7 @@ import {
 } from "firebase/auth";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
 import ListingAdditionalLinksDisplay from "../../components/listings/ListingAdditionalLinksDisplay";
+import RealEstateListingCard from "../../components/partners/realEstate/RealEstateListingCard";
 const LISTING_TYPES = [
     "Усі типи",
     "Продаж",
@@ -382,6 +383,7 @@ const UserListings = () => {
                                                 document.data();
 
                                             return {
+                                                ...data,
                                                 id: document.id,
 
                                                 title:
@@ -1020,6 +1022,26 @@ const UserListings = () => {
                                 <div className="space-y-4">
                                     {filteredListings.map(
                                         (listing) => {
+
+                                            if (
+                                                listing.listingKind === "partner" &&
+                                                listing.partnerType === "real_estate"
+                                            ) {
+                                                return (
+                                                    <RealEstateListingCard
+                                                        key={listing.id}
+                                                        listing={listing}
+                                                        deleting={deletingId === listing.id}
+                                                        onDelete={() => handleDelete(listing)}
+                                                        onEdit={() =>
+                                                            navigate(
+                                                                `/user/partner/edit/real-estate/${listing.id}`
+                                                            )
+                                                        }
+                                                    />
+                                                );
+                                            }
+
                                             const status =
                                                 getStatusData(
                                                     listing.status

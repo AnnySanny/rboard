@@ -147,17 +147,24 @@ const AdminNavbar = ({ onOpenTab }) => {
         }
     };
 
-    const isActive = (pageKey) => {
-        const item = menuItems.find(
-            (menuItem) => menuItem.key === pageKey
+const isActive = (pageKey) => {
+    const item = menuItems.find(
+        (menuItem) => menuItem.key === pageKey
+    );
+
+    if (!item) {
+        return false;
+    }
+
+    if (pageKey === "listings") {
+        return (
+            location.pathname === item.to ||
+            location.pathname.startsWith(`${item.to}/`)
         );
+    }
 
-        if (!item) {
-            return false;
-        }
-
-        return location.pathname === item.to;
-    };
+    return location.pathname === item.to;
+};
 
     return (
         <>

@@ -77,12 +77,16 @@ const Navbar = () => {
 
     const [currentUser, setCurrentUser] =
         useState(() => auth.currentUser);
-
+    const [isPartner, setIsPartner] = useState(false);
+    const [partnerType, setPartnerType] = useState("");
     const [authLoading, setAuthLoading] =
         useState(() => !auth.currentUser);
 
     const [loginChecking, setLoginChecking] = useState(false);
     const userMode = Boolean(currentUser);
+    const partnerCreatePath = partnerType
+    ? `/user/partner/create/${partnerType.replace(/_/g, "-")}`
+    : "/user/partner";
     const { unreadCount } = useChatNotifications();
 
     const unreadLabel =
@@ -99,7 +103,8 @@ const Navbar = () => {
             auth,
             async (user) => {
                 const currentGeneration = ++generation;
-
+                setIsPartner(false);
+                setPartnerType("");
                 if (!user) {
                     if (active) {
                         setCurrentUser(null);
@@ -132,6 +137,16 @@ const Navbar = () => {
                         setCurrentUser(null);
                         return;
                     }
+
+                    const userData = userSnapshot.data();
+
+                    setIsPartner(userData.partner === true);
+
+                    setPartnerType(
+                        userData.partner === true
+                            ? userData.partnerType || ""
+                            : ""
+                    );
 
                     setCurrentUser(user);
                 } catch (error) {
@@ -589,14 +604,16 @@ const Navbar = () => {
                                     Допомога
                                 </NavLink>
 
-                                <NavLink
-                                    to="/user/partner"
-                                    className="group inline-flex items-center text-sm font-medium"
-                                >
-                                    <span className="partner-gradient-text">
-                                        Партнерство
-                                    </span>
-                                </NavLink>
+                                {isPartner && (
+                                    <NavLink
+                                        to={partnerCreatePath}
+                                        className="group inline-flex items-center text-sm font-medium"
+                                    >
+                                        <span className="partner-gradient-text">
+                                            Партнерство
+                                        </span>
+                                    </NavLink>
+                                )}
 
 
                                 <NavLink
@@ -850,14 +867,17 @@ const Navbar = () => {
                                         Допомога
                                     </NavLink>
 
-                                    <NavLink
-                                        to="/user/partner"
-                                        className="group inline-flex items-center text-sm font-medium"
-                                    >
-                                        <span className="partner-gradient-text">
-                                            Партнерство
-                                        </span>
-                                    </NavLink>
+                                    {isPartner && (
+                                        <NavLink
+                                            to={partnerCreatePath}
+                                            onClick={closeMobileMenu}
+                                            className={mobileNavLinkClass}
+                                        >
+                                            <span className="partner-gradient-text">
+                                                Партнерство
+                                            </span>
+                                        </NavLink>
+                                    )}
 
                                     <NavLink
                                         to="/fundraisers"
@@ -865,7 +885,7 @@ const Navbar = () => {
                                     >
                                         Збір для ЗСУ
                                     </NavLink>
-                                    
+
                                     <NavLink
                                         to="/user/profile"
                                         onClick={closeMobileMenu}

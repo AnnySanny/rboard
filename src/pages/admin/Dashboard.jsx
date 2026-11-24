@@ -352,7 +352,7 @@ const Dashboard = () => {
             title: "Створити оголошення",
             description:
                 "Швидке створення нового оголошення від адміністратора.",
-            path: "/dashboard/create-listing",
+            path: "/dashboard/admin-create-listing",
             icon: PlusCircle,
         },
         {

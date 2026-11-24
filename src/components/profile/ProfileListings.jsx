@@ -40,7 +40,11 @@ const isActive = (expiresAt) => {
     );
 };
 
-export default function ProfileListings({ profileUid }) {
+export default function ProfileListings({
+    profileUid,
+    excludePartnerListings = false,
+    hideWhenEmpty = false,
+}) {
     const [listings, setListings] = useState([]);
     const [lastDoc, setLastDoc] = useState(null);
     const [hasMore, setHasMore] = useState(false);
@@ -73,6 +77,69 @@ export default function ProfileListings({ profileUid }) {
         [profileUid]
     );
 
+    const fetchListingsPage = useCallback(
+        async (cursor = null) => {
+            const items = [];
+
+            let nextCursor = cursor;
+            let hasMore = false;
+
+            do {
+                const snapshot = await getDocs(
+                    buildQuery(nextCursor)
+                );
+
+                if (snapshot.empty) {
+                    hasMore = false;
+                    break;
+                }
+
+                let processed = 0;
+
+                for (const document of snapshot.docs) {
+                    processed++;
+                    nextCursor = document;
+
+                    const data = document.data();
+
+                    if (!isActive(data.expiresAt)) {
+                        continue;
+                    }
+
+                    if (
+                        excludePartnerListings &&
+                        data.listingKind === "partner"
+                    ) {
+                        continue;
+                    }
+
+                    items.push(
+                        mapListingDocument(document)
+                    );
+
+                    if (items.length === PAGE_SIZE) {
+                        break;
+                    }
+                }
+
+                hasMore =
+                    processed < snapshot.docs.length ||
+                    snapshot.size === PAGE_SIZE;
+
+            } while (
+                items.length < PAGE_SIZE &&
+                hasMore
+            );
+
+            return {
+                items,
+                lastDoc: nextCursor,
+                hasMore,
+            };
+        },
+        [buildQuery, excludePartnerListings]
+    );
+
     useEffect(() => {
         if (!profileUid) {
             setListings([]);
@@ -93,19 +160,13 @@ export default function ProfileListings({ profileUid }) {
 
         const loadInitial = async () => {
             try {
-                const snapshot = await getDocs(buildQuery());
+                const result = await fetchListingsPage();
 
                 if (!active) return;
 
-                const items = snapshot.docs
-                    .filter((item) => isActive(item.data().expiresAt))
-                    .map(mapListingDocument);
-
-                setListings(items);
-                setLastDoc(
-                    snapshot.docs[snapshot.docs.length - 1] || null
-                );
-                setHasMore(snapshot.size === PAGE_SIZE);
+                setListings(result.items);
+                setLastDoc(result.lastDoc);
+                setHasMore(result.hasMore);
             } catch (err) {
                 if (!active) return;
 
@@ -125,7 +186,7 @@ export default function ProfileListings({ profileUid }) {
         return () => {
             active = false;
         };
-    }, [profileUid, buildQuery]);
+    }, [profileUid, fetchListingsPage]);
 
     const loadMore = async () => {
         if (
@@ -141,13 +202,9 @@ export default function ProfileListings({ profileUid }) {
             setLoadingMore(true);
             setError("");
 
-            const snapshot = await getDocs(
-                buildQuery(lastDoc)
-            );
+            const result = await fetchListingsPage(lastDoc);
 
-            const nextItems = snapshot.docs
-                .filter((item) => isActive(item.data().expiresAt))
-                .map(mapListingDocument);
+            const nextItems = result.items;
 
             setListings((current) => {
                 const existingIds = new Set(
@@ -162,11 +219,8 @@ export default function ProfileListings({ profileUid }) {
                 ];
             });
 
-            setLastDoc(
-                snapshot.docs[snapshot.docs.length - 1] || null
-            );
-
-            setHasMore(snapshot.size === PAGE_SIZE);
+            setLastDoc(result.lastDoc);
+            setHasMore(result.hasMore);
         } catch (err) {
             console.error(
                 "Помилка завантаження наступних оголошень:",
@@ -198,7 +252,14 @@ export default function ProfileListings({ profileUid }) {
             getTime(b.createdAt) - getTime(a.createdAt)
         );
     });
-
+    if (
+        hideWhenEmpty &&
+        !loading &&
+        listings.length === 0 &&
+        !error
+    ) {
+        return null;
+    }
     return (
         <>
             <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-7">
@@ -210,7 +271,9 @@ export default function ProfileListings({ profileUid }) {
                         />
 
                         <h2 className="text-base font-medium text-slate-900 sm:text-lg">
-                            Оголошення користувача
+                            {excludePartnerListings
+                                ? "Звичайні оголошення"
+                                : "Оголошення користувача"}
                         </h2>
                     </div>
 

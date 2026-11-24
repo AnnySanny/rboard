@@ -24,6 +24,11 @@ import { auth, db } from "../../firebase";
 import { Settings, Handshake } from "lucide-react";
 import UserStatisticsModal from "../../components/admin/UserStatisticsModal";
 import ResetPasswordModal from "../../components/admin/ResetPasswordModal";
+import {
+  PARTNER_SPECIALIZATIONS,
+  getPartnerSpecializationLabel,
+} from "../../utils/partnerSpecializations";
+import PartnerSpecializationModal from "../../components/admin/PartnerSpecializationModal";
 const Toast = Swal.mixin({
   toast: true,
   position: "top-end",
@@ -54,9 +59,9 @@ const STATUS_FILTERS = [
     label: "Не в мережі",
   },
   {
-  value: "partners",
-  label: "Партнери",
-},
+    value: "partners",
+    label: "Партнери",
+  },
 ];
 
 
@@ -123,6 +128,9 @@ const AdminUsers = () => {
     changingPartnerId,
     setChangingPartnerId,
   ] = useState(null);
+
+  const [partnerUser, setPartnerUser] = useState(null);
+
   const [
     deletingId,
     setDeletingId,
@@ -187,6 +195,11 @@ const AdminUsers = () => {
                     true,
                   partner:
                     data.partner === true,
+
+                  partnerType:
+                    typeof data.partnerType === "string"
+                      ? data.partnerType
+                      : "",
                   createdAt:
                     data.createdAt ||
                     null,
@@ -844,12 +857,15 @@ const AdminUsers = () => {
 
 
 
-  const handleTogglePartner = async (user) => {
+
+
+  const handleTogglePartner = async (
+    user,
+    { enabled, partnerType = user.partnerType || "" }
+  ) => {
     if (changingPartnerId || deletingId || changingBlockId) return;
 
-    const willEnable = !user.partner;
-
-    if (willEnable && user.blocked) {
+    if (enabled && user.blocked) {
       Toast.fire({
         icon: "warning",
         title: "Спочатку розблокуйте користувача",
@@ -857,54 +873,70 @@ const AdminUsers = () => {
       return;
     }
 
-    const result = await Swal.fire({
-      icon: "question",
-      title: willEnable
-        ? "Зробити користувача партнером?"
-        : "Скасувати партнерство?",
-      text: willEnable
-        ? `Користувач «${user.login || "Без імені"}» отримає партнерський статус RBoard.`
-        : `Партнерство користувача «${user.login || "Без імені"}» буде деактивовано. Його бізнес-дані збережуться.`,
-      showCancelButton: true,
-      confirmButtonText: willEnable
-        ? "Надати партнерство"
-        : "Скасувати партнерство",
-      cancelButtonText: "Назад",
-      confirmButtonColor: willEnable
-        ? "#B8860B"
-        : "#2563eb",
-      reverseButtons: true,
-                cancelButtonColor:
-            "#64748b",
-    });
+    if (
+      enabled &&
+      !PARTNER_SPECIALIZATIONS.some(
+        (item) => item.value === partnerType
+      )
+    ) {
+      Toast.fire({
+        icon: "warning",
+        title: "Оберіть спеціалізацію партнера",
+      });
+      return;
+    }
 
-    if (!result.isConfirmed) return;
+    if (
+      enabled &&
+      user.partner &&
+      user.partnerType === partnerType
+    ) {
+      setPartnerUser(null);
+      return;
+    }
+
+    if (!enabled && !user.partner) return;
+
+    const action = !enabled
+      ? "disabled"
+      : user.partner
+        ? "updated"
+        : "enabled";
 
     setChangingPartnerId(user.id);
 
     try {
       const userRef = doc(db, "users", user.id);
+      const publicProfileRef = doc(db, "publicProfiles", user.id);
       const partnerRef = doc(db, "partners", user.id);
 
-      const partnerSnapshot = willEnable
+      const partnerSnapshot = enabled
         ? await getDoc(partnerRef)
         : null;
 
       const batch = writeBatch(db);
 
-      batch.update(userRef, {
-        partner: willEnable,
-      });
+      if (enabled) {
+        batch.update(userRef, {
+          partner: true,
+          partnerType,
+        });
 
-      if (willEnable) {
+        batch.update(publicProfileRef, {
+          partner: true,
+          partnerType,
+        });
+
         if (partnerSnapshot.exists()) {
           batch.update(partnerRef, {
+            partnerType,
             active: true,
             updatedAt: serverTimestamp(),
           });
         } else {
           batch.set(partnerRef, {
             ownerUid: user.id,
+            partnerType,
             businessName: user.login || "",
             description: "",
             logoUrl: "",
@@ -919,6 +951,14 @@ const AdminUsers = () => {
           });
         }
       } else {
+        batch.update(userRef, {
+          partner: false,
+        });
+
+        batch.update(publicProfileRef, {
+          partner: false,
+        });
+
         batch.set(
           partnerRef,
           {
@@ -932,42 +972,65 @@ const AdminUsers = () => {
 
       await batch.commit();
 
+      const specializationLabel =
+        getPartnerSpecializationLabel(partnerType);
+
       try {
         await createAdminLog({
-          action: willEnable
-            ? "user_partner_enabled"
-            : "user_partner_disabled",
+          action:
+            action === "enabled"
+              ? "user_partner_enabled"
+              : action === "updated"
+                ? "user_partner_specialization_updated"
+                : "user_partner_disabled",
           category: "users",
-          title: willEnable
-            ? "Надано партнерський статус"
-            : "Скасовано партнерський статус",
-          description: willEnable
-            ? `Користувач «${user.login || "Без імені"}» став партнером RBoard.`
-            : `Партнерство користувача «${user.login || "Без імені"}» деактивовано.`,
+          title:
+            action === "enabled"
+              ? "Надано партнерський статус"
+              : action === "updated"
+                ? "Змінено спеціалізацію партнера"
+                : "Скасовано партнерський статус",
+          description:
+            action === "disabled"
+              ? `Партнерство користувача «${user.login || "Без імені"}» деактивовано.`
+              : `Користувач «${user.login || "Без імені"}»: спеціалізація — ${specializationLabel}.`,
           targetId: user.id,
           targetName: user.login || "Без імені",
         });
       } catch (logError) {
-        console.error("Помилка запису журналу:", logError);
+        console.error(
+          "Помилка запису журналу:",
+          logError
+        );
       }
+
+      setPartnerUser(null);
 
       Toast.fire({
         icon: "success",
-        title: willEnable
-          ? "Партнерство успішно надано"
-          : "Партнерство скасовано",
+        title:
+          action === "enabled"
+            ? "Партнерство успішно надано"
+            : action === "updated"
+              ? "Спеціалізацію оновлено"
+              : "Партнерство скасовано",
       });
     } catch (error) {
-      console.error("Помилка зміни партнерства:", error);
+      console.error(
+        "Помилка налаштування партнерства:",
+        error
+      );
 
       Toast.fire({
         icon: "error",
-        title: "Не вдалося змінити партнерський статус",
+        title: error.message || "Не вдалося зберегти партнерство",
       });
     } finally {
       setChangingPartnerId(null);
     }
   };
+
+
 
   const handleDelete = async (user) => {
     if (deletingId) return;
@@ -1343,7 +1406,7 @@ const AdminUsers = () => {
                           changingPartnerId === user.id
                         }
                         onTogglePartner={() =>
-                          handleTogglePartner(user)
+                          setPartnerUser(user)
                         }
                         onStatistics={() =>
                           setStatisticsUser(
@@ -1393,7 +1456,7 @@ const AdminUsers = () => {
                       changingPartnerId === user.id
                     }
                     onTogglePartner={() =>
-                      handleTogglePartner(user)
+                      setPartnerUser(user)
                     }
                     onStatistics={() =>
                       setStatisticsUser(
@@ -1455,6 +1518,28 @@ const AdminUsers = () => {
           }
         />
       )}
+      {/* Налаштування партнерства */}
+      {partnerUser && (
+        <PartnerSpecializationModal
+          user={partnerUser}
+          loading={changingPartnerId === partnerUser.id}
+          onClose={() => {
+            if (changingPartnerId) return;
+            setPartnerUser(null);
+          }}
+          onSave={(partnerType) =>
+            handleTogglePartner(partnerUser, {
+              enabled: true,
+              partnerType,
+            })
+          }
+          onDisable={() =>
+            handleTogglePartner(partnerUser, {
+              enabled: false,
+            })
+          }
+        />
+      )}
     </div>
   );
 };
@@ -1499,8 +1584,12 @@ const UserRow = ({
                 {user.login || "Без імені"}
               </Link>
               {user.partner && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">
-                  Партнер
+                <span
+                  title={getPartnerSpecializationLabel(user.partnerType)}
+                  className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800"
+                >
+                  <Handshake size={12} />
+                  {getPartnerSpecializationLabel(user.partnerType)}
                 </span>
               )}
               <span
@@ -1667,7 +1756,7 @@ const UserMobileCard = ({
           {user.partner && (
             <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">
               <Handshake size={12} />
-              Партнер RBoard
+              {getPartnerSpecializationLabel(user.partnerType)}
             </span>
           )}
           <p className="mt-1 break-all text-xs font-medium text-slate-500">

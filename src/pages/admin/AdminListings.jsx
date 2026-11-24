@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { FaFacebookF } from "react-icons/fa";
 import FacebookPostModal from "../../components/admin/FacebookPostModal";
+import PartnerListingDetails from "../../components/admin/listings/PartnerListingDetails";
 import { db, auth } from "../../firebase";
 import ListingImageGallery from "../../components/listings/ListingImageGallery";
 import ListingAdditionalLinksDisplay from "../../components/listings/ListingAdditionalLinksDisplay";
@@ -560,6 +561,7 @@ const AdminListings = () => {
         };
     }, [search]);
     const [typeFilter, setTypeFilter] = useState("all");
+    const [partnerFilter, setPartnerFilter] = useState("all");
     const [statusFilter, setStatusFilter] =
         useState("all");
 
@@ -689,7 +691,11 @@ const AdminListings = () => {
                 )
             );
         }
-
+        if (partnerFilter === "partner") {
+            constraints.push(
+                where("listingKind", "==", "partner")
+            );
+        }
         if (cityFilter !== "all") {
             constraints.push(
                 where(
@@ -789,7 +795,11 @@ const AdminListings = () => {
                 )
             );
         }
-
+        if (partnerFilter === "partner") {
+            constraints.push(
+                where("listingKind", "==", "partner")
+            );
+        }
         if (cityFilter !== "all") {
             constraints.push(
                 where(
@@ -1100,6 +1110,7 @@ const AdminListings = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         typeFilter,
+        partnerFilter,
         statusFilter,
         authorizationFilter,
         cityFilter,
@@ -1115,6 +1126,7 @@ const AdminListings = () => {
     const resetFilters = () => {
         setSearch("");
         setTypeFilter("all");
+        setPartnerFilter("all");
         setStatusFilter("all");
         setAuthorizationFilter("all");
         setCityFilter("all");
@@ -1948,7 +1960,7 @@ const AdminListings = () => {
 
                     <div className="rounded-2xl bg-slate-100 px-4 py-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Знайдено
+                            Завантажено
                         </p>
 
                         <p className="mt-1 text-2xl font-black text-slate-950">
@@ -2036,6 +2048,33 @@ const AdminListings = () => {
                                         </option>
                                     )
                                 )}
+                            </select>
+                        </div>
+
+                        {/* Партнерські оголошення */}
+                        <div>
+                            <label
+                                htmlFor="partner-filter"
+                                className="mb-2 block text-sm font-semibold text-slate-700"
+                            >
+                                Вид оголошення
+                            </label>
+
+                            <select
+                                id="partner-filter"
+                                value={partnerFilter}
+                                onChange={(event) =>
+                                    setPartnerFilter(event.target.value)
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                            >
+                                <option value="all">
+                                    Усі оголошення
+                                </option>
+
+                                <option value="partner">
+                                    Партнерські
+                                </option>
                             </select>
                         </div>
 
@@ -2323,7 +2362,26 @@ const AdminListings = () => {
                                                             statusData.label
                                                         }
                                                     </span>
+                                                    {listing.listingKind === "partner" && (
+                                                        <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                                                            <svg
+                                                                className="h-3.5 w-3.5"
+                                                                viewBox="0 0 24 24"
+                                                                fill="none"
+                                                                stroke="currentColor"
+                                                                strokeWidth="2"
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                            >
+                                                                <path d="m9 12 2 2 4-4" />
+                                                                <path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6l-8-4Z" />
+                                                            </svg>
 
+                                                            {listing.partnerType === "real_estate"
+                                                                ? "Партнерське · Нерухомість"
+                                                                : "Партнерське"}
+                                                        </span>
+                                                    )}
                                                     <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
                                                         {listing.type ||
                                                             "Тип не вказано"}
@@ -2608,7 +2666,9 @@ const AdminListings = () => {
                                                     />
                                                 )}
                                         </div>
-
+                                        {listing.listingKind === "partner" && (
+                                            <PartnerListingDetails listing={listing} />
+                                        )}
                                         <div className="mt-5">
                                             <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                                                 Опис
@@ -2829,7 +2889,10 @@ const AdminListings = () => {
                                                         type="button"
                                                         onClick={() =>
                                                             navigate(
-                                                                `/dashboard/listings/${listing.id}/edit`
+                                                                listing.listingKind === "partner" &&
+                                                                    listing.partnerType === "real_estate"
+                                                                    ? `/dashboard/listings/${listing.id}/edit/real-estate`
+                                                                    : `/dashboard/listings/${listing.id}/edit`
                                                             )
                                                         }
                                                         disabled={

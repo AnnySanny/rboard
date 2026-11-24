@@ -12,11 +12,12 @@ import {
 // Звичайні імпорти
 import Home from "./pages/public/Home";
 import ProtectedAdminRoute from "./components/protectedRoute/ProtectedAdminRoute";
+import ProtectedPartnerRoute from "./components/protectedRoute/ProtectedPartnerRoute";
 import { ChatNotificationsProvider } from "./context/ChatNotificationsContext";
 import UserPresenceTracker from "./components/system/UserPresenceTracker";
 import UserAccessWatcher from "./components/system/UserAccessWatcher";
 import NetworkStatus from "./components/system/NetworkStatus";
-
+import AdminRealEstateEdit from "./pages/admin/AdminRealEstateEdit";
 // Публічні сторінки
 const About = lazy(() =>
   import("./pages/public/About")
@@ -67,9 +68,7 @@ const UserProfile = lazy(() =>
 const UserSettings = lazy(() =>
   import("./pages/user/UserSettings")
 );
-const UserPartner = lazy(() =>
-  import("./pages/user/UserPartner")
-);
+
 const EditListing = lazy(() =>
   import("./pages/user/EditListing")
 );
@@ -131,6 +130,15 @@ const AdminSite = lazy(() =>
   import("./pages/admin/AdminSite")
 );
 
+// Сторінки партнерів
+
+const CreateRealEstateListing = lazy(() =>
+  import("./pages/partners/CreateRealEstateListing")
+);
+
+const EditRealEstateListing = lazy(() =>
+  import("./pages/partners/EditRealEstateListing")
+);
 const App = () => {
   return (
     <BrowserRouter>
@@ -243,11 +251,6 @@ const App = () => {
 
               }
             />
-            {/* Особиста сторінка партнера */}
-            <Route
-              path="/user/partner"
-              element={<UserPartner />}
-            />
             {/* Публічний профіль за UID */}
             <Route
               path="/user/:uid"
@@ -271,6 +274,27 @@ const App = () => {
 
                 <EditListing />
 
+              }
+            />
+            {/* ==============================
+              СТОРІНКИ ПАРТНЕРІВ
+          ============================== */}
+
+
+            <Route
+              path="/user/partner/create/real-estate"
+              element={
+                <ProtectedPartnerRoute requiredType="real_estate">
+                  <CreateRealEstateListing />
+                </ProtectedPartnerRoute>
+              }
+            />
+            <Route
+              path="/user/partner/edit/real-estate/:listingId"
+              element={
+                <ProtectedPartnerRoute partnerType="real_estate">
+                  <EditRealEstateListing />
+                </ProtectedPartnerRoute>
               }
             />
 
@@ -305,7 +329,10 @@ const App = () => {
                 path="listings/:listingId/edit"
                 element={<AdminEditListing />}
               />
-
+              <Route
+                path="listings/:listingId/edit/real-estate"
+                element={<AdminRealEstateEdit />}
+              />
               <Route
                 path="admin-create-listing"
                 element={<AdminCreateListing />}

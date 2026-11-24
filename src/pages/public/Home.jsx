@@ -465,7 +465,77 @@ const Home = () => {
                 };
         }
     };
+    const fetchListingsPage = async (
+        cursor = null,
+        version
+    ) => {
+        const excludePartners =
+            activeCategory === "Усі" &&
+            normalizeSearchText(debouncedSearch).length <
+            MIN_SEARCH_LENGTH;
 
+        const receivedListings = [];
+
+        let nextCursor = cursor;
+        let hasMore = false;
+
+        do {
+            const snapshot = await getDocs(
+                buildListingsQuery(nextCursor)
+            );
+
+            if (version !== requestVersionRef.current) {
+                return null;
+            }
+
+            let processed = 0;
+
+            for (const document of snapshot.docs) {
+                processed++;
+                nextCursor = document;
+
+                const data = document.data();
+
+                if (!isListingActive(data.expiresAt)) {
+                    continue;
+                }
+
+                if (
+                    excludePartners &&
+                    data.listingKind === "partner"
+                ) {
+                    continue;
+                }
+
+                receivedListings.push(
+                    mapListingDocument(document)
+                );
+
+                if (
+                    receivedListings.length ===
+                    LISTINGS_PER_PAGE
+                ) {
+                    break;
+                }
+            }
+
+            hasMore =
+                processed < snapshot.docs.length ||
+                snapshot.docs.length === LISTINGS_PER_PAGE;
+
+            if (!excludePartners || !hasMore) {
+                break;
+            }
+        } while (
+            receivedListings.length < LISTINGS_PER_PAGE
+        );
+
+        return {
+            listings: receivedListings,
+            lastDocument: nextCursor,
+            hasMore,
+        };
+    };
     const buildListingsQuery = (
         lastVisibleDocument = null
     ) => {
@@ -749,36 +819,21 @@ const Home = () => {
                 setListings(result.listings);
                 setHasMoreListings(result.hasMore);
             } else {
-                const snapshot = await getDocs(
-                    buildListingsQuery()
+                const result = await fetchListingsPage(
+                    null,
+                    version
                 );
 
                 if (
+                    !result ||
                     version !== requestVersionRef.current
                 ) {
                     return;
                 }
 
-                const receivedListings = snapshot.docs
-                    .filter((document) =>
-                        isListingActive(
-                            document.data().expiresAt
-                        )
-                    )
-                    .map(mapListingDocument);
-
-                setListings(receivedListings);
-
-                setLastDocument(
-                    snapshot.docs[
-                    snapshot.docs.length - 1
-                    ] || null
-                );
-
-                setHasMoreListings(
-                    snapshot.docs.length ===
-                    LISTINGS_PER_PAGE
-                );
+                setListings(result.listings);
+                setLastDocument(result.lastDocument);
+                setHasMoreListings(result.hasMore);
             }
         } catch (error) {
             if (
@@ -852,39 +907,33 @@ const Home = () => {
 
                 setHasMoreListings(result.hasMore);
             } else {
-                const snapshot = await getDocs(
-                    buildListingsQuery(lastDocument)
+                const result = await fetchListingsPage(
+                    lastDocument,
+                    version
                 );
 
                 if (
+                    !result ||
                     version !== requestVersionRef.current
                 ) {
                     return;
                 }
 
-                const receivedListings = snapshot.docs
-                    .filter((document) =>
-                        isListingActive(
-                            document.data().expiresAt
-                        )
-                    )
-                    .map(mapListingDocument);
+                setListings((currentListings) => {
+                    const existingIds = new Set(
+                        currentListings.map((item) => item.id)
+                    );
 
-                setListings((currentListings) => [
-                    ...currentListings,
-                    ...receivedListings,
-                ]);
+                    return [
+                        ...currentListings,
+                        ...result.listings.filter(
+                            (item) => !existingIds.has(item.id)
+                        ),
+                    ];
+                });
 
-                setLastDocument(
-                    snapshot.docs[
-                    snapshot.docs.length - 1
-                    ] || null
-                );
-
-                setHasMoreListings(
-                    snapshot.docs.length ===
-                    LISTINGS_PER_PAGE
-                );
+                setLastDocument(result.lastDocument);
+                setHasMoreListings(result.hasMore);
             }
         } catch (error) {
             if (

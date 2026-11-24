@@ -907,6 +907,7 @@ const AdminUsers = () => {
 
     try {
       const userRef = doc(db, "users", user.id);
+      const publicProfileRef = doc(db, "publicProfiles", user.id);
       const partnerRef = doc(db, "partners", user.id);
 
       const partnerSnapshot = enabled
@@ -917,6 +918,11 @@ const AdminUsers = () => {
 
       if (enabled) {
         batch.update(userRef, {
+          partner: true,
+          partnerType,
+        });
+
+        batch.update(publicProfileRef, {
           partner: true,
           partnerType,
         });
@@ -946,6 +952,10 @@ const AdminUsers = () => {
         }
       } else {
         batch.update(userRef, {
+          partner: false,
+        });
+
+        batch.update(publicProfileRef, {
           partner: false,
         });
 

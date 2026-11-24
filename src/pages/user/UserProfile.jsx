@@ -30,7 +30,7 @@ import Navbar from "../../components/pageComponent/Navbar";
 import Footer from "../../components/pageComponent/Footer";
 import ProfileEditor from "../../components/profile/ProfileEditor";
 import ProfileContacts from "../../components/profile/ProfileContacts";
-import ProfileListings from "../../components/profile/ProfileListings";
+import ProfileListingsRouter from "../../components/profile/ProfileListingsRouter";
 import ProfileListingStats from "../../components/profile/ProfileListingStats";
 import ProfileReviews from "../../components/profile/ProfileReviews";
 import { auth, db } from "../../firebase";
@@ -392,18 +392,18 @@ export default function UserProfile({
                                                     <div className="mt-2 flex justify-center sm:justify-start">
                                                         <span
                                                             className={`inline-flex items-center gap-2 text-xs font-semibold ${presence.online
-                                                                    ? "text-emerald-600"
-                                                                    : presence.text === "Перевірка статусу..."
-                                                                        ? "text-slate-400"
-                                                                        : "text-red-500"
+                                                                ? "text-emerald-600"
+                                                                : presence.text === "Перевірка статусу..."
+                                                                    ? "text-slate-400"
+                                                                    : "text-red-500"
                                                                 }`}
                                                         >
                                                             <span
                                                                 className={`h-2 w-2 shrink-0 rounded-full ${presence.online
-                                                                        ? "bg-emerald-500"
-                                                                        : presence.text === "Перевірка статусу..."
-                                                                            ? "bg-slate-300"
-                                                                            : "bg-red-400"
+                                                                    ? "bg-emerald-500"
+                                                                    : presence.text === "Перевірка статусу..."
+                                                                        ? "bg-slate-300"
+                                                                        : "bg-red-400"
                                                                     }`}
                                                             />
 
@@ -572,8 +572,12 @@ export default function UserProfile({
                                         </section>
                                     )}
 
-                                    {/* Оголошення користувача */}
-                                    <ProfileListings profileUid={profileUid} />
+                                    {/* Оголошення користувача або партнера */}
+                                    <ProfileListingsRouter
+                                        profileUid={profileUid}
+                                        isPartner={profile?.partner === true}
+                                        partnerType={profile?.partnerType}
+                                    />
                                     <ProfileContacts
                                         profile={
                                             isOwner

@@ -10,7 +10,13 @@ export const mapListingDocument = (document) => {
         description: data.comment || "",
 
         category: data.type || "Інше",
-
+        listingKind: data.listingKind || "standard",
+        realEstate:
+            data.realEstate &&
+                typeof data.realEstate === "object"
+                ? data.realEstate
+                : {},
+        partnerType: data.partnerType || "",
         city: data.city?.name || "",
 
         region: data.city?.region || "",

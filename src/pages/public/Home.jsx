@@ -33,6 +33,7 @@ import ListingDetailsModal from "../../components/listings/ListingDetailsModal";
 import { mapListingDocument } from "../../utils/listingMapper";
 import ListingReels from "../../components/listings/ListingReels";
 import PartnerCreateListingButton from "../../components/partners/PartnerCreateListingButton";
+import RealEstateDetailsModal from "../../components/partners/realEstate/RealEstateDetailsModal";
 import {
     normalizeSearchText,
 } from "../../utils/listingSearch";
@@ -148,6 +149,10 @@ const categorySlugs = Object.fromEntries(
     )
 );
 const LISTINGS_PER_PAGE = 20;
+const PARTNER_LISTINGS_PER_PAGE = 3;
+const STANDARD_LISTINGS_PER_PAGE =
+    LISTINGS_PER_PAGE - PARTNER_LISTINGS_PER_PAGE;
+
 const SEARCH_BATCH_SIZE = 40;
 const MAX_SEARCH_CANDIDATES = 240;
 const MIN_SEARCH_LENGTH = 3;
@@ -175,7 +180,28 @@ const isListingActive = (expiresAt) => {
         Date.now()
     );
 };
+const mixPartnerListings = (standardListings, partnerListings) => {
+    const result = [];
 
+    let standardIndex = 0;
+    let partnerIndex = 0;
+
+    while (standardIndex < standardListings.length) {
+        for (
+            let i = 0;
+            i < 6 && standardIndex < standardListings.length;
+            i++
+        ) {
+            result.push(standardListings[standardIndex++]);
+        }
+
+        if (partnerIndex < partnerListings.length) {
+            result.push(partnerListings[partnerIndex++]);
+        }
+    }
+
+    return result;
+};
 const Home = () => {
     const navigate = useNavigate();
     const {
@@ -211,7 +237,8 @@ const Home = () => {
     const searchBufferRef = useRef([]);
     const searchCursorRef = useRef(null);
     const searchHasMoreRef = useRef(true);
-
+    const partnerLastDocumentRef = useRef(null);
+    const partnerHasMoreRef = useRef(true);
     useEffect(() => {
         let cancelled = false;
         let requestId = 0;
@@ -465,79 +492,162 @@ const Home = () => {
                 };
         }
     };
+
+
+
     const fetchListingsPage = async (
         cursor = null,
         version
     ) => {
-        const excludePartners =
-            activeCategory === "Усі" &&
-            normalizeSearchText(debouncedSearch).length <
-            MIN_SEARCH_LENGTH;
+        // Для "Обраних" залишаємо звичайну пагінацію
+        // без обмеження партнерських оголошень.
+        if (activeCategory === "Обрані") {
+            if (!currentUser?.uid) {
+                return {
+                    listings: [],
+                    lastDocument: null,
+                    hasMore: false,
+                };
+            }
 
-        const receivedListings = [];
-
-        let nextCursor = cursor;
-        let hasMore = false;
-
-        do {
             const snapshot = await getDocs(
-                buildListingsQuery(nextCursor)
+                buildListingsQuery(
+                    cursor,
+                    LISTINGS_PER_PAGE + 1
+                )
             );
 
             if (version !== requestVersionRef.current) {
                 return null;
             }
 
-            let processed = 0;
+            const documents = snapshot.docs.slice(
+                0,
+                LISTINGS_PER_PAGE
+            );
 
-            for (const document of snapshot.docs) {
-                processed++;
-                nextCursor = document;
+            return {
+                listings: documents.map(mapListingDocument),
+                lastDocument:
+                    documents[documents.length - 1] || cursor,
+                hasMore:
+                    snapshot.docs.length > LISTINGS_PER_PAGE,
+            };
+        }
 
-                const data = document.data();
+        // Читаємо лише потрібний вид оголошень.
+        // Один додатковий документ використовується,
+        // щоб точно визначити наявність наступної сторінки.
+        const readKind = async (kind, count, currentCursor) => {
+            const snapshot = await getDocs(
+                buildListingsQuery(
+                    currentCursor,
+                    count + 1,
+                    kind
+                )
+            );
 
-                if (!isListingActive(data.expiresAt)) {
-                    continue;
-                }
-
-                if (
-                    excludePartners &&
-                    data.listingKind === "partner"
-                ) {
-                    continue;
-                }
-
-                receivedListings.push(
-                    mapListingDocument(document)
-                );
-
-                if (
-                    receivedListings.length ===
-                    LISTINGS_PER_PAGE
-                ) {
-                    break;
-                }
+            if (version !== requestVersionRef.current) {
+                return null;
             }
 
-            hasMore =
-                processed < snapshot.docs.length ||
-                snapshot.docs.length === LISTINGS_PER_PAGE;
+            const documents = snapshot.docs.slice(0, count);
 
-            if (!excludePartners || !hasMore) {
-                break;
-            }
-        } while (
-            receivedListings.length < LISTINGS_PER_PAGE
+            return {
+                listings: documents.map(mapListingDocument),
+                lastDocument:
+                    documents[documents.length - 1] ||
+                    currentCursor,
+                hasMore: snapshot.docs.length > count,
+            };
+        };
+
+        // Якщо партнерські закінчилися, одразу
+        // запитуємо 20 звичайних замість 17.
+        const standardLimit = partnerHasMoreRef.current
+            ? STANDARD_LISTINGS_PER_PAGE
+            : LISTINGS_PER_PAGE;
+
+        const standardResult = await readKind(
+            "standard",
+            standardLimit,
+            cursor
         );
 
+        if (!standardResult) return null;
+
+        const standardListings = [...standardResult.listings];
+
+        let nextStandardCursor = standardResult.lastDocument;
+        let hasMoreStandard = standardResult.hasMore;
+
+        let nextPartnerCursor = partnerLastDocumentRef.current;
+        let hasMorePartners = partnerHasMoreRef.current;
+
+        let partnerListings = [];
+
+        // Не перевищуємо 15%, навіть якщо
+        // звичайних оголошень залишилося мало.
+        const partnerLimit = Math.min(
+            PARTNER_LISTINGS_PER_PAGE,
+            Math.floor(
+                standardListings.length *
+                PARTNER_LISTINGS_PER_PAGE /
+                STANDARD_LISTINGS_PER_PAGE
+            )
+        );
+
+        if (partnerLimit > 0 && hasMorePartners) {
+            const partnerResult = await readKind(
+                "partner",
+                partnerLimit,
+                nextPartnerCursor
+            );
+
+            if (!partnerResult) return null;
+
+            partnerListings = partnerResult.listings;
+            nextPartnerCursor = partnerResult.lastDocument;
+            hasMorePartners = partnerResult.hasMore;
+        }
+
+        // Якщо партнерських менше трьох,
+        // заповнюємо вільні позиції звичайними.
+        const remainingSlots =
+            LISTINGS_PER_PAGE -
+            standardListings.length -
+            partnerListings.length;
+
+        if (remainingSlots > 0 && hasMoreStandard) {
+            const extraResult = await readKind(
+                "standard",
+                remainingSlots,
+                nextStandardCursor
+            );
+
+            if (!extraResult) return null;
+
+            standardListings.push(...extraResult.listings);
+            nextStandardCursor = extraResult.lastDocument;
+            hasMoreStandard = extraResult.hasMore;
+        }
+
         return {
-            listings: receivedListings,
-            lastDocument: nextCursor,
-            hasMore,
+            listings: mixPartnerListings(
+                standardListings,
+                partnerListings
+            ),
+            lastDocument: nextStandardCursor,
+            hasMore: hasMoreStandard,
+            partnerLastDocument: nextPartnerCursor,
+            partnerHasMore: hasMorePartners,
         };
     };
+
     const buildListingsQuery = (
-        lastVisibleDocument = null
+        lastVisibleDocument = null,
+        pageLimit = LISTINGS_PER_PAGE,
+        listingKind = null
     ) => {
         const constraints = [
             where(
@@ -551,7 +661,15 @@ const Home = () => {
                 Timestamp.now()
             ),
         ];
-
+        if (listingKind) {
+            constraints.push(
+                where(
+                    "listingKind",
+                    "==",
+                    listingKind
+                )
+            );
+        }
         if (
             activeCategory !== "Усі" &&
             activeCategory !== "Обрані"
@@ -597,7 +715,7 @@ const Home = () => {
         }
 
         constraints.push(
-            limit(LISTINGS_PER_PAGE)
+            limit(pageLimit)
         );
 
         return query(
@@ -834,6 +952,14 @@ const Home = () => {
                 setListings(result.listings);
                 setLastDocument(result.lastDocument);
                 setHasMoreListings(result.hasMore);
+
+                if (activeCategory !== "Обрані") {
+                    partnerLastDocumentRef.current =
+                        result.partnerLastDocument;
+
+                    partnerHasMoreRef.current =
+                        result.partnerHasMore;
+                }
             }
         } catch (error) {
             if (
@@ -934,6 +1060,13 @@ const Home = () => {
 
                 setLastDocument(result.lastDocument);
                 setHasMoreListings(result.hasMore);
+                if (activeCategory !== "Обрані") {
+                    partnerLastDocumentRef.current =
+                        result.partnerLastDocument;
+
+                    partnerHasMoreRef.current =
+                        result.partnerHasMore;
+                }
             }
         } catch (error) {
             if (
@@ -969,7 +1102,8 @@ const Home = () => {
         searchBufferRef.current = [];
         searchCursorRef.current = null;
         searchHasMoreRef.current = true;
-
+        partnerLastDocumentRef.current = null;
+        partnerHasMoreRef.current = true;
         loadingMoreRef.current = false;
         setLoadingMore(false);
 
@@ -1442,14 +1576,25 @@ const Home = () => {
 
                 </div>
             </main>
-            <ListingDetailsModal
-                listing={selectedListing}
-                onClose={closeListing}
-                onSelectRelated={openRelatedListing}
-            />
+            {selectedListing?.listingKind === "partner" &&
+                selectedListing?.partnerType === "real_estate" ? (
+                <RealEstateDetailsModal
+                    listing={selectedListing}
+                    onClose={closeListing}
+                    onSelectRelated={openRelatedListing}
+                />
+            ) : (
+                <ListingDetailsModal
+                    listing={selectedListing}
+                    onClose={closeListing}
+                    onSelectRelated={openRelatedListing}
+                />
+            )}
             {isReelsOpen && (
                 <ListingReels
-                    listings={listings}
+                    listings={listings.filter(
+                        (item) => item.listingKind !== "partner"
+                    )}
                     onClose={() => setIsReelsOpen(false)}
                     onLoadMore={loadMoreListings}
                     hasMoreListings={hasMoreListings}

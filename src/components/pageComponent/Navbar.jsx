@@ -85,8 +85,8 @@ const Navbar = () => {
     const [loginChecking, setLoginChecking] = useState(false);
     const userMode = Boolean(currentUser);
     const partnerCreatePath = partnerType
-    ? `/user/partner/create/${partnerType.replace(/_/g, "-")}`
-    : "/user/partner";
+        ? `/user/partner/create/${partnerType.replace(/_/g, "-")}`
+        : "/user/partner";
     const { unreadCount } = useChatNotifications();
 
     const unreadLabel =
@@ -639,7 +639,12 @@ const Navbar = () => {
                                 >
                                     Про сервіс
                                 </NavLink>
-
+                                <NavLink
+                                    to="/partners"
+                                    className={navLinkClass}
+                                >
+                                    Партнери
+                                </NavLink>
                                 <NavLink
                                     to="/contacts"
                                     className={navLinkClass}
@@ -939,7 +944,13 @@ const Navbar = () => {
                                     >
                                         Про сервіс
                                     </NavLink>
-
+                                    <NavLink
+                                        to="/partners"
+                                        onClick={closeMobileMenu}
+                                        className={mobileNavLinkClass}
+                                    >
+                                        Партнери
+                                    </NavLink>
 
                                     <NavLink
                                         to="/contacts"

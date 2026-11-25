@@ -9,6 +9,7 @@ import {
     Phone,
     Images,
     Video,
+    Building2,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import {
@@ -99,7 +100,7 @@ const createInitialForm = () => ({
 
     city: null,
     street: "",
-
+    description: "",
     buildingArea: "",
     landArea: "",
     floors: "",
@@ -162,7 +163,7 @@ export default function RealEstateEditForm({ listing }) {
 
             city: listing.city || null,
             street: listing.street || "",
-
+            description: listing.comment || "",
             buildingArea:
                 realEstate.buildingArea != null
                     ? String(realEstate.buildingArea)
@@ -260,19 +261,25 @@ export default function RealEstateEditForm({ listing }) {
         }
 
         // Тип нерухомості
-        if (!["house", "land"].includes(form.propertyType)) {
+        if (!["house", "land", "commercial"].includes(form.propertyType)) {
             errors.push("Оберіть тип нерухомості.");
         }
-
         // Населений пункт
         if (!form.city?.name?.trim()) {
             errors.push("Оберіть населений пункт зі списку.");
         }
 
         // Характеристики будинку
-        if (form.propertyType === "house") {
-            if (!isPositiveNumber(form.buildingArea)) {
-                errors.push("Вкажіть коректну площу будинку.");
+        if (["house", "commercial"].includes(form.propertyType)) {
+            if (
+                form.buildingArea !== "" &&
+                !isPositiveNumber(form.buildingArea)
+            ) {
+                errors.push(
+                    form.propertyType === "commercial"
+                        ? "Площа приміщення має бути більшою за 0."
+                        : "Площа будинку має бути більшою за 0."
+                );
             }
 
             if (
@@ -524,7 +531,7 @@ export default function RealEstateEditForm({ listing }) {
                     },
 
                     street: form.street.trim(),
-
+                    comment: form.description.trim(),
                     contact: normalizeContactValue(contact),
                     contactOriginal: contact,
 
@@ -534,7 +541,8 @@ export default function RealEstateEditForm({ listing }) {
                         propertyType: form.propertyType,
 
                         buildingArea:
-                            form.propertyType === "house"
+                            ["house", "commercial"].includes(form.propertyType) &&
+                                form.buildingArea !== ""
                                 ? Number(form.buildingArea)
                                 : null,
 
@@ -544,7 +552,7 @@ export default function RealEstateEditForm({ listing }) {
                                 : null,
 
                         floors:
-                            form.propertyType === "house" &&
+                            ["house", "commercial"].includes(form.propertyType) &&
                                 form.floors !== ""
                                 ? Number(form.floors)
                                 : null,
@@ -629,7 +637,7 @@ export default function RealEstateEditForm({ listing }) {
                     Тип нерухомості
                 </SectionTitle>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {[
                         {
                             value: "house",
@@ -641,13 +649,21 @@ export default function RealEstateEditForm({ listing }) {
                             label: "Земельна ділянка",
                             Icon: Mountain,
                         },
+                        {
+                            value: "commercial",
+                            label: "Комерція",
+                            Icon: Building2,
+                        },
                     ].map(({ value, label, Icon }) => {
                         const selected = form.propertyType === value;
 
                         return (
                             <label
                                 key={value}
-                                className="cursor-pointer"
+                                className={`cursor-pointer ${value === "commercial"
+                                    ? "col-span-2 sm:col-span-1"
+                                    : ""
+                                    }`}
                             >
                                 <input
                                     type="radio"
@@ -699,7 +715,9 @@ export default function RealEstateEditForm({ listing }) {
                             placeholder={
                                 form.propertyType === "house"
                                     ? "Продається будинок у Рахові"
-                                    : "Земельна ділянка на Драгобраті"
+                                    : form.propertyType === "commercial"
+                                        ? "Продається комерційне приміщення у Рахові"
+                                        : "Земельна ділянка на Драгобраті"
                             }
                             className={inputClass}
                         />
@@ -735,23 +753,68 @@ export default function RealEstateEditForm({ listing }) {
                             className={inputClass}
                         />
                     </div>
+
+                    {/* Опис нерухомості */}
+                    <div className="sm:col-span-2">
+                        <label
+                            htmlFor="realEstateDescription"
+                            className="mb-1.5 block text-sm font-semibold text-slate-700"
+                        >
+                            Опис об'єкта
+                            <span className="ml-1 text-xs font-normal text-slate-400">
+                                необов'язково
+                            </span>
+                        </label>
+
+                        <textarea
+                            id="realEstateDescription"
+                            name="description"
+                            value={form.description}
+                            onChange={handleChange}
+                            maxLength={3000}
+                            rows={5}
+                            placeholder={
+                                form.propertyType === "house"
+                                    ? "Опишіть стан будинку, планування, ремонт, комунікації, опалення та інші особливості..."
+                                    : form.propertyType === "commercial"
+                                        ? "Опишіть призначення приміщення, стан, планування, обладнання, парковку та можливості використання для бізнесу..."
+                                        : "Опишіть розташування ділянки, під'їзд, комунікації, цільове призначення та інші переваги..."
+                            }
+                            className={`${inputClass} resize-y`}
+                        />
+
+                        <div className="mt-1 flex justify-between gap-3 text-[11px] text-slate-400">
+                            <span>
+                                Додайте інформацію, яка допоможе покупцю.
+                            </span>
+
+                            <span className="shrink-0 tabular-nums">
+                                {form.description.length}/3000
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </section>
-
-            {/* ХАРАКТЕРИСТИКИ */}
             <section className="border-t border-slate-100 pt-5">
                 <SectionTitle icon={House}>
                     Характеристики
                 </SectionTitle>
 
-                {form.propertyType === "house" ? (
+                {["house", "commercial"].includes(form.propertyType) ? (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+
                         <div>
                             <label
                                 htmlFor="buildingArea"
                                 className="mb-1.5 block text-sm font-semibold text-slate-700"
                             >
-                                Площа будинку, м² *
+                                {form.propertyType === "commercial"
+                                    ? "Площа приміщення, м²"
+                                    : "Площа будинку, м²"}
+
+                                <span className="ml-1 text-xs font-normal text-slate-400">
+                                    необов'язково
+                                </span>
                             </label>
 
                             <input
@@ -762,10 +825,11 @@ export default function RealEstateEditForm({ listing }) {
                                 step="0.01"
                                 value={form.buildingArea}
                                 onChange={handleChange}
-                                placeholder="55"
+                                placeholder="120"
                                 className={inputClass}
                             />
                         </div>
+
 
                         <div>
                             <label

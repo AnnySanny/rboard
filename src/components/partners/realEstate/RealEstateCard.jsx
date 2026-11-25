@@ -10,6 +10,7 @@ import {
     Eye,
     Handshake,
     Layers3,
+    Building2,
 } from "lucide-react";
 
 const numberFormatter = new Intl.NumberFormat("uk-UA", {
@@ -54,6 +55,7 @@ export default function RealEstateCard({
 
     const realEstate = listing.realEstate || {};
     const isLand = realEstate.propertyType === "land";
+    const isCommercial = realEstate.propertyType === "commercial";
     const isClickable = typeof onClick === "function";
 
     const city =
@@ -180,18 +182,29 @@ export default function RealEstateCard({
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-1.5">
 
                     {/* Тип об'єкта */}
-                    <span className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-2.5 text-xs font-medium text-slate-700 sm:inline-flex sm:justify-start sm:gap-1 sm:px-2 sm:py-1 sm:text-[11px] sm:font-semibold sm:text-slate-600">
+                    <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-700 sm:text-sm">
                         {isLand ? (
                             <Trees
-                                className="h-4 w-4 shrink-0 text-emerald-600 sm:h-3 sm:w-3"
+                                size={17}
+                                className="shrink-0 text-emerald-600"
+                            />
+                        ) : isCommercial ? (
+                            <Building2
+                                size={17}
+                                className="shrink-0 text-violet-600"
                             />
                         ) : (
                             <House
-                                className="h-4 w-4 shrink-0 text-blue-600 sm:h-3 sm:w-3"
+                                size={17}
+                                className="shrink-0 text-blue-600"
                             />
                         )}
 
-                        {isLand ? "Ділянка" : "Будинок"}
+                        {isLand
+                            ? "Ділянка"
+                            : isCommercial
+                                ? "Комерція"
+                                : "Будинок"}
                     </span>
 
                     {/* Площа будинку */}

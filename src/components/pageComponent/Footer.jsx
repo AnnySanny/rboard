@@ -45,7 +45,12 @@ const Footer = () => {
           >
             Про сервіс
           </Link>
-
+          <Link
+            to="/partners"
+            className="transition hover:text-blue-600"
+          >
+            Партнери
+          </Link>
           <Link
             to="/rules"
             className="transition hover:text-blue-600"

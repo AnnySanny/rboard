@@ -22,7 +22,9 @@ import AdminRealEstateEdit from "./pages/admin/AdminRealEstateEdit";
 const About = lazy(() =>
   import("./pages/public/About")
 );
-
+const Partners = lazy(() =>
+  import("./pages/public/Partners")
+);
 const Contacts = lazy(() =>
   import("./pages/public/Contacts")
 );
@@ -172,7 +174,10 @@ const App = () => {
               path="/about"
               element={<About />}
             />
-
+            <Route
+              path="/partners"
+              element={<Partners />}
+            />
             <Route
               path="/contacts"
               element={<Contacts />}

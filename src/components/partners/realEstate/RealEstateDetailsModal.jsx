@@ -19,6 +19,7 @@ import {
     House,
     Trees,
     Ruler,
+    Building2,
     Layers3,
     MapPin,
     Eye,
@@ -1442,7 +1443,7 @@ export default function RealEstateDetailsModal({
 
     const realEstate = listing.realEstate || {};
     const isLand = realEstate.propertyType === "land";
-
+    const isCommercial = realEstate.propertyType === "commercial";
     const authorUid =
         listing.author?.uid ||
         listing.partnerUid ||
@@ -1685,15 +1686,31 @@ export default function RealEstateDetailsModal({
 
                             <div className="grid grid-cols-1 gap-x-5 sm:grid-cols-2">
                                 <InfoItem
-                                    icon={isLand ? Trees : House}
+                                    icon={
+                                        isLand
+                                            ? Trees
+                                            : isCommercial
+                                                ? Building2
+                                                : House
+                                    }
                                     label="Тип об'єкта"
-                                    value={isLand ? "Земельна ділянка" : "Будинок"}
+                                    value={
+                                        isLand
+                                            ? "Земельна ділянка"
+                                            : isCommercial
+                                                ? "Комерція"
+                                                : "Будинок"
+                                    }
                                 />
 
                                 {!isLand && hasValue(realEstate.buildingArea) && (
                                     <InfoItem
                                         icon={Ruler}
-                                        label="Площа будинку"
+                                        label={
+                                            isCommercial
+                                                ? "Площа приміщення"
+                                                : "Площа будинку"
+                                        }
                                         value={`${formatNumber(realEstate.buildingArea)} м²`}
                                     />
                                 )}

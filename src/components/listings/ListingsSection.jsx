@@ -1,5 +1,5 @@
 import ListingCard from "./ListingCard";
-
+import RealEstateCard from "../partners/realEstate/RealEstateCard";
 const ListingsSection = ({
   listings,
   viewMode,
@@ -49,16 +49,36 @@ const ListingsSection = ({
           }`
       }
     >
-      {listings.map((listing) => (
-        <ListingCard
-          key={listing.id}
-          listing={listing}
-          viewMode={viewMode}
-          compact={compact}
-          onClick={() => onListingClick(listing)}
-          canSeeFavorites={canSeeFavorites}
-        />
-      ))}
+      {listings.map((listing) => {
+        const isRealEstatePartner =
+          listing.listingKind === "partner" &&
+          listing.partnerType === "real_estate";
+
+        if (isRealEstatePartner) {
+          return (
+            <div
+              key={listing.id}
+              className="min-w-0"
+            >
+              <RealEstateCard
+                listing={listing}
+                onClick={() => onListingClick(listing)}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <ListingCard
+            key={listing.id}
+            listing={listing}
+            viewMode={viewMode}
+            compact={compact}
+            onClick={() => onListingClick(listing)}
+            canSeeFavorites={canSeeFavorites}
+          />
+        );
+      })}
     </section>
   );
 };

@@ -12,6 +12,7 @@ import {
     ChevronDown,
     ChevronUp,
     Play,
+    Building2,
 } from "lucide-react";
 
 import ListingImageGallery from "../../listings/ListingImageGallery";
@@ -240,7 +241,9 @@ export default function RealEstateListingCard({
             ? "Будинок"
             : realEstate.propertyType === "land"
                 ? "Земельна ділянка"
-                : "Нерухомість";
+                : realEstate.propertyType === "commercial"
+                    ? "Комерція"
+                    : "Нерухомість";
 
     const mainContact =
         listing.contactOriginal ||
@@ -630,7 +633,11 @@ export default function RealEstateListingCard({
             {/* Характеристики */}
             <div className="mt-5">
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
-                    <House size={18} className="text-blue-600" />
+                    {realEstate.propertyType === "commercial" ? (
+                        <Building2 size={18} className="text-violet-600" />
+                    ) : (
+                        <House size={18} className="text-blue-600" />
+                    )}
                     Характеристики об'єкта
                 </h3>
 
@@ -639,7 +646,11 @@ export default function RealEstateListingCard({
 
                     {realEstate.buildingArea != null && (
                         <InfoItem
-                            label="Площа будинку"
+                            label={
+                                realEstate.propertyType === "commercial"
+                                    ? "Площа приміщення"
+                                    : "Площа будинку"
+                            }
                             value={`${formatNumber(realEstate.buildingArea)} м²`}
                         />
                     )}

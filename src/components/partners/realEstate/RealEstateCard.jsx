@@ -12,7 +12,8 @@ import {
     Layers3,
     Building2,
 } from "lucide-react";
-
+import { Link } from "react-router-dom";
+import FavoriteButton from "../../listings/FavoriteButton";
 const numberFormatter = new Intl.NumberFormat("uk-UA", {
     maximumFractionDigits: 2,
 });
@@ -50,6 +51,7 @@ const hasPositiveValue = (value) =>
 export default function RealEstateCard({
     listing,
     onClick,
+    canSeeFavorites = false,
 }) {
     if (!listing) return null;
 
@@ -88,16 +90,10 @@ export default function RealEstateCard({
     const hasVideo = Boolean(realEstate.video?.url);
     const views = Math.max(0, Number(listing.views) || 0);
 
-    const Container = isClickable ? "button" : "article";
+
 
     return (
-        <Container
-            {...(isClickable ? { type: "button" } : {})}
-            onClick={
-                isClickable
-                    ? () => onClick(listing)
-                    : undefined
-            }
+        <article
             className={`group relative flex h-full min-h-[230px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition duration-300 sm:p-5 ${isClickable
                 ? "cursor-pointer hover:-translate-y-1 hover:border-amber-200 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-100"
                 : ""
@@ -106,8 +102,28 @@ export default function RealEstateCard({
 
             {/* Декоративний фон */}
             <div className="pointer-events-none absolute right-0 top-0 h-20 w-20 rounded-bl-full bg-blue-50 transition-colors duration-300 group-hover:bg-amber-100 sm:h-24 sm:w-24" />
+            {isClickable && (
+                <Link
+                    to={`/listing/${listing.id}`}
+                    aria-label={`Відкрити оголошення: ${listing.title}`}
+                    className="absolute inset-0 z-10 rounded-2xl focus-visible:outline focus-visible:outline-4 focus-visible:outline-amber-400"
+                    onClick={(event) => {
+                        if (
+                            event.button !== 0 ||
+                            event.ctrlKey ||
+                            event.metaKey ||
+                            event.shiftKey ||
+                            event.altKey
+                        ) {
+                            return;
+                        }
 
-            <div className="relative z-10 flex h-full min-w-0 flex-1 flex-col">
+                        event.preventDefault();
+                        onClick(listing);
+                    }}
+                />
+            )}
+            <div className="relative flex h-full min-w-0 flex-1 flex-col">
 
 
                 {/* Категорія, партнер, дата, перегляди */}
@@ -279,8 +295,17 @@ export default function RealEstateCard({
                         )}
                     </div>
                 </div>
-
+                {/* Обране — тільки для звичайних користувачів */}
+                {canSeeFavorites && (
+                    <div
+                        className="relative z-20 -top-6"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                    >
+                        <FavoriteButton listing={listing} />
+                    </div>
+                )}
             </div>
-        </Container>
+        </article>
     );
 }

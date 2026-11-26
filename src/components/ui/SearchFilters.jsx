@@ -1,7 +1,7 @@
 
 import { useEffect } from "react";
 import { Heart } from "lucide-react";
-
+import { Link } from "react-router-dom";
 const categories = [
   "Усі",
   "Продаж",
@@ -24,38 +24,39 @@ const SearchFilters = ({
   searchPlaceholder,
   activeCategory,
   setActiveCategory,
+  categorySlugs,
   sortOrder,
   setSortOrder,
   viewMode,
   setViewMode,
   onOpenReels,
-    canSeeFavorites = false,
-    favoritesRoleLoading = false,
+  canSeeFavorites = false,
+  favoritesRoleLoading = false,
 }) => {
 
 
-// Якщо користувач не має доступу до обраного,
-// скидаємо категорію на "Усі".
-useEffect(() => {
-  if (
-    !favoritesRoleLoading &&
-    !canSeeFavorites &&
-    activeCategory === "Обрані"
-  ) {
-    setActiveCategory("Усі");
-  }
-}, [
-  favoritesRoleLoading,
-  canSeeFavorites,
-  activeCategory,
-  setActiveCategory,
-]);
+  // Якщо користувач не має доступу до обраного,
+  // скидаємо категорію на "Усі".
+  useEffect(() => {
+    if (
+      !favoritesRoleLoading &&
+      !canSeeFavorites &&
+      activeCategory === "Обрані"
+    ) {
+      setActiveCategory("Усі");
+    }
+  }, [
+    favoritesRoleLoading,
+    canSeeFavorites,
+    activeCategory,
+    setActiveCategory,
+  ]);
 
-// Категорію "Обрані" бачать тільки
-// звичайні авторизовані користувачі.
-const visibleCategories = canSeeFavorites
-  ? [...categories, "Обрані"]
-  : categories;
+  // Категорію "Обрані" бачать тільки
+  // звичайні авторизовані користувачі.
+  const visibleCategories = canSeeFavorites
+    ? [...categories, "Обрані"]
+    : categories;
 
 
 
@@ -208,28 +209,61 @@ const visibleCategories = canSeeFavorites
           const isActive =
             activeCategory === category;
 
-          return (
-            <button
-              key={category}
-              type="button"
-              onClick={() =>
-                setActiveCategory(category)
-              }
-              className={`flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium transition ${isActive
-                ? "bg-blue-600 text-white shadow-sm"
-                : "bg-white text-slate-700 shadow-sm hover:bg-slate-100"
-                }`}
-            >
-              {category === "Обрані" && (
+          const className = `flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium transition ${isActive
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white text-slate-700 shadow-sm hover:bg-slate-100"
+            }`;
+
+          if (category === "Обрані") {
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() =>
+                  setActiveCategory(category)
+                }
+                className={className}
+              >
                 <Heart
                   size={15}
                   strokeWidth={2.4}
                   className="mr-1.5 fill-[#f35179] text-[#f35179]"
                 />
-              )}
 
+                {category}
+              </button>
+            );
+          }
+
+          return (
+            <Link
+              key={category}
+              to={
+                category === "Усі"
+                  ? "/"
+                  : `/category/${categorySlugs[category]}`
+              }
+              aria-current={
+                isActive ? "page" : undefined
+              }
+              onClick={(event) => {
+                if (
+                  event.button !== 0 ||
+                  event.ctrlKey ||
+                  event.metaKey ||
+                  event.shiftKey ||
+                  event.altKey
+                ) {
+                  return;
+                }
+
+                event.preventDefault();
+                setActiveCategory(category);
+              }}
+              className={className}
+            >
               {category}
-            </button>
+            </Link>
           );
         })}
       </div>

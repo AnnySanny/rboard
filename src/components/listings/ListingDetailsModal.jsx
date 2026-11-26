@@ -443,6 +443,7 @@ const ListingDetailsModal = ({
   listing,
   onClose,
   onSelectRelated,
+  Heading = "h2",
 }) => {
   const navigate = useNavigate();
 
@@ -745,12 +746,12 @@ const ListingDetailsModal = ({
               </span>
             </div>
 
-            <h2
+            <Heading
               id="listing-modal-title"
               className="mt-5 max-w-full break-words text-2xl font-black leading-tight text-slate-950 sm:text-4xl"
             >
               {listing.title}
-            </h2>
+            </Heading>
 
             <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm font-semibold text-slate-600">
               <div className="flex items-start gap-2">

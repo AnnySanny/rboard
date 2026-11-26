@@ -19,6 +19,7 @@ import {
     startAfter,
     where,
     Timestamp,
+    getDocFromServer,
 } from "firebase/firestore";
 import {
     onAuthStateChanged,
@@ -34,6 +35,7 @@ import { mapListingDocument } from "../../utils/listingMapper";
 import ListingReels from "../../components/listings/ListingReels";
 import PartnerCreateListingButton from "../../components/partners/PartnerCreateListingButton";
 import RealEstateDetailsModal from "../../components/partners/realEstate/RealEstateDetailsModal";
+import ListingUnavailableModal from "../../components/listings/ListingUnavailableModal";
 import {
     normalizeSearchText,
 } from "../../utils/listingSearch";
@@ -363,19 +365,31 @@ const Home = () => {
     }, []);
 
     const [activeCategory, setActiveCategory] =
-        useState("Усі");
+        useState(() =>
+            categoryRoutes[categorySlug] || "Усі"
+        );
+
+
     useEffect(() => {
-        if (!categorySlug) {
+        if (categorySlug) {
+            const category =
+                categoryRoutes[categorySlug];
+
+            if (category) {
+                setActiveCategory(category);
+            }
+
             return;
         }
 
-        const category =
-            categoryRoutes[categorySlug];
-
-        if (category) {
-            setActiveCategory(category);
+        if (!listingId) {
+            setActiveCategory((currentCategory) =>
+                currentCategory === "Обрані"
+                    ? currentCategory
+                    : "Усі"
+            );
         }
-    }, [categorySlug]);
+    }, [categorySlug, listingId]);
 
 
     const handleCategoryChange = (category) => {
@@ -407,6 +421,8 @@ const Home = () => {
     const [listings, setListings] =
         useState([]);
     const [directListing, setDirectListing] =
+        useState(null);
+    const [directListingStatus, setDirectListingStatus] =
         useState(null);
     const [loading, setLoading] =
         useState(true);
@@ -1117,15 +1133,16 @@ const Home = () => {
         debouncedSearch,
     ]);
 
+    const existingListing = listings.find(
+        (item) => item.id === listingId
+    );
+
     useEffect(() => {
         if (!listingId) {
             setDirectListing(null);
+            setDirectListingStatus(null);
             return;
         }
-
-        const existingListing = listings.find(
-            (item) => item.id === listingId
-        );
 
         if (
             existingListing ||
@@ -1136,6 +1153,11 @@ const Home = () => {
 
         let active = true;
 
+        setDirectListingStatus({
+            id: listingId,
+            status: "loading",
+        });
+
         const loadDirectListing = async () => {
             try {
                 const listingRef = doc(
@@ -1144,35 +1166,60 @@ const Home = () => {
                     listingId
                 );
 
-                const snapshot = await getDoc(listingRef);
+                const snapshot =
+                    await getDocFromServer(listingRef);
 
                 if (!active) return;
 
                 if (!snapshot.exists()) {
-                    setDirectListing(null);
+                    setDirectListingStatus({
+                        id: listingId,
+                        status: "not-found",
+                    });
+
                     return;
                 }
 
                 const data = snapshot.data();
 
-                if (
-                    data.status !== "approved" ||
-                    !isListingActive(data.expiresAt)
-                ) {
-                    setDirectListing(null);
+                if (data.status !== "approved") {
+                    setDirectListingStatus({
+                        id: listingId,
+                        status: "unavailable",
+                    });
+
+                    return;
+                }
+
+                if (!isListingActive(data.expiresAt)) {
+                    setDirectListingStatus({
+                        id: listingId,
+                        status: "expired",
+                    });
+
                     return;
                 }
 
                 setDirectListing(
                     mapListingDocument(snapshot)
                 );
+
+                setDirectListingStatus({
+                    id: listingId,
+                    status: "active",
+                });
             } catch (error) {
-                if (active) {
-                    console.error(
-                        "Помилка завантаження оголошення:",
-                        error
-                    );
-                }
+                if (!active) return;
+
+                console.error(
+                    "Помилка завантаження оголошення:",
+                    error
+                );
+
+                setDirectListingStatus({
+                    id: listingId,
+                    status: "error",
+                });
             }
         };
 
@@ -1181,8 +1228,11 @@ const Home = () => {
         return () => {
             active = false;
         };
-    }, [listingId, listings, directListing]);
-
+    }, [
+        listingId,
+        existingListing,
+        directListing?.id,
+    ]);
 
 
     const selectedListing = useMemo(() => {
@@ -1203,6 +1253,12 @@ const Home = () => {
         return null;
     }, [listings, listingId, directListing]);
 
+    const listingStatus =
+        !listingId || selectedListing
+            ? null
+            : directListingStatus?.id === listingId
+                ? directListingStatus.status
+                : "loading";
 
     useEffect(() => {
         const defaultTitle =
@@ -1274,6 +1330,49 @@ const Home = () => {
 
             return;
         }
+        if (listingId) {
+            const isLoading =
+                listingStatus === "loading";
+
+            const isError =
+                listingStatus === "error";
+
+            const title = isLoading
+                ? "Завантаження оголошення | RBoard"
+                : isError
+                    ? "Помилка завантаження оголошення | RBoard"
+                    : "Оголошення недоступне | RBoard";
+
+            const description = isLoading
+                ? "Завантаження інформації про оголошення."
+                : isError
+                    ? "Не вдалося завантажити оголошення. Спробуйте ще раз."
+                    : "Це оголошення більше недоступне. Перегляньте інші актуальні пропозиції на RBoard.";
+
+            document.title = title;
+
+            descriptionMeta?.setAttribute(
+                "content",
+                description
+            );
+
+            ogTitle?.setAttribute(
+                "content",
+                title
+            );
+
+            ogDescription?.setAttribute(
+                "content",
+                description
+            );
+
+            ogUrl?.setAttribute(
+                "content",
+                `https://rboard.netlify.app/listing/${listingId}`
+            );
+
+            return;
+        }
         const currentCategorySeo =
             categorySlug
                 ? categorySeo[categorySlug]
@@ -1330,59 +1429,116 @@ const Home = () => {
             "content",
             "https://rboard.netlify.app/"
         );
-    }, [selectedListing, categorySlug]);
+    }, [
+        selectedListing,
+        categorySlug,
+        listingId,
+        listingStatus,
+    ]);
 
-useEffect(() => {
-    let canonicalUrl = "";
+    useEffect(() => {
+        let canonicalUrl = "";
 
-    if (listingId) {
-        if (selectedListing?.id !== listingId) {
-            return;
+        if (listingId) {
+            if (selectedListing?.id !== listingId) {
+                return;
+            }
+
+            canonicalUrl =
+                `https://rboard.netlify.app/listing/${listingId}`;
+        } else if (categorySlug) {
+            if (!Object.prototype.hasOwnProperty.call(
+                categoryRoutes,
+                categorySlug
+            )) {
+                return;
+            }
+
+            canonicalUrl =
+                `https://rboard.netlify.app/category/${categorySlug}`;
+        } else {
+            canonicalUrl =
+                "https://rboard.netlify.app/";
         }
 
-        canonicalUrl =
-            `https://rboard.netlify.app/listing/${listingId}`;
-    } else if (categorySlug) {
-        if (!Object.prototype.hasOwnProperty.call(
-            categoryRoutes,
-            categorySlug
-        )) {
-            return;
-        }
-
-        canonicalUrl =
-            `https://rboard.netlify.app/category/${categorySlug}`;
-    } else {
-        canonicalUrl =
-            "https://rboard.netlify.app/";
-    }
-
-    let canonicalLink = document.querySelector(
-        'link[rel="canonical"]'
-    );
-
-    if (!canonicalLink) {
-        canonicalLink = document.createElement("link");
-
-        canonicalLink.setAttribute(
-            "rel",
-            "canonical"
+        let canonicalLink = document.querySelector(
+            'link[rel="canonical"]'
         );
 
-        document.head.appendChild(canonicalLink);
-    }
+        if (!canonicalLink) {
+            canonicalLink = document.createElement("link");
 
-    canonicalLink.setAttribute(
-        "href",
-        canonicalUrl
-    );
+            canonicalLink.setAttribute(
+                "rel",
+                "canonical"
+            );
 
-    return () => {
-        canonicalLink.remove();
-    };
-}, [listingId, selectedListing, categorySlug]);
+            document.head.appendChild(canonicalLink);
+        }
 
+        canonicalLink.setAttribute(
+            "href",
+            canonicalUrl
+        );
 
+        return () => {
+            canonicalLink.remove();
+        };
+    }, [listingId, selectedListing, categorySlug]);
+
+    useEffect(() => {
+        const unavailableStatuses = [
+            "not-found",
+            "expired",
+            "unavailable",
+        ];
+
+        if (
+            !listingId ||
+            selectedListing ||
+            !unavailableStatuses.includes(listingStatus)
+        ) {
+            return;
+        }
+
+        let robotsMeta = document.querySelector(
+            'meta[name="robots"]'
+        );
+
+        const existed = Boolean(robotsMeta);
+
+        if (!robotsMeta) {
+            robotsMeta = document.createElement("meta");
+
+            robotsMeta.setAttribute(
+                "name",
+                "robots"
+            );
+
+            document.head.appendChild(robotsMeta);
+        }
+
+        const previousContent =
+            robotsMeta.getAttribute("content");
+
+        robotsMeta.setAttribute(
+            "content",
+            "noindex, follow"
+        );
+
+        return () => {
+            if (!existed) {
+                robotsMeta.remove();
+            } else if (previousContent === null) {
+                robotsMeta.removeAttribute("content");
+            } else {
+                robotsMeta.setAttribute(
+                    "content",
+                    previousContent
+                );
+            }
+        };
+    }, [listingId, selectedListing, listingStatus]);
     useEffect(() => {
         const scriptId = "listing-structured-data";
 
@@ -1512,9 +1668,15 @@ useEffect(() => {
 
             <main className="flex-1">
                 <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-                    <h1 className="sr-only">
-                        Оголошення Рахів — локальна дошка оголошень RBoard
-                    </h1>
+                    {!listingId && (
+                        <h1 className="sr-only">
+                            {categorySeo[categorySlug]?.title?.replace(" | RBoard", "") ||
+                                "Оголошення Рахів — локальна дошка оголошень RBoard"}
+                        </h1>
+                    )}
+
+
+
                     <div
                         className={`grid gap-3 ${partnerType ? "sm:grid-cols-2" : "grid-cols-1"
                             }`}
@@ -1549,6 +1711,7 @@ useEffect(() => {
                         setViewMode={setViewMode}
                         canSeeFavorites={canSeeFavorites}
                         favoritesRoleLoading={favoritesRoleLoading}
+                        categorySlugs={categorySlugs}
                         onOpenReels={() => {
                             if (!loading && !loadError && listings.length > 0) {
                                 setIsReelsOpen(true);
@@ -1611,18 +1774,29 @@ useEffect(() => {
 
                 </div>
             </main>
+            {listingId && !selectedListing && listingStatus && (
+                <ListingUnavailableModal
+                    status={listingStatus}
+                    onClose={() => {
+                        setActiveCategory("Усі");
+                        navigate("/", { replace: true });
+                    }}
+                />
+            )}
             {selectedListing?.listingKind === "partner" &&
                 selectedListing?.partnerType === "real_estate" ? (
                 <RealEstateDetailsModal
                     listing={selectedListing}
                     onClose={closeListing}
                     onSelectRelated={openRelatedListing}
+                    Heading="h1"
                 />
             ) : (
                 <ListingDetailsModal
                     listing={selectedListing}
                     onClose={closeListing}
                     onSelectRelated={openRelatedListing}
+                    Heading="h1"
                 />
             )}
             {isReelsOpen && (

@@ -142,6 +142,22 @@ const CreateRealEstateListing = lazy(() =>
 const EditRealEstateListing = lazy(() =>
   import("./pages/partners/EditRealEstateListing")
 );
+
+
+const noIndexPage = (
+  element,
+  title,
+  robots = "noindex, nofollow"
+) => (
+  <PageSEO
+    title={`${title} | RBoard`}
+    description="Службова сторінка платформи RBoard."
+    robots={robots}
+    canonical={false}
+  >
+    {element}
+  </PageSEO>
+);
 const App = () => {
   return (
     <BrowserRouter>
@@ -252,14 +268,21 @@ const App = () => {
 
             <Route
               path="/admin-login"
-              element={<AdminLogin />}
+              element={noIndexPage(
+                <AdminLogin />,
+                "Вхід до адміністративної панелі"
+              )}
             />
 
             {/* Сторінка відмови в доступі */}
 
             <Route
               path="/403"
-              element={<AccessDenied />}
+              element={noIndexPage(
+                <AccessDenied />,
+                "Доступ заборонено",
+                "noindex, follow"
+              )}
             />
 
             {/* ==============================
@@ -269,41 +292,38 @@ const App = () => {
             {/* Особистий кабінет */}
             <Route
               path="/user"
-              element={
-
-                <UserHome />
-
-              }
+              element={noIndexPage(
+                <UserHome />,
+                "Особистий кабінет"
+              )}
             />
+
 
             {/* Мої оголошення */}
             <Route
               path="/user/listings"
-              element={
-
-                <UserListings />
-
-              }
+              element={noIndexPage(
+                <UserListings />,
+                "Мої оголошення"
+              )}
             />
 
             {/* Чати */}
             <Route
               path="/user/chats"
-              element={
-
-                <UserChats />
-
-              }
+              element={noIndexPage(
+                <UserChats />,
+                "Мої повідомлення"
+              )}
             />
 
             {/* Власний профіль */}
             <Route
               path="/user/profile"
-              element={
-
-                <UserProfile />
-
-              }
+              element={noIndexPage(
+                <UserProfile />,
+                "Мій профіль"
+              )}
             />
             {/* Публічний профіль за UID */}
             <Route
@@ -314,21 +334,19 @@ const App = () => {
             {/* Налаштування акаунта */}
             <Route
               path="/user/settings"
-              element={
-
-                <UserSettings />
-
-              }
+              element={noIndexPage(
+                <UserSettings />,
+                "Налаштування акаунта"
+              )}
             />
 
             {/* Редагування оголошення */}
             <Route
               path="/user/listings/:listingId/edit"
-              element={
-
-                <EditListing />
-
-              }
+              element={noIndexPage(
+                <EditListing />,
+                "Редагування оголошення"
+              )}
             />
             {/* ==============================
               СТОРІНКИ ПАРТНЕРІВ
@@ -337,19 +355,22 @@ const App = () => {
 
             <Route
               path="/user/partner/create/real-estate"
-              element={
+              element={noIndexPage(
                 <ProtectedPartnerRoute requiredType="real_estate">
                   <CreateRealEstateListing />
-                </ProtectedPartnerRoute>
-              }
+                </ProtectedPartnerRoute>,
+                "Створення оголошення нерухомості"
+              )}
             />
+
             <Route
               path="/user/partner/edit/real-estate/:listingId"
-              element={
+              element={noIndexPage(
                 <ProtectedPartnerRoute partnerType="real_estate">
                   <EditRealEstateListing />
-                </ProtectedPartnerRoute>
-              }
+                </ProtectedPartnerRoute>,
+                "Редагування оголошення нерухомості"
+              )}
             />
 
             {/* ==============================
@@ -358,11 +379,12 @@ const App = () => {
 
             <Route
               path="/dashboard"
-              element={
+              element={noIndexPage(
                 <ProtectedAdminRoute>
                   <AdminLayout />
-                </ProtectedAdminRoute>
-              }
+                </ProtectedAdminRoute>,
+                "Адміністративна панель"
+              )}
             >
 
               {/* Головна сторінка адмін-панелі */}
@@ -465,7 +487,11 @@ const App = () => {
 
             <Route
               path="*"
-              element={<NotFound />}
+              element={noIndexPage(
+                <NotFound />,
+                "Сторінку не знайдено",
+                "noindex, follow"
+              )}
             />
 
           </Routes>

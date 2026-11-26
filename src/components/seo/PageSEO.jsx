@@ -1,16 +1,20 @@
 import { useEffect } from "react";
-
+import { useLocation } from "react-router-dom";
 const SITE_URL = "https://rboard.netlify.app";
 
 const PageSEO = ({
     title,
     description,
-    path = "/",
+    path,
     image = `${SITE_URL}/logo.webp`,
     robots = "index, follow",
+    canonical = true,
     children,
 }) => {
-    const canonicalUrl = `${SITE_URL}${path}`;
+    const { pathname } = useLocation();
+
+    const canonicalUrl =
+        `${SITE_URL}${path ?? pathname}`;
 
     useEffect(() => {
         const previousTitle = document.title;
@@ -72,13 +76,15 @@ const PageSEO = ({
             robots
         );
 
-        setTag(
-            "link",
-            "rel",
-            "canonical",
-            "href",
-            canonicalUrl
-        );
+        if (canonical) {
+            setTag(
+                "link",
+                "rel",
+                "canonical",
+                "href",
+                canonicalUrl
+            );
+        }
 
         setTag(
             "meta",
@@ -165,6 +171,7 @@ const PageSEO = ({
         canonicalUrl,
         image,
         robots,
+        canonical,
     ]);
 
     return children ?? null;

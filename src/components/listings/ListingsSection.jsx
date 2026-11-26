@@ -61,6 +61,7 @@ const ListingsSection = ({
               className="min-w-0"
             >
               <RealEstateCard
+                canSeeFavorites={canSeeFavorites}
                 listing={listing}
                 onClick={() => onListingClick(listing)}
               />

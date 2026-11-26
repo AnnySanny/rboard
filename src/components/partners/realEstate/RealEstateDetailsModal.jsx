@@ -1364,6 +1364,7 @@ export default function RealEstateDetailsModal({
     listing,
     onClose,
     onSelectRelated,
+    Heading = "h2",
 }) {
     const navigate = useNavigate();
     const modalRef = useRef(null);
@@ -1598,12 +1599,12 @@ export default function RealEstateDetailsModal({
                             </span>
                         </div>
 
-                        <h2
+                        <Heading
                             id="real-estate-modal-title"
                             className="mt-4 break-words text-2xl font-black leading-tight text-slate-950 sm:mt-5 sm:text-3xl"
                         >
                             {listing.title || "Об'єкт нерухомості"}
-                        </h2>
+                        </Heading>
 
                         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold text-slate-600 sm:text-sm">
                             <span className="inline-flex items-start gap-1.5">

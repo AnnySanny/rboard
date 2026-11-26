@@ -1215,10 +1215,6 @@ const Home = () => {
             'meta[name="description"]'
         );
 
-        const canonicalLink = document.querySelector(
-            'link[rel="canonical"]'
-        );
-
         const ogTitle = document.querySelector(
             'meta[property="og:title"]'
         );
@@ -1259,10 +1255,7 @@ const Home = () => {
                 listingDescription
             );
 
-            canonicalLink?.setAttribute(
-                "href",
-                listingUrl
-            );
+
 
             ogTitle?.setAttribute(
                 "content",
@@ -1298,10 +1291,6 @@ const Home = () => {
                 currentCategorySeo.description
             );
 
-            canonicalLink?.setAttribute(
-                "href",
-                categoryUrl
-            );
 
             ogTitle?.setAttribute(
                 "content",
@@ -1327,11 +1316,6 @@ const Home = () => {
             defaultDescription
         );
 
-        canonicalLink?.setAttribute(
-            "href",
-            "https://rboard.netlify.app/"
-        );
-
         ogTitle?.setAttribute(
             "content",
             "RBoard — оголошення Рахів"
@@ -1347,6 +1331,57 @@ const Home = () => {
             "https://rboard.netlify.app/"
         );
     }, [selectedListing, categorySlug]);
+
+useEffect(() => {
+    let canonicalUrl = "";
+
+    if (listingId) {
+        if (selectedListing?.id !== listingId) {
+            return;
+        }
+
+        canonicalUrl =
+            `https://rboard.netlify.app/listing/${listingId}`;
+    } else if (categorySlug) {
+        if (!Object.prototype.hasOwnProperty.call(
+            categoryRoutes,
+            categorySlug
+        )) {
+            return;
+        }
+
+        canonicalUrl =
+            `https://rboard.netlify.app/category/${categorySlug}`;
+    } else {
+        canonicalUrl =
+            "https://rboard.netlify.app/";
+    }
+
+    let canonicalLink = document.querySelector(
+        'link[rel="canonical"]'
+    );
+
+    if (!canonicalLink) {
+        canonicalLink = document.createElement("link");
+
+        canonicalLink.setAttribute(
+            "rel",
+            "canonical"
+        );
+
+        document.head.appendChild(canonicalLink);
+    }
+
+    canonicalLink.setAttribute(
+        "href",
+        canonicalUrl
+    );
+
+    return () => {
+        canonicalLink.remove();
+    };
+}, [listingId, selectedListing, categorySlug]);
+
 
     useEffect(() => {
         const scriptId = "listing-structured-data";

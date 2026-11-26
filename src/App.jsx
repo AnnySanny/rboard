@@ -18,6 +18,7 @@ import UserPresenceTracker from "./components/system/UserPresenceTracker";
 import UserAccessWatcher from "./components/system/UserAccessWatcher";
 import NetworkStatus from "./components/system/NetworkStatus";
 import AdminRealEstateEdit from "./pages/admin/AdminRealEstateEdit";
+import PageSEO from "./components/seo/PageSEO";
 // Публічні сторінки
 const About = lazy(() =>
   import("./pages/public/About")
@@ -172,29 +173,77 @@ const App = () => {
 
             <Route
               path="/about"
-              element={<About />}
+              element={
+                <PageSEO
+                  title="Про RBoard — локальна дошка оголошень Рахова"
+                  description="Дізнайтеся більше про RBoard — безкоштовну локальну дошку оголошень для жителів Рахова та Рахівського району."
+                  path="/about"
+                >
+                  <About />
+                </PageSEO>
+              }
             />
             <Route
               path="/partners"
-              element={<Partners />}
+              element={
+                <PageSEO
+                  title="Наші партнери — реклама та співпраця в Рахові | RBoard"
+                  description="Партнерство з RBoard для місцевого бізнесу. Пріоритетний показ оголошень, унікальний дизайн, просування та реклама в соціальних мережах."
+                  path="/partners"
+                >
+                  <Partners />
+                </PageSEO>
+              }
             />
             <Route
               path="/contacts"
-              element={<Contacts />}
+              element={
+                <PageSEO
+                  title="Контакти RBoard — зв'язок з адміністрацією"
+                  description="Зв'яжіться з адміністрацією RBoard. Допомога користувачам, пропозиції, співпраця та повідомлення про проблеми на сайті."
+                  path="/contacts"
+                >
+                  <Contacts />
+                </PageSEO>
+              }
             />
 
             <Route
               path="/rules"
-              element={<Rules />}
+              element={
+                <PageSEO
+                  title="Правила користування дошкою оголошень | RBoard"
+                  description="Правила публікації оголошень та користування платформою RBoard. Вимоги до оголошень, модерація та безпека користувачів."
+                  path="/rules"
+                >
+                  <Rules />
+                </PageSEO>
+              }
             />
 
             <Route
               path="/help"
-              element={<Help />}
+              element={
+                <PageSEO
+                  title="Допомога та поширені запитання | RBoard"
+                  description="Як зареєструватися, безкоштовно розмістити оголошення та користуватися функціями RBoard. Допомога та відповіді на поширені запитання."
+                  path="/help"
+                >
+                  <Help />
+                </PageSEO>
+              }
             />
             <Route
               path="/fundraisers"
-              element={<Fundraisers />}
+              element={
+                <PageSEO
+                  title="Благодійні збори Рахова та Рахівщини | RBoard"
+                  description="Актуальні благодійні збори Рахова та Рахівського району. Підтримайте важливі ініціативи та долучайтеся до допомоги громаді."
+                  path="/fundraisers"
+                >
+                  <Fundraisers />
+                </PageSEO>
+              }
             />
             <Route
               path="/create-listing"

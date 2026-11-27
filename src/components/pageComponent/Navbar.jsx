@@ -31,6 +31,7 @@ import LoginModal from "../auth/LoginModal";
 import RegisterModal from "../auth/RegisterModal";
 import OnboardingModal from "../onboarding/OnboardingModal";
 import { useChatNotifications } from "../../context/ChatNotificationsContext";
+import { useContest } from "../../context/ContestContext";
 const getOnboardingImages = () => {
     const isMobile = window.matchMedia(
         "(max-width: 767px)"
@@ -88,7 +89,7 @@ const Navbar = () => {
         ? `/user/partner/create/${partnerType.replace(/_/g, "-")}`
         : "/user/partner";
     const { unreadCount } = useChatNotifications();
-
+    const { isContestEnabled } = useContest();
     const unreadLabel =
         unreadCount > 99 ? "99+" : unreadCount;
 
@@ -536,10 +537,59 @@ const Navbar = () => {
 
                         </div>
 
+                        {isContestEnabled && (
+                            <Link
+                                to="/contest"
+                                onClick={closeMobileMenu}
+                                title="Святковий конкурс RBoard"
+                                aria-label="Перейти до конкурсу"
+                                className="contest-navbar-link relative ml-2 sm:ml-3 flex h-12 w-12 shrink-0 items-center justify-center"
+                            >
+                                <img
+                                    src="/images/contest-boot.png"
+                                    alt="Святковий чобіток"
+                                    className="contest-navbar-image h-full w-full object-contain"
+                                    draggable={false}
+                                />
 
+                                <span
+                                    className="contest-snowflake"
+                                    aria-hidden="true"
+                                >
+                                    ❄
+                                </span>
+
+                                <span
+                                    className="contest-snowflake"
+                                    aria-hidden="true"
+                                >
+                                    ❄
+                                </span>
+
+                                <span
+                                    className="contest-snowflake"
+                                    aria-hidden="true"
+                                >
+                                    ✦
+                                </span>
+
+                                <span
+                                    className="contest-snowflake"
+                                    aria-hidden="true"
+                                >
+                                    ❄
+                                </span>
+
+                                <span
+                                    className="contest-snowflake"
+                                    aria-hidden="true"
+                                >
+                                    ❄
+                                </span>
+                            </Link>
+                        )}
 
                     </div>
-
 
                     <nav
                         className={`

@@ -19,6 +19,7 @@ import {
     HandCoins,
     Eye,
     MessagesSquare,
+    Trophy,
 } from "lucide-react";
 
 import Swal from "sweetalert2";
@@ -67,6 +68,12 @@ const menuItems = [
         to: "/dashboard/fundraisers",
         title: "Збір",
         icon: HandCoins,
+    },
+    {
+        key: "contest",
+        to: "/dashboard/contest",
+        title: "Конкурс",
+        icon: Trophy,
     },
     {
         key: "news",
@@ -147,24 +154,24 @@ const AdminNavbar = ({ onOpenTab }) => {
         }
     };
 
-const isActive = (pageKey) => {
-    const item = menuItems.find(
-        (menuItem) => menuItem.key === pageKey
-    );
-
-    if (!item) {
-        return false;
-    }
-
-    if (pageKey === "listings") {
-        return (
-            location.pathname === item.to ||
-            location.pathname.startsWith(`${item.to}/`)
+    const isActive = (pageKey) => {
+        const item = menuItems.find(
+            (menuItem) => menuItem.key === pageKey
         );
-    }
 
-    return location.pathname === item.to;
-};
+        if (!item) {
+            return false;
+        }
+
+        if (pageKey === "listings") {
+            return (
+                location.pathname === item.to ||
+                location.pathname.startsWith(`${item.to}/`)
+            );
+        }
+
+        return location.pathname === item.to;
+    };
 
     return (
         <>

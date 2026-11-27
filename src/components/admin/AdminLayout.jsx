@@ -38,6 +38,10 @@ const adminPages = {
         path: "/dashboard/fundraisers",
         title: "Збори",
     },
+    contest: {
+        path: "/dashboard/contest",
+        title: "Конкурс",
+    },
     news: {
         path: "/dashboard/news",
         title: "Новини",
@@ -70,7 +74,16 @@ const getAdminPage = (pageKey) => {
     if (adminPages[pageKey]) {
         return adminPages[pageKey];
     }
+    if (pageKey.startsWith("realEstateEdit:")) {
+        const listingId = pageKey.slice(
+            "realEstateEdit:".length
+        );
 
+        return {
+            path: `/dashboard/listings/${encodeURIComponent(listingId)}/edit/real-estate`,
+            title: "Редагування нерухомості",
+        };
+    }
     if (pageKey.startsWith("profile:")) {
         const uid = pageKey.slice("profile:".length);
 
@@ -91,6 +104,13 @@ const AdminLayout = () => {
     ]);
 
     const activePageKey = useMemo(() => {
+        const realEstateEditMatch = location.pathname.match(
+            /^\/dashboard\/listings\/([^/]+)\/edit\/real-estate\/?$/
+        );
+
+        if (realEstateEditMatch) {
+            return `realEstateEdit:${decodeURIComponent(realEstateEditMatch[1])}`;
+        }
         const profileMatch = location.pathname.match(
             /^\/dashboard\/users\/([^/]+)\/?$/
         );

@@ -1,8 +1,6 @@
 import { Link, Navigate } from "react-router-dom";
 
 import {
-    Trophy,
-    Users,
     LoaderCircle,
     AlertCircle,
 } from "lucide-react";
@@ -11,7 +9,7 @@ import Navbar from "../../components/pageComponent/Navbar";
 import Footer from "../../components/pageComponent/Footer";
 import ContestFirstBoot from "../../components/contest/ContestFirstBoot";
 import { useContest } from "../../context/ContestContext";
-
+import ContestLeaderboard from "../../components/contest/ContestLeaderboard";
 import backgroundImage from "../../image/contest-background.png";
 
 
@@ -90,7 +88,10 @@ const Contest = () => {
                         </span>
 
                         <h1 className="mt-4 break-words text-4xl font-black tracking-tight text-white sm:text-6xl md:text-7xl">
-                            Конкурс RBoard
+                            Конкурс RBoard до дня Св'ятого Миколая  
+                        </h1>
+                          <h1 className="mt-4 break-words text-4xl font-black tracking-tight text-white sm:text-6xl md:text-7xl">
+                            05.12-19.12
                         </h1>
                     </div>
                 </section>
@@ -281,70 +282,8 @@ const Contest = () => {
 
                     </div>
                 </section>
-
                 {/* Таблиця лідерів */}
-
-                <section className="border-y border-slate-200 bg-white">
-
-                    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-20">
-
-                        <div className="text-center">
-
-                            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 sm:h-16 sm:w-16">
-                                <Trophy className="h-7 w-7 sm:h-8 sm:w-8" />
-                            </div>
-
-                            <span className="mt-5 block text-xs font-bold uppercase tracking-widest text-blue-600 sm:text-sm">
-                                Результати конкурсу
-                            </span>
-
-                            <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
-                                Таблиця лідерів
-                            </h2>
-
-                            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-500 sm:text-lg">
-                                Слідкуйте за результатами учасників
-                                та їхніми успіхами у пошуку святкових
-                                чобітків.
-                            </p>
-
-                        </div>
-
-                        <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:mt-12 sm:rounded-3xl">
-
-                            <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-7">
-
-                                <Trophy className="h-5 w-5 text-blue-600" />
-
-                                <h3 className="text-sm font-bold text-slate-900 sm:text-base">
-                                    Рейтинг учасників
-                                </h3>
-
-                            </div>
-
-                            <div className="px-5 py-14 text-center sm:py-20">
-
-                                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                                    <Users className="h-8 w-8" />
-                                </div>
-
-                                <h3 className="mt-5 text-lg font-bold text-slate-900">
-                                    Рейтинг ще недоступний
-                                </h3>
-
-                                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                                    Тут відображатимуться користувачі,
-                                    які знайшли хоча б один святковий
-                                    чобіток.
-                                </p>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </section>
+                <ContestLeaderboard />
 
             </main>
 

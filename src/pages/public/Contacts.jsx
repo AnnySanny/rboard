@@ -103,6 +103,9 @@ const Contacts = () => {
     try {
       const visitorId = getVisitorId();
 
+      // Очікуємо завершення перевірки авторизації
+      await auth.authStateReady();
+
       const currentUser = auth.currentUser;
 
       const userUid = currentUser?.uid || null;

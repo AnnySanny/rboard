@@ -1,188 +1,33 @@
-import { useEffect, useState } from "react";
-
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
-
 import {
     CheckCircle2,
     LoaderCircle,
+    AlertCircle,
 } from "lucide-react";
 
-import Swal from "sweetalert2";
-
-import { auth, db } from "../../firebase";
-
-import {
-    CONTEST_ID,
-    useContest,
-} from "../../context/ContestContext";
+import { useContest } from "../../context/ContestContext";
 
 const ELEMENT_ID = "r4m8k2p7x5";
 
-const Toast = Swal.mixin({
-    toast: true,
-    position: "top-end",
-    showConfirmButton: false,
-    showCancelButton: false,
-    showCloseButton: false,
-    timer: 2000,
-    timerProgressBar: true,
-});
-
 const ContestFirstBoot = () => {
-    const { isContestEnabled } = useContest();
+    const {
+        isContestEnabled,
+        authLoading,
+        progressLoading,
+        progressError,
+        isDisqualified,
+        claimingBootId,
+        hasFound,
+        claimItem,
+    } = useContest();
 
-    const [currentUser, setCurrentUser] = useState(undefined);
-    const [progress, setProgress] = useState(null);
-    const [claiming, setClaiming] = useState(false);
+    const found = hasFound(ELEMENT_ID);
 
-    useEffect(() => {
-        return onAuthStateChanged(auth, setCurrentUser);
-    }, []);
-
-    const uid = currentUser?.uid;
-
-    useEffect(() => {
-        setProgress(null);
-
-        if (!uid || !isContestEnabled) return;
-
-        const participantRef = doc(
-            db,
-            "contests",
-            CONTEST_ID,
-            "participants",
-            uid
-        );
-
-        return onSnapshot(
-            participantRef,
-            { includeMetadataChanges: true },
-            (snapshot) => {
-                if (snapshot.metadata.fromCache) return;
-
-                setProgress({
-                    uid,
-                    found: snapshot
-                        .data()
-                        ?.foundBootIds
-                        ?.includes(ELEMENT_ID) === true,
-                });
-            },
-            (error) => {
-                console.error(
-                    "Помилка завантаження прогресу:",
-                    error
-                );
-
-                setProgress({
-                    uid,
-                    found: false,
-                });
-            }
-        );
-    }, [uid, isContestEnabled]);
-
-    const loading =
-        currentUser === undefined ||
-        (Boolean(uid) && progress?.uid !== uid);
-
-    const found =
-        Boolean(uid) &&
-        progress?.uid === uid &&
-        progress.found;
-
-    const handleClaim = async () => {
-        if (
-            !isContestEnabled ||
-            claiming ||
-            found ||
-            loading
-        ) {
-            return;
-        }
-
-        if (!currentUser) {
-            Toast.fire({
-                icon: "info",
-                title: "Увійдіть, щоб забрати чобіток",
-            });
-
-            return;
-        }
-
-        setClaiming(true);
-
-        try {
-            const token = await currentUser.getIdToken();
-
-            const response = await fetch(
-                "/.netlify/functions/contest-claim",
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-
-                    body: JSON.stringify({
-                        bootId: ELEMENT_ID,
-                    }),
-                }
-            );
-
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                throw new Error(
-                    data.message ||
-                    "Не вдалося зарахувати чобіток."
-                );
-            }
-
-            if (auth.currentUser?.uid !== currentUser.uid) {
-                return;
-            }
-
-            setProgress({
-                uid: currentUser.uid,
-                found: true,
-            });
-
-            if (data.alreadyFound) {
-                Toast.fire({
-                    icon: "info",
-                    title: "Чобіток уже зараховано",
-                });
-
-                return;
-            }
-
-            Toast.fire({
-                icon: "success",
-
-                title: "Вітаємо!",
-
-                text: data.foundCount === data.totalBoots
-                    ? "Ви знайшли всі святкові чобітки!"
-                    : `Ви знайшли ${data.foundCount} із ${data.totalBoots} чобітків. Продовжуйте пошуки!`,
-            });
-
-        } catch (error) {
-            Toast.fire({
-                icon: "warning",
-                title: "Не вдалося забрати чобіток",
-                text: error.message,
-            });
-        } finally {
-            setClaiming(false);
-        }
-    };
+    const claiming =
+        claimingBootId === ELEMENT_ID;
 
     if (!isContestEnabled) return null;
 
-    if (loading) {
+    if (authLoading || progressLoading) {
         return (
             <div className="flex justify-center py-8">
                 <LoaderCircle className="h-6 w-6 animate-spin text-blue-600" />
@@ -190,19 +35,48 @@ const ContestFirstBoot = () => {
         );
     }
 
-    if (found) {
+    if (progressError) {
         return (
             <div className="flex flex-col items-center py-5 text-center">
 
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
-                    <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                <AlertCircle className="h-7 w-7 text-red-400" />
+
+                <p className="mt-2 text-xs font-medium text-slate-500 sm:text-sm">
+                    {progressError}
+                    {" "}Спробуйте перезавантажити сторінку.
+                </p>
+
+            </div>
+        );
+    }
+
+    if (isDisqualified) {
+        return (
+            <div className="flex flex-col items-center py-5 text-center">
+
+                <AlertCircle className="h-7 w-7 text-red-500" />
+
+                <p className="mt-2 text-sm font-bold text-red-600">
+                    Участь у конкурсі недоступна
+                </p>
+
+            </div>
+        );
+    }
+
+    if (found) {
+        return (
+            <div className="flex flex-col items-center py-4 text-center sm:py-5">
+
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 sm:h-20 sm:w-20">
+                    <CheckCircle2 className="h-9 w-9 text-emerald-500 sm:h-12 sm:w-12" />
                 </div>
 
-                <p className="mt-3 text-base font-bold text-emerald-600">
+                <p className="mt-3 text-sm font-bold text-emerald-600 sm:text-base">
                     Чобіток зараховано!
                 </p>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-xs text-slate-500 sm:text-sm">
                     Продовжуйте шукати інші чобітки.
                 </p>
 
@@ -211,14 +85,14 @@ const ContestFirstBoot = () => {
     }
 
     return (
-        <div className="flex flex-col items-center py-5 text-center">
+        <div className="flex flex-col items-center py-4 text-center sm:py-5">
 
             <button
                 type="button"
-                onClick={handleClaim}
-                disabled={claiming}
+                onClick={() => claimItem(ELEMENT_ID)}
+                disabled={Boolean(claimingBootId)}
                 aria-label="Забрати святковий чобіток"
-                className="group relative flex h-28 w-28 items-center justify-center transition-transform duration-300 hover:scale-110 active:scale-95 disabled:cursor-wait disabled:opacity-50 sm:h-36 sm:w-36"
+                className="group relative flex h-24 w-24 items-center justify-center transition-transform duration-300 hover:scale-110 active:scale-95 disabled:cursor-wait disabled:opacity-50 sm:h-36 sm:w-36"
             >
                 <img
                     src="/images/contest-boot.png"
@@ -234,7 +108,7 @@ const ContestFirstBoot = () => {
                 )}
             </button>
 
-            <p className="mt-3 text-sm font-bold text-blue-600 sm:text-base">
+            <p className="mt-3 text-xs font-bold text-blue-600 sm:text-base">
                 {claiming
                     ? "Зараховуємо знахідку..."
                     : "Натисніть, щоб забрати чобіток"}

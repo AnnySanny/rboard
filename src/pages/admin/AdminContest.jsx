@@ -27,7 +27,7 @@ import {
     CONTEST_ID,
     useContest,
 } from "../../context/ContestContext";
-
+import ContestLeaderboard from "../../components/contest/ContestLeaderboard";
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Kyiv",
     year: "numeric",
@@ -720,6 +720,7 @@ const AdminContest = () => {
                             </div>
                         )}
                     </form>
+                     <ContestLeaderboard adminView />
                 </>
             )}
         </div>

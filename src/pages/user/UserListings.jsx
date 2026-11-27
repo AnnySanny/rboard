@@ -15,6 +15,7 @@ import Swal from "sweetalert2";
 import UserListingsStatistics from "../../components/listings/UserListingsStatistics";
 import Navbar from "../../components/pageComponent/Navbar";
 import Footer from "../../components/pageComponent/Footer";
+import { useContest } from "../../context/ContestContext";
 import {
     auth,
     db,
@@ -307,7 +308,12 @@ const getSafeUrl = (value, type) => {
     return `https://${rawValue}`;
 };
 const UserListings = () => {
-
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     const navigate = useNavigate();
     const [listings, setListings] =
         useState([]);
@@ -636,16 +642,13 @@ const UserListings = () => {
     };
 
     const handleDelete = async (listing) => {
+        let selectedItem = false;
+
         const result = await Swal.fire({
             icon: "warning",
             title: "Видалити оголошення?",
-            html: `
-            <div style="margin-top:8px">
-                Оголошення
-                <strong>«${listing.title || "Без назви"}»</strong>
-                буде назавжди видалено.
-            </div>
-        `,
+            text: `Оголошення «${listing.title || "Без назви"}» буде назавжди видалено.`,
+
             showCancelButton: true,
             confirmButtonText: "Видалити",
             cancelButtonText: "Скасувати",
@@ -653,7 +656,57 @@ const UserListings = () => {
             cancelButtonColor: "#64748b",
             reverseButtons: true,
             focusCancel: true,
+
+            didOpen: (popup) => {
+                if (
+                    !canCollectBoots ||
+                    hasFound("m8k4s2p9v7") ||
+                    claimingBootId
+                ) {
+                    return;
+                }
+
+                const element = document.createElement("button");
+
+                element.type = "button";
+
+                element.className =
+                    "absolute top-2 right-2 z-10 h-12 w-12 cursor-pointer transition-transform hover:scale-110 active:scale-90 sm:h-14 sm:w-14";
+
+                element.setAttribute(
+                    "aria-label",
+                    "Забрати чобіток"
+                );
+
+                const image = document.createElement("img");
+
+                image.src = "/images/contest-boot.png";
+                image.alt = "";
+                image.draggable = false;
+
+                image.className =
+                    "h-full w-full object-contain drop-shadow-md";
+
+                element.appendChild(image);
+
+                element.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    selectedItem = true;
+
+                    Swal.close();
+                });
+
+                popup.style.position = "relative";
+                popup.appendChild(element);
+            },
         });
+
+        if (selectedItem) {
+            await claimItem("m8k4s2p9v7");
+            return;
+        }
 
         if (!result.isConfirmed) {
             return;

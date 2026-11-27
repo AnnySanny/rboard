@@ -12,7 +12,7 @@ import {
     Trash2,
     LoaderCircle,
 } from "lucide-react";
-
+import { useContest } from "../../context/ContestContext";
 import ChatMessage from "./ChatMessage";
 import ChatComposer from "./ChatComposer";
 import useUserPresence from "../hooks/useUserPresence";
@@ -30,6 +30,12 @@ export default function ChatWindow({
     showBackButton = false,
     sendingEnabled = false,
 }) {
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     const scrollRef = useRef(null);
     const presence = useUserPresence(chat?.otherUser?.uid);
     const chatId = chat?.id;
@@ -308,6 +314,24 @@ export default function ChatWindow({
                             <p className="mt-1 text-xs text-slate-400">
                                 Історії повідомлень поки немає.
                             </p>
+                            {canCollectBoots && !hasFound("c4r8j2n6w5") && (
+                                <div className="mt-5 flex justify-center">
+                                    <button
+                                        type="button"
+                                        disabled={Boolean(claimingBootId)}
+                                        onClick={() => claimItem("c4r8j2n6w5")}
+                                        aria-label="Забрати чобіток"
+                                        className="h-20 w-20 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-24 sm:w-24"
+                                    >
+                                        <img
+                                            src="/images/contest-boot.png"
+                                            alt=""
+                                            draggable={false}
+                                            className="h-full w-full object-contain drop-shadow-md"
+                                        />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ) : (
 

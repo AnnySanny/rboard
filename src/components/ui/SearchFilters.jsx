@@ -1,7 +1,7 @@
 
 import { useEffect } from "react";
 import { Heart } from "lucide-react";
-
+import { useContest } from "../../context/ContestContext";
 const categories = [
   "Усі",
   "Продаж",
@@ -29,33 +29,38 @@ const SearchFilters = ({
   viewMode,
   setViewMode,
   onOpenReels,
-    canSeeFavorites = false,
-    favoritesRoleLoading = false,
+  canSeeFavorites = false,
+  favoritesRoleLoading = false,
 }) => {
+  const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+  } = useContest();
 
+  // Якщо користувач не має доступу до обраного,
+  // скидаємо категорію на "Усі".
+  useEffect(() => {
+    if (
+      !favoritesRoleLoading &&
+      !canSeeFavorites &&
+      activeCategory === "Обрані"
+    ) {
+      setActiveCategory("Усі");
+    }
+  }, [
+    favoritesRoleLoading,
+    canSeeFavorites,
+    activeCategory,
+    setActiveCategory,
+  ]);
 
-// Якщо користувач не має доступу до обраного,
-// скидаємо категорію на "Усі".
-useEffect(() => {
-  if (
-    !favoritesRoleLoading &&
-    !canSeeFavorites &&
-    activeCategory === "Обрані"
-  ) {
-    setActiveCategory("Усі");
-  }
-}, [
-  favoritesRoleLoading,
-  canSeeFavorites,
-  activeCategory,
-  setActiveCategory,
-]);
-
-// Категорію "Обрані" бачать тільки
-// звичайні авторизовані користувачі.
-const visibleCategories = canSeeFavorites
-  ? [...categories, "Обрані"]
-  : categories;
+  // Категорію "Обрані" бачать тільки
+  // звичайні авторизовані користувачі.
+  const visibleCategories = canSeeFavorites
+    ? [...categories, "Обрані"]
+    : categories;
 
 
 
@@ -262,6 +267,26 @@ const visibleCategories = canSeeFavorites
           <span>Режим Reels</span>
         </button>
       </div>
+      {activeCategory === "Інше" &&
+        canCollectBoots &&
+        !hasFound("k8v3p6d2r9") && (
+          <div className="mt-4 flex w-full justify-center">
+            <button
+              type="button"
+              disabled={Boolean(claimingBootId)}
+              onClick={() => claimItem("k8v3p6d2r9")}
+              aria-label="Забрати чобіток"
+              className="h-24 w-24 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-32 sm:w-32"
+            >
+              <img
+                src="/images/contest-boot.png"
+                alt=""
+                draggable={false}
+                className="h-full w-full object-contain drop-shadow-lg"
+              />
+            </button>
+          </div>
+        )}
     </section>
   );
 };

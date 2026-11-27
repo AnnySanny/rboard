@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import Swal from "sweetalert2";
-
+import { useContest } from "../../context/ContestContext";
 const MAX_IMAGES = 10;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -12,159 +12,165 @@ export default function ListingImageUploader({
     const inputRef = useRef(null);
     const [isDragging, setIsDragging] =
         useState(false);
-const processImages = async (files) => {
-    const selectedFiles = Array.from(
-        files || []
-    );
-
-    if (selectedFiles.length === 0) {
-        return;
-    }
-
-    const availableSlots =
-        MAX_IMAGES - images.length;
-
-    if (availableSlots <= 0) {
-        await Swal.fire({
-            icon: "info",
-            title: "Досягнуто ліміт",
-            text: "До одного оголошення можна додати максимум 10 фотографій.",
-            confirmButtonText: "Добре",
-            confirmButtonColor: "#2563eb",
-        });
-
-        return;
-    }
-
-    if (
-        selectedFiles.length >
-        availableSlots
-    ) {
-        await Swal.fire({
-            icon: "warning",
-            title: "Забагато фотографій",
-            text: `Можна додати ще максимум ${availableSlots}.`,
-            confirmButtonText: "Добре",
-            confirmButtonColor: "#2563eb",
-        });
-
-        return;
-    }
-
-    const invalidType =
-        selectedFiles.find(
-            (file) =>
-                !file.type.startsWith(
-                    "image/"
-                )
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
+    const processImages = async (files) => {
+        const selectedFiles = Array.from(
+            files || []
         );
 
-    if (invalidType) {
-        await Swal.fire({
-            icon: "warning",
-            title: "Неправильний формат",
-            text: "Можна додавати лише зображення.",
-            confirmButtonText: "Добре",
-            confirmButtonColor: "#2563eb",
-        });
+        if (selectedFiles.length === 0) {
+            return;
+        }
 
-        return;
-    }
+        const availableSlots =
+            MAX_IMAGES - images.length;
 
-    const oversizedFile =
-        selectedFiles.find(
-            (file) =>
-                file.size > MAX_FILE_SIZE
+        if (availableSlots <= 0) {
+            await Swal.fire({
+                icon: "info",
+                title: "Досягнуто ліміт",
+                text: "До одного оголошення можна додати максимум 10 фотографій.",
+                confirmButtonText: "Добре",
+                confirmButtonColor: "#2563eb",
+            });
+
+            return;
+        }
+
+        if (
+            selectedFiles.length >
+            availableSlots
+        ) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Забагато фотографій",
+                text: `Можна додати ще максимум ${availableSlots}.`,
+                confirmButtonText: "Добре",
+                confirmButtonColor: "#2563eb",
+            });
+
+            return;
+        }
+
+        const invalidType =
+            selectedFiles.find(
+                (file) =>
+                    !file.type.startsWith(
+                        "image/"
+                    )
+            );
+
+        if (invalidType) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Неправильний формат",
+                text: "Можна додавати лише зображення.",
+                confirmButtonText: "Добре",
+                confirmButtonColor: "#2563eb",
+            });
+
+            return;
+        }
+
+        const oversizedFile =
+            selectedFiles.find(
+                (file) =>
+                    file.size > MAX_FILE_SIZE
+            );
+
+        if (oversizedFile) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Файл завеликий",
+                text: "Розмір однієї фотографії не повинен перевищувати 10 МБ.",
+                confirmButtonText: "Добре",
+                confirmButtonColor: "#2563eb",
+            });
+
+            return;
+        }
+
+        const newImages =
+            selectedFiles.map((file) => ({
+                file,
+                previewUrl:
+                    URL.createObjectURL(file),
+                id: `${file.name}-${file.size}-${file.lastModified}`,
+            }));
+
+        onChange([
+            ...images,
+            ...newImages,
+        ]);
+    };
+
+    const handleSelectImages = async (event) => {
+        await processImages(
+            event.target.files
         );
 
-    if (oversizedFile) {
-        await Swal.fire({
-            icon: "warning",
-            title: "Файл завеликий",
-            text: "Розмір однієї фотографії не повинен перевищувати 10 МБ.",
-            confirmButtonText: "Добре",
-            confirmButtonColor: "#2563eb",
-        });
+        event.target.value = "";
+    };
+    const handleDragEnter = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-        return;
-    }
+        if (
+            disabled ||
+            images.length >= MAX_IMAGES
+        ) {
+            return;
+        }
 
-    const newImages =
-        selectedFiles.map((file) => ({
-            file,
-            previewUrl:
-                URL.createObjectURL(file),
-            id: `${file.name}-${file.size}-${file.lastModified}`,
-        }));
+        setIsDragging(true);
+    };
 
-    onChange([
-        ...images,
-        ...newImages,
-    ]);
-};
+    const handleDragOver = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-const handleSelectImages = async (event) => {
-    await processImages(
-        event.target.files
-    );
+        if (
+            disabled ||
+            images.length >= MAX_IMAGES
+        ) {
+            return;
+        }
 
-    event.target.value = "";
-};
-const handleDragEnter = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+        event.dataTransfer.dropEffect =
+            "copy";
 
-    if (
-        disabled ||
-        images.length >= MAX_IMAGES
-    ) {
-        return;
-    }
+        setIsDragging(true);
+    };
 
-    setIsDragging(true);
-};
+    const handleDragLeave = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-const handleDragOver = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+        setIsDragging(false);
+    };
 
-    if (
-        disabled ||
-        images.length >= MAX_IMAGES
-    ) {
-        return;
-    }
+    const handleDrop = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-    event.dataTransfer.dropEffect =
-        "copy";
+        setIsDragging(false);
 
-    setIsDragging(true);
-};
+        if (
+            disabled ||
+            images.length >= MAX_IMAGES
+        ) {
+            return;
+        }
 
-const handleDragLeave = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    setIsDragging(false);
-};
-
-const handleDrop = async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    setIsDragging(false);
-
-    if (
-        disabled ||
-        images.length >= MAX_IMAGES
-    ) {
-        return;
-    }
-
-    await processImages(
-        event.dataTransfer.files
-    );
-};
+        await processImages(
+            event.dataTransfer.files
+        );
+    };
     const handleRemoveImage = (index) => {
         const imageToRemove =
             images[index];
@@ -214,95 +220,92 @@ const handleDrop = async (event) => {
                 className="hidden"
             />
 
-<div
-    onClick={() => {
-        if (
-            !disabled &&
-            images.length < MAX_IMAGES
-        ) {
-            inputRef.current?.click();
-        }
-    }}
-    onDragEnter={handleDragEnter}
-    onDragOver={handleDragOver}
-    onDragLeave={handleDragLeave}
-    onDrop={handleDrop}
-    role="button"
-    tabIndex={0}
-    onKeyDown={(event) => {
-        if (
-            event.key === "Enter" ||
-            event.key === " "
-        ) {
-            event.preventDefault();
+            <div
+                onClick={() => {
+                    if (
+                        !disabled &&
+                        images.length < MAX_IMAGES
+                    ) {
+                        inputRef.current?.click();
+                    }
+                }}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                    if (
+                        event.key === "Enter" ||
+                        event.key === " "
+                    ) {
+                        event.preventDefault();
 
-            if (
-                !disabled &&
-                images.length <
-                    MAX_IMAGES
-            ) {
-                inputRef.current?.click();
-            }
-        }
-    }}
-    className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-7 text-sm font-semibold transition ${
-        isDragging
-            ? "scale-[1.01] border-blue-500 bg-blue-100 text-blue-700"
-            : "border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-    } ${
-        disabled ||
-        images.length >= MAX_IMAGES
-            ? "cursor-not-allowed opacity-60"
-            : ""
-    }`}
->
-    <svg
-        className={`h-7 w-7 transition ${
-            isDragging
-                ? "text-blue-700"
-                : "text-blue-600"
-        }`}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-    >
-        <rect
-            x="3"
-            y="3"
-            width="18"
-            height="18"
-            rx="2"
-        />
+                        if (
+                            !disabled &&
+                            images.length <
+                            MAX_IMAGES
+                        ) {
+                            inputRef.current?.click();
+                        }
+                    }
+                }}
+                className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-7 text-sm font-semibold transition ${isDragging
+                        ? "scale-[1.01] border-blue-500 bg-blue-100 text-blue-700"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                    } ${disabled ||
+                        images.length >= MAX_IMAGES
+                        ? "cursor-not-allowed opacity-60"
+                        : ""
+                    }`}
+            >
+                <svg
+                    className={`h-7 w-7 transition ${isDragging
+                            ? "text-blue-700"
+                            : "text-blue-600"
+                        }`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                >
+                    <rect
+                        x="3"
+                        y="3"
+                        width="18"
+                        height="18"
+                        rx="2"
+                    />
 
-        <circle
-            cx="8.5"
-            cy="8.5"
-            r="1.5"
-        />
+                    <circle
+                        cx="8.5"
+                        cy="8.5"
+                        r="1.5"
+                    />
 
-        <path d="m21 15-5-5L5 21" />
-    </svg>
+                    <path d="m21 15-5-5L5 21" />
+                </svg>
 
-    <span>
-        {images.length >= MAX_IMAGES
-            ? "Додано максимум фотографій"
-            : isDragging
-                ? "Відпустіть фотографії тут"
-                : "Додати або перетягнути фотографії"}
-    </span>
+                <span>
+                    {images.length >= MAX_IMAGES
+                        ? "Додано максимум фотографій"
+                        : isDragging
+                            ? "Відпустіть фотографії тут"
+                            : "Додати або перетягнути фотографії"}
+                </span>
 
-    {images.length < MAX_IMAGES &&
-        !disabled && (
-            <span className="text-xs font-normal text-slate-400">
-                Натисніть або перетягніть
-                файли в цю область
-            </span>
-        )}
-</div>
+                {images.length < MAX_IMAGES &&
+                    !disabled && (
+                        <span className="text-xs font-normal text-slate-400">
+                            Натисніть або перетягніть
+                            файли в цю область
+                        </span>
+                    )}
+            </div>
 
             <p className="mt-2 text-xs leading-5 text-slate-400">
                 До 10 фотографій. JPG, PNG
@@ -332,7 +335,27 @@ const handleDrop = async (event) => {
                                         Головне
                                     </span>
                                 )}
-
+                                {index === 1 &&
+                                    canCollectBoots &&
+                                    !hasFound("q7v3n9c2l6") && (
+                                        <button
+                                            type="button"
+                                            disabled={Boolean(claimingBootId)}
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                claimItem("q7v3n9c2l6");
+                                            }}
+                                            aria-label="Забрати чобіток"
+                                            className="absolute top-1 left-1 z-10 h-12 w-12 cursor-pointer transition-transform hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-14 sm:w-14"
+                                        >
+                                            <img
+                                                src="/images/contest-boot.png"
+                                                alt=""
+                                                draggable={false}
+                                                className="h-full w-full object-contain drop-shadow-md"
+                                            />
+                                        </button>
+                                    )}
                                 <button
                                     type="button"
                                     onClick={() =>

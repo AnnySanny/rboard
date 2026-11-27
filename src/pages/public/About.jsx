@@ -4,7 +4,7 @@ import Footer from "../../components/pageComponent/Footer";
 import backgroundImage from "../../image/background.webp";
 import backgroundAutumn from "../../image/background-autumn.webp";
 import backgroundWinter from "../../image/background-winter.webp";
-
+import { useContest } from "../../context/ContestContext";
 
 const getSeasonBackground = () => {
   const month = new Date().getMonth();
@@ -22,6 +22,13 @@ const getSeasonBackground = () => {
 
 
 const About = () => {
+
+  const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+  } = useContest();
   const seasonBackground = getSeasonBackground();
 
   return (
@@ -40,10 +47,32 @@ const About = () => {
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950/40" />
 
           <div className="relative z-10 mx-auto max-w-5xl px-5 text-center sm:px-6">
-            <h1 className="text-4xl font-black tracking-tight text-white sm:text-6xl md:text-7xl">
-              Про нас
-            </h1>
 
+
+            <div className="flex items-center justify-center gap-3 sm:gap-4">
+
+              <h1 className="text-4xl font-black tracking-tight text-white sm:text-6xl md:text-7xl">
+                Про нас
+              </h1>
+
+              {canCollectBoots && !hasFound("f3k8b5r2m7") && (
+                <button
+                  type="button"
+                  disabled={Boolean(claimingBootId)}
+                  onClick={() => claimItem("f3k8b5r2m7")}
+                  aria-label="Забрати чобіток"
+                  className="h-12 w-12 shrink-0 cursor-pointer transition-transform hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-16 sm:w-16 md:h-20 md:w-20"
+                >
+                  <img
+                    src="/images/contest-boot.png"
+                    alt=""
+                    draggable={false}
+                    className="h-full w-full object-contain drop-shadow-lg"
+                  />
+                </button>
+              )}
+
+            </div>
             <p className="mx-auto mt-5 max-w-4xl text-lg font-medium leading-8 text-white sm:mt-7 sm:text-2xl sm:leading-10 md:text-3xl md:leading-[1.4]">
               Локальний сервіс оголошень для жителів Рахова та
               Рахівського району

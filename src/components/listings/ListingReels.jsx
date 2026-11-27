@@ -10,7 +10,7 @@ import {
   Moon,
 } from "lucide-react";
 import ReelDetailsPanel from "./ReelDetailsPanel";
-
+import { useContest } from "../../context/ContestContext";
 const SWIPE_THRESHOLD = 55;
 const ANIMATION_DURATION = 350;
 
@@ -186,6 +186,12 @@ const ListingReels = ({
   hasMoreListings,
   loadingMore,
 }) => {
+  const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+  } = useContest();
   const [activeIndex, setActiveIndex] = useState(0);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
@@ -401,15 +407,15 @@ const ListingReels = ({
 
 
 
-const incomingStartY =
-  transition?.direction === "next"
-    ? "100%"
-    : "-100%";
+  const incomingStartY =
+    transition?.direction === "next"
+      ? "100%"
+      : "-100%";
 
-const outgoingEndY =
-  transition?.direction === "next"
-    ? "-100%"
-    : "100%";
+  const outgoingEndY =
+    transition?.direction === "next"
+      ? "-100%"
+      : "100%";
 
 
 
@@ -513,6 +519,25 @@ const outgoingEndY =
         </div>
 
         <div className="flex items-center gap-2">
+          {canCollectBoots && !hasFound("h2q9m6v4k1") && (
+            <button
+              type="button"
+              disabled={Boolean(claimingBootId)}
+              onClick={(event) => {
+                event.stopPropagation();
+                claimItem("h2q9m6v4k1");
+              }}
+              aria-label="Забрати чобіток"
+              className="flex h-12 w-12 shrink-0 items-center justify-center transition-transform active:scale-90 disabled:opacity-50"
+            >
+              <img
+                src="/images/contest-boot.png"
+                alt=""
+                draggable={false}
+                className="h-full w-full object-contain drop-shadow-md"
+              />
+            </button>
+          )}
           <button
             type="button"
             onClick={toggleTheme}

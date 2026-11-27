@@ -35,11 +35,17 @@ import ProfileListingStats from "../../components/profile/ProfileListingStats";
 import ProfileReviews from "../../components/profile/ProfileReviews";
 import { auth, db } from "../../firebase";
 import useUserPresence from "../../components/hooks/useUserPresence";
+import { useContest } from "../../context/ContestContext";
 export default function UserProfile({
     adminView = false,
 }) {
     const { uid } = useParams();
-
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     const [currentUser, setCurrentUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
     const [profileLoading, setProfileLoading] = useState(true);
@@ -382,9 +388,32 @@ export default function UserProfile({
                                             </div>
 
                                             <div className="min-w-0 flex-1 text-center sm:text-left">
-                                                <h1 className="break-words text-2xl font-black text-slate-950 sm:text-3xl">
-                                                    {profile.login || "Користувач RBoard"}
-                                                </h1>
+                                                <div className="flex items-center justify-center gap-2 sm:justify-start">
+
+                                                    <h1 className="min-w-0 break-words text-2xl font-black text-slate-950 sm:text-3xl">
+                                                        {profile.login || "Користувач RBoard"}
+                                                    </h1>
+
+                                                    {!adminView &&
+                                                        canCollectBoots &&
+                                                        !hasFound("t6n2w8k4r9") && (
+                                                            <button
+                                                                type="button"
+                                                                disabled={Boolean(claimingBootId)}
+                                                                onClick={() => claimItem("t6n2w8k4r9")}
+                                                                aria-label="Забрати чобіток"
+                                                                className="h-10 w-10 shrink-0 cursor-pointer transition-transform hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-12 sm:w-12"
+                                                            >
+                                                                <img
+                                                                    src="/images/contest-boot.png"
+                                                                    alt=""
+                                                                    draggable={false}
+                                                                    className="h-full w-full object-contain"
+                                                                />
+                                                            </button>
+                                                        )}
+
+                                                </div>
 
 
                                                 {/* Онлайн-статус бачать лише авторизовані */}

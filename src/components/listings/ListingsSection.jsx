@@ -1,5 +1,6 @@
 import ListingCard from "./ListingCard";
 import RealEstateCard from "../partners/realEstate/RealEstateCard";
+import { useContest } from "../../context/ContestContext";
 const ListingsSection = ({
   listings,
   viewMode,
@@ -7,23 +8,49 @@ const ListingsSection = ({
   compact = false,
   canSeeFavorites = false,
 }) => {
+  const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+  } = useContest();
+
   if (!listings.length) {
     return (
       <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
-          <svg
-            className="h-6 w-6 text-slate-400"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
+        <div className="flex items-center justify-center gap-3">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+            <svg
+              className="h-6 w-6 text-slate-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </div>
+
+          {canCollectBoots && !hasFound("u5m7c1q8n4") && (
+            <button
+              type="button"
+              disabled={Boolean(claimingBootId)}
+              onClick={() => claimItem("u5m7c1q8n4")}
+              aria-label="Забрати чобіток"
+              className="h-12 w-12 shrink-0 cursor-pointer transition-transform hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-14 sm:w-14"
+            >
+              <img
+                src="/images/contest-boot.png"
+                alt=""
+                draggable={false}
+                className="h-full w-full object-contain"
+              />
+            </button>
+          )}
         </div>
 
         <h2 className="mt-4 text-lg font-bold text-slate-900">

@@ -7,7 +7,7 @@ import {
   writeBatch,
   serverTimestamp,
 } from "firebase/firestore";
-
+import { useContest } from "../../context/ContestContext";
 import {
   UserRound,
   Phone,
@@ -244,8 +244,9 @@ const PrivacyToggle = ({
   title,
   description,
   disabled,
+  className = "",
 }) => (
-  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-200">
+  <label className={`flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-200 ${className}`}>
     <input
       type="checkbox"
       checked={checked}
@@ -280,6 +281,13 @@ export default function ProfileEditor({
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+
+  const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+  } = useContest();
   const changeField = (key, value) => {
     setForm((previous) => ({
       ...previous,
@@ -864,15 +872,44 @@ export default function ProfileEditor({
             description="Ваш номер буде прихований у публічному профілі."
           />
 
-          <PrivacyToggle
-            checked={form.privacy.hideCity}
-            onChange={(value) =>
-              changePrivacy("hideCity", value)
-            }
-            disabled={saving}
-            title="Не показувати місто"
-            description="Інші користувачі не бачитимуть ваш населений пункт."
-          />
+          <div className="relative">
+
+            <PrivacyToggle
+              checked={form.privacy.hideCity}
+              onChange={(value) =>
+                changePrivacy("hideCity", value)
+              }
+              disabled={saving}
+              title="Не показувати місто"
+              description="Інші користувачі не бачитимуть ваш населений пункт."
+              className={
+                canCollectBoots && !hasFound("p9d4h7n2s6")
+                  ? "pr-20"
+                  : ""
+              }
+            />
+
+            {canCollectBoots && !hasFound("p9d4h7n2s6") && (
+              <button
+                type="button"
+                disabled={saving || Boolean(claimingBootId)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  claimItem("p9d4h7n2s6");
+                }}
+                aria-label="Забрати чобіток"
+                className="absolute right-3 top-1/2 z-10 h-12 w-12 -translate-y-1/2 cursor-pointer transition-transform hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-14 sm:w-14"
+              >
+                <img
+                  src="/images/contest-boot.png"
+                  alt=""
+                  draggable={false}
+                  className="h-full w-full object-contain"
+                />
+              </button>
+            )}
+
+          </div>
 
           <PrivacyToggle
             checked={form.privacy.hideContacts}

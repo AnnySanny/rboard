@@ -269,12 +269,12 @@ const SearchFilters = ({
       </div>
       {activeCategory === "Інше" &&
         canCollectBoots &&
-        !hasFound("k8v3p6d2r9") && (
+        !hasFound("k8v3p6dkn4") && (
           <div className="mt-4 flex w-full justify-center">
             <button
               type="button"
               disabled={Boolean(claimingBootId)}
-              onClick={() => claimItem("k8v3p6d2r9")}
+              onClick={() => claimItem("k8v3p6dkn4")}
               aria-label="Забрати чобіток"
               className="h-24 w-24 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-32 sm:w-32"
             >

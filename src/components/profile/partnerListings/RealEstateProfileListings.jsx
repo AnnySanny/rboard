@@ -19,7 +19,7 @@ import {
 import { db } from "../../../firebase";
 import RealEstateCard from "../../partners/realEstate/RealEstateCard";
 import RealEstateDetailsModal from "../../partners/realEstate/RealEstateDetailsModal";
-
+import { useContest } from "../../../context/ContestContext";
 const PAGE_SIZE = 8;
 
 const buildQuery = (profileUid) => {
@@ -73,6 +73,12 @@ const getSortingPrice = (listing) => {
 export default function RealEstateProfileListings({
     profileUid,
 }) {
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -327,6 +333,22 @@ export default function RealEstateProfileListings({
                     <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
                         Об'єкти нерухомості
                     </h2>
+                    {canCollectBoots && !hasFound("v8m3q6r2n5") && (
+                        <button
+                            type="button"
+                            disabled={Boolean(claimingBootId)}
+                            onClick={() => claimItem("v8m3q6r2n5")}
+                            aria-label="Забрати чобіток"
+                            className="h-8 w-8 shrink-0 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-10 sm:w-10"
+                        >
+                            <img
+                                src="/images/contest-boot.png"
+                                alt=""
+                                draggable={false}
+                                className="h-full w-full object-contain drop-shadow-md"
+                            />
+                        </button>
+                    )}
                 </div>
 
                 {!loading && !error && (

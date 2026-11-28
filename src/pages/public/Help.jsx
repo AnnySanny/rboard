@@ -39,7 +39,7 @@ import {
 
 import Navbar from "../../components/pageComponent/Navbar";
 import Footer from "../../components/pageComponent/Footer";
-
+import { useContest } from "../../context/ContestContext";
 const helpItems = [
     {
         id: "search",
@@ -892,6 +892,12 @@ const HELP_KEYWORDS = {
 };
 
 const Help = () => {
+    const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+} = useContest();
     const [openItem, setOpenItem] =
         useState(null);
 
@@ -1337,6 +1343,24 @@ const Help = () => {
                             )}
                         </div>
                     </section>
+                    {canCollectBoots && !hasFound("x7r3n8m2q5") && (
+                        <div className="mt-8 flex justify-center sm:mt-12">
+                            <button
+                                type="button"
+                                disabled={Boolean(claimingBootId)}
+                                onClick={() => claimItem("x7r3n8m2q5")}
+                                aria-label="Забрати чобіток"
+                                className="h-20 w-20 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-24 sm:w-24"
+                            >
+                                <img
+                                    src="/images/contest-boot.png"
+                                    alt=""
+                                    draggable={false}
+                                    className="h-full w-full object-contain drop-shadow-md"
+                                />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </main>
 

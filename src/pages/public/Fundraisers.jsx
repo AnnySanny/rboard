@@ -19,6 +19,7 @@ import { db } from "../../firebase";
 import Navbar from "../../components/pageComponent/Navbar";
 import Footer from "../../components/pageComponent/Footer";
 import fundraisersBackground from "../../image/fundraisers-background.webp";
+import { useContest } from "../../context/ContestContext";
 // Форматування суми
 const formatMoney = (amount) => {
     const value = Number(amount);
@@ -51,9 +52,14 @@ const getSafeBankUrl = (value) => {
 };
 
 // Окремий блок благодійного збору
-const FundraiserCard = ({ fundraiser }) => {
+const FundraiserCard = ({ fundraiser, showItem = false }) => {
     const bankUrl = getSafeBankUrl(fundraiser.bankUrl);
-
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     return (
         <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_8px_35px_rgba(15,23,42,0.05)]">
             <div className="grid lg:grid-cols-[1fr_1.05fr]">
@@ -73,15 +79,34 @@ const FundraiserCard = ({ fundraiser }) => {
                         </p>
                     </div>
 
-                    <div className="mt-7 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-blue-600">
-                            <Wallet size={18} />
-                            Необхідна сума
+                    <div className="mt-7 flex items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-blue-600">
+                                <Wallet size={18} />
+                                Необхідна сума
+                            </div>
+
+                            <p className="mt-3 break-words text-3xl font-black tracking-tight text-blue-600 sm:text-4xl">
+                                {formatMoney(fundraiser.amount)}
+                            </p>
                         </div>
 
-                        <p className="mt-3 break-words text-3xl font-black tracking-tight text-blue-600 sm:text-4xl">
-                            {formatMoney(fundraiser.amount)}
-                        </p>
+                        {showItem && canCollectBoots && !hasFound("a8n4v7q2m6") && (
+                            <button
+                                type="button"
+                                disabled={Boolean(claimingBootId)}
+                                onClick={() => claimItem("a8n4v7q2m6")}
+                                aria-label="Забрати чобіток"
+                                className="h-16 w-16 shrink-0 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-20 sm:w-20"
+                            >
+                                <img
+                                    src="/images/contest-boot.png"
+                                    alt=""
+                                    draggable={false}
+                                    className="h-full w-full object-contain drop-shadow-md"
+                                />
+                            </button>
+                        )}
                     </div>
 
                     {fundraiser.description && (
@@ -279,10 +304,11 @@ const Fundraisers = () => {
                         !error &&
                         fundraisers.length > 0 && (
                             <div className="space-y-8">
-                                {fundraisers.map((fundraiser) => (
+                                {fundraisers.map((fundraiser, index) => (
                                     <FundraiserCard
                                         key={fundraiser.id}
                                         fundraiser={fundraiser}
+                                        showItem={index === 0}
                                     />
                                 ))}
                             </div>

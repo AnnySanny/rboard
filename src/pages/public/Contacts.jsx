@@ -10,6 +10,7 @@ import { useLocation } from "react-router-dom";
 import Navbar from "../../components/pageComponent/Navbar";
 import Footer from "../../components/pageComponent/Footer";
 import { auth, db } from "../../firebase";
+import { useContest } from "../../context/ContestContext";
 const MAX_FEEDBACK_PER_DAY = 3;
 const FEEDBACK_LIMIT_HOURS = 24;
 
@@ -32,6 +33,12 @@ const getVisitorId = () => {
   return visitorId;
 };
 const Contacts = () => {
+  const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+  } = useContest();
   const [formData, setFormData] = useState({
     contact: "",
     name: "",
@@ -574,15 +581,36 @@ const Contacts = () => {
                     </span>
                   </label>
 
-                  <textarea
-                    id="comment"
-                    name="comment"
-                    value={formData.comment}
-                    onChange={handleChange}
-                    placeholder="Опишіть вашу пропозицію або проблему..."
-                    rows={6}
-                    className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base leading-7 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                  />
+                  <div className="relative">
+                    <textarea
+                      id="comment"
+                      name="comment"
+                      value={formData.comment}
+                      onChange={handleChange}
+                      placeholder="Опишіть вашу пропозицію або проблему..."
+                      rows={6}
+                      className="block w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-base leading-7 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    />
+
+                    {canCollectBoots && !hasFound("d6w2p8m5k3") && (
+                      <button
+                        type="button"
+                        disabled={Boolean(claimingBootId)}
+                        onClick={() => claimItem("d6w2p8m5k3")}
+                        aria-label="Забрати чобіток"
+                        className="absolute left-1/2 top-1/2 z-10 h-20 w-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-24 sm:w-24"
+                      >
+                        <img
+                          src="/images/contest-boot.png"
+                          alt=""
+                          draggable={false}
+                          className="h-full w-full object-contain drop-shadow-md"
+                        />
+                      </button>
+                    )}
+                  </div>
+
+
                 </div>
 
                 <button

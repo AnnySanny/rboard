@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useContest } from "../../context/ContestContext";
 import {
     ArrowRight,
     ArrowUpRight,
@@ -76,6 +77,12 @@ const benefits = [
 ];
 
 const Partners = () => {
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     const [partners, setPartners] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -297,7 +304,7 @@ const Partners = () => {
                             return (
                                 <div
                                     key={benefit.title}
-                                    className={`rounded-2xl border p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md sm:rounded-3xl sm:p-7 ${benefit.color}`}
+                                    className={`relative rounded-2xl border p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md sm:rounded-3xl sm:p-7 ${benefit.color}`}
                                 >
                                     <div
                                         className={`flex h-10 w-10 items-center justify-center rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl ${benefit.iconColor}`}
@@ -307,7 +314,24 @@ const Partners = () => {
                                             strokeWidth={1.8}
                                         />
                                     </div>
-
+                                    {benefit.title === "Унікальний дизайн" &&
+                                        canCollectBoots &&
+                                        !hasFound("z4n8k2v7p3") && (
+                                            <button
+                                                type="button"
+                                                disabled={Boolean(claimingBootId)}
+                                                onClick={() => claimItem("z4n8k2v7p3")}
+                                                aria-label="Забрати чобіток"
+                                                className="absolute right-3 top-3 z-10 h-12 w-12 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:right-5 sm:top-5 sm:h-16 sm:w-16"
+                                            >
+                                                <img
+                                                    src="/images/contest-boot.png"
+                                                    alt=""
+                                                    draggable={false}
+                                                    className="h-full w-full object-contain drop-shadow-md"
+                                                />
+                                            </button>
+                                        )}
                                     <h3 className="mt-4 text-base font-bold leading-tight text-slate-950 sm:mt-5 sm:text-xl">
                                         {benefit.title}
                                     </h3>

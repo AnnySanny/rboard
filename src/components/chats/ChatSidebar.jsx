@@ -11,7 +11,7 @@ import {
     CircleCheck,
     LoaderCircle,
 } from "lucide-react";
-
+import { useContest } from "../../context/ContestContext";
 import { onAuthStateChanged } from "firebase/auth";
 
 import {
@@ -54,6 +54,12 @@ export default function ChatSidebar({
     onSearchChange,
     className = "",
 }) {
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     // Telegram
     const [telegramStatus, setTelegramStatus] = useState(null);
     const [telegramLoading, setTelegramLoading] = useState(true);
@@ -113,69 +119,69 @@ export default function ChatSidebar({
     }, []);
 
     // Підключення Telegram
-    
-const handleConnectTelegram = async () => {
-    if (telegramConnecting) return;
 
-    const user = auth.currentUser;
+    const handleConnectTelegram = async () => {
+        if (telegramConnecting) return;
 
-    if (!user) {
-        setTelegramError(
-            "Для підключення Telegram потрібно увійти в акаунт."
-        );
-        return;
-    }
+        const user = auth.currentUser;
 
-    setTelegramConnecting(true);
-    setTelegramError("");
-
-    try {
-        const idToken = await user.getIdToken();
-
-        const response = await fetch(
-            "/.netlify/functions/create-telegram-link",
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${idToken}`,
-                },
-            }
-        );
-
-        const result = await response.json();
-
-        if (
-            !response.ok ||
-            !result.success ||
-            !result.telegramUrl
-        ) {
-            throw new Error(
-                result.error || "Не вдалося створити посилання."
+        if (!user) {
+            setTelegramError(
+                "Для підключення Telegram потрібно увійти в акаунт."
             );
+            return;
         }
 
-        // Відкриваємо Telegram в окремій вкладці
-        window.open(
-            result.telegramUrl,
-            "_blank",
-            "noopener,noreferrer"
-        );
+        setTelegramConnecting(true);
+        setTelegramError("");
 
-    } catch (error) {
-        console.error(
-            "Помилка підключення Telegram:",
-            error
-        );
+        try {
+            const idToken = await user.getIdToken();
 
-        setTelegramError(
-            error.message || "Спробуйте ще раз."
-        );
+            const response = await fetch(
+                "/.netlify/functions/create-telegram-link",
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${idToken}`,
+                    },
+                }
+            );
 
-    } finally {
-        // Завжди прибираємо індикатор завантаження
-        setTelegramConnecting(false);
-    }
-};
+            const result = await response.json();
+
+            if (
+                !response.ok ||
+                !result.success ||
+                !result.telegramUrl
+            ) {
+                throw new Error(
+                    result.error || "Не вдалося створити посилання."
+                );
+            }
+
+            // Відкриваємо Telegram в окремій вкладці
+            window.open(
+                result.telegramUrl,
+                "_blank",
+                "noopener,noreferrer"
+            );
+
+        } catch (error) {
+            console.error(
+                "Помилка підключення Telegram:",
+                error
+            );
+
+            setTelegramError(
+                error.message || "Спробуйте ще раз."
+            );
+
+        } finally {
+            // Завжди прибираємо індикатор завантаження
+            setTelegramConnecting(false);
+        }
+    };
 
 
 
@@ -366,10 +372,29 @@ const handleConnectTelegram = async () => {
                         <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3">
 
                             {/* Іконка */}
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
                                 <CheckCheck size={20} strokeWidth={2} />
-                            </div>
 
+                                {canCollectBoots && !hasFound("e7m3v8k2q6") && (
+                                    <button
+                                        type="button"
+                                        disabled={Boolean(claimingBootId)}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            claimItem("e7m3v8k2q6");
+                                        }}
+                                        aria-label="Забрати чобіток"
+                                        className="absolute left-1/2 top-1/2 z-10 h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-xl bg-emerald-100 transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-14 sm:w-14"
+                                    >
+                                        <img
+                                            src="/images/contest-boot.png"
+                                            alt=""
+                                            draggable={false}
+                                            className="h-full w-full object-contain drop-shadow-md"
+                                        />
+                                    </button>
+                                )}
+                            </div>
                             {/* Текст */}
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs font-bold text-emerald-900">

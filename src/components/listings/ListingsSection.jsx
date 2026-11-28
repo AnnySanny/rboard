@@ -7,6 +7,7 @@ const ListingsSection = ({
   onListingClick,
   compact = false,
   canSeeFavorites = false,
+  showFavoriteItem = false,
 }) => {
   const {
     canCollectBoots,
@@ -76,26 +77,22 @@ const ListingsSection = ({
           }`
       }
     >
-      {listings.map((listing) => {
+      {listings.map((listing, index) => {
         const isRealEstatePartner =
           listing.listingKind === "partner" &&
           listing.partnerType === "real_estate";
 
-        if (isRealEstatePartner) {
-          return (
-            <div
-              key={listing.id}
-              className="min-w-0"
-            >
-              <RealEstateCard
-                listing={listing}
-                onClick={() => onListingClick(listing)}
-              />
-            </div>
-          );
-        }
-
-        return (
+        const card = isRealEstatePartner ? (
+          <div
+            key={listing.id}
+            className="min-w-0"
+          >
+            <RealEstateCard
+              listing={listing}
+              onClick={() => onListingClick(listing)}
+            />
+          </div>
+        ) : (
           <ListingCard
             key={listing.id}
             listing={listing}
@@ -104,6 +101,40 @@ const ListingsSection = ({
             onClick={() => onListingClick(listing)}
             canSeeFavorites={canSeeFavorites}
           />
+        );
+
+        if (!showFavoriteItem || index !== 0) {
+          return card;
+        }
+
+        return (
+          <div
+            key={listing.id}
+            className="relative grid min-w-0"
+          >
+            {card}
+
+            {canCollectBoots && !hasFound("g4n7p2v8k6") && (
+              <button
+                type="button"
+                disabled={Boolean(claimingBootId)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  claimItem("g4n7p2v8k6");
+                }}
+                aria-label="Забрати чобіток"
+                className="absolute right-2 top-2 z-30 h-14 w-14 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-20 sm:w-20"
+              >
+                <img
+                  src="/images/contest-boot.png"
+                  alt=""
+                  draggable={false}
+                  className="h-full w-full object-contain drop-shadow-lg"
+                />
+              </button>
+            )}
+          </div>
         );
       })}
     </section>

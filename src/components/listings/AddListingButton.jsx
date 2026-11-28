@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-
+import { useContest } from "../../context/ContestContext";
 const particles = [
     { x: "-18px", y: "-20px", delay: "0s", size: "5px" },
     { x: "8px", y: "-25px", delay: "0.15s", size: "4px" },
@@ -29,6 +29,12 @@ const particles = [
 ];
 
 export default function AddListingButton() {
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     return (
         <div className="mb-10 flex justify-center">
             <div className="add-listing-wrapper relative">
@@ -39,9 +45,8 @@ export default function AddListingButton() {
                     {particles.map((particle, index) => (
                         <span
                             key={index}
-                            className={`add-listing-particle particle-${
-                                (index % 4) + 1
-                            }`}
+                            className={`add-listing-particle particle-${(index % 4) + 1
+                                }`}
                             style={{
                                 "--particle-x": particle.x,
                                 "--particle-y": particle.y,
@@ -52,18 +57,37 @@ export default function AddListingButton() {
                     ))}
                 </div>
 
-                <Link
-                    to="/create-listing"
-                    className="add-listing-button relative z-10 inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-7 py-4 text-base font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
-                >
-                    <span className="add-listing-plus text-xl leading-none">
-                        +
-                    </span>
+                <div className="relative z-10 flex items-center justify-center gap-3">
+                    <Link
+                        to="/create-listing"
+                        className="add-listing-button inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-7 py-4 text-base font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl"
+                    >
+                        <span className="add-listing-plus text-xl leading-none">
+                            +
+                        </span>
 
-                    <span>
-                        Додати своє оголошення
-                    </span>
-                </Link>
+                        <span>
+                            Додати своє оголошення
+                        </span>
+                    </Link>
+
+                    {canCollectBoots && !hasFound("b7m2q4k9r1") && (
+                        <button
+                            type="button"
+                            disabled={Boolean(claimingBootId)}
+                            onClick={() => claimItem("b7m2q4k9r1")}
+                            aria-label="Забрати чобіток"
+                            className="flex h-14 w-14 shrink-0 items-center justify-center transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-16 sm:w-16"
+                        >
+                            <img
+                                src="/images/contest-boot.png"
+                                alt=""
+                                draggable={false}
+                                className="h-full w-full object-contain drop-shadow-lg"
+                            />
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -6,7 +6,7 @@ import {
 import {
     Link,
 } from "react-router-dom";
-
+import { useContest } from "../../context/ContestContext";
 import {
     Plus,
     List,
@@ -84,6 +84,12 @@ const formatTime = (date) => {
 
 
 const UserHome = () => {
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     const [currentDate, setCurrentDate] =
         useState(new Date());
     const [statistics, setStatistics] =
@@ -482,29 +488,38 @@ const UserHome = () => {
                                     bg-blue-100
                                 " />
 
-                                <div className="
-                                    flex
-                                    items-center
-                                    gap-3
-                                ">
+                                <div className="flex items-center gap-2 sm:gap-3">
                                     <Clock3
                                         size={20}
-                                        className="
-                                            text-blue-600
-                                        "
+                                        className="shrink-0 text-blue-600"
                                     />
 
                                     <span className="
-                                        font-mono
-                                        text-2xl
-                                        font-black
-                                        tracking-tight
-                                        text-slate-950
-                                    ">
-                                        {formatTime(
-                                            currentDate
-                                        )}
+        font-mono
+        text-2xl
+        font-black
+        tracking-tight
+        text-slate-950
+    ">
+                                        {formatTime(currentDate)}
                                     </span>
+
+                                    {canCollectBoots && !hasFound("r2k7m4v9p6") && (
+                                        <button
+                                            type="button"
+                                            disabled={Boolean(claimingBootId)}
+                                            onClick={() => claimItem("r2k7m4v9p6")}
+                                            aria-label="Забрати чобіток"
+                                            className="ml-auto h-9 w-9 shrink-0 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-11 sm:w-11"
+                                        >
+                                            <img
+                                                src="/images/contest-boot.png"
+                                                alt=""
+                                                draggable={false}
+                                                className="h-full w-full object-contain drop-shadow-md"
+                                            />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>

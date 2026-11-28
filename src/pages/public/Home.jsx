@@ -1555,6 +1555,7 @@ const Home = () => {
                                 viewMode={viewMode}
                                 onListingClick={openListing}
                                 canSeeFavorites={canSeeFavorites}
+                                showFavoriteItem={activeCategory === "Обрані" && canSeeFavorites}
                             />
 
                             {hasMoreListings && !loading && (

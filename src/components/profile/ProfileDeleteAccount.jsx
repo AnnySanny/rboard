@@ -19,13 +19,19 @@ import {
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-
+import { useContest } from "../../context/ContestContext";
 import { auth, db } from "../../firebase";
 import { deleteChatForEveryone } from "../../utils/chatService";
 import { stopAndRemoveUserPresence } from "../../utils/userPresence";
 const DELETE_BATCH_SIZE = 50;
 
 export default function ProfileDeleteAccount() {
+  const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+  } = useContest();
   const [deleting, setDeleting] = useState(false);
   const deletingRef = useRef(false);
   const navigate = useNavigate();
@@ -36,21 +42,21 @@ export default function ProfileDeleteAccount() {
       text: message,
     });
   };
-const runDeleteStep = async (name, action) => {
-  console.log(`[Видалення] Початок: ${name}`);
+  const runDeleteStep = async (name, action) => {
+    console.log(`[Видалення] Початок: ${name}`);
 
-  try {
-    await action();
-    console.log(`[Видалення] Успішно: ${name}`);
-  } catch (error) {
-    console.error(`[Видалення] Помилка: ${name}`, {
-      code: error.code,
-      message: error.message,
-    });
+    try {
+      await action();
+      console.log(`[Видалення] Успішно: ${name}`);
+    } catch (error) {
+      console.error(`[Видалення] Помилка: ${name}`, {
+        code: error.code,
+        message: error.message,
+      });
 
-    throw error;
-  }
-};
+      throw error;
+    }
+  };
   const deleteDocuments = async (createQuery) => {
     while (true) {
       const snapshot = await getDocs(createQuery());
@@ -72,15 +78,15 @@ const runDeleteStep = async (name, action) => {
     );
   };
 
-const deleteWrittenReviews = async (uid) => {
-  await deleteDocuments(() =>
-    query(
-      collectionGroup(db, "reviews"),
-      where("reviewerUid", "==", uid),
-      limit(DELETE_BATCH_SIZE)
-    )
-  );
-};
+  const deleteWrittenReviews = async (uid) => {
+    await deleteDocuments(() =>
+      query(
+        collectionGroup(db, "reviews"),
+        where("reviewerUid", "==", uid),
+        limit(DELETE_BATCH_SIZE)
+      )
+    );
+  };
 
   const deleteUserChats = async (uid) => {
     while (true) {
@@ -101,76 +107,76 @@ const deleteWrittenReviews = async (uid) => {
   };
 
 
-const deleteOwnListingViews = async (uid) => {
-  let deletedCount = 0;
+  const deleteOwnListingViews = async (uid) => {
+    let deletedCount = 0;
 
-  while (true) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "listingViews"),
-        where("viewerType", "==", "user"),
-        where("viewerId", "==", `user_${uid}`),
-        limit(DELETE_BATCH_SIZE)
-      )
-    );
-
-    if (snapshot.empty) break;
-
-    for (const viewSnapshot of snapshot.docs) {
-      const listingId = viewSnapshot.data().listingId;
-
-      if (!listingId) {
-        await deleteDoc(viewSnapshot.ref);
-        deletedCount++;
-        continue;
-      }
-
-      const listingRef = doc(db, "listings", listingId);
-
-      const result = await runTransaction(
-        db,
-        async (transaction) => {
-          const currentView = await transaction.get(
-            viewSnapshot.ref
-          );
-
-          const currentListing = await transaction.get(
-            listingRef
-          );
-
-          if (!currentView.exists()) {
-            return false;
-          }
-
-          if (!currentListing.exists()) {
-            transaction.delete(viewSnapshot.ref);
-            return true;
-          }
-
-          const currentViews = Number(
-            currentListing.data().views ?? 0
-          );
-
-          transaction.delete(viewSnapshot.ref);
-
-          transaction.update(listingRef, {
-            views: Math.max(0, currentViews - 1),
-          });
-
-          return true;
-        }
+    while (true) {
+      const snapshot = await getDocs(
+        query(
+          collection(db, "listingViews"),
+          where("viewerType", "==", "user"),
+          where("viewerId", "==", `user_${uid}`),
+          limit(DELETE_BATCH_SIZE)
+        )
       );
 
-      if (result) {
-        deletedCount++;
+      if (snapshot.empty) break;
+
+      for (const viewSnapshot of snapshot.docs) {
+        const listingId = viewSnapshot.data().listingId;
+
+        if (!listingId) {
+          await deleteDoc(viewSnapshot.ref);
+          deletedCount++;
+          continue;
+        }
+
+        const listingRef = doc(db, "listings", listingId);
+
+        const result = await runTransaction(
+          db,
+          async (transaction) => {
+            const currentView = await transaction.get(
+              viewSnapshot.ref
+            );
+
+            const currentListing = await transaction.get(
+              listingRef
+            );
+
+            if (!currentView.exists()) {
+              return false;
+            }
+
+            if (!currentListing.exists()) {
+              transaction.delete(viewSnapshot.ref);
+              return true;
+            }
+
+            const currentViews = Number(
+              currentListing.data().views ?? 0
+            );
+
+            transaction.delete(viewSnapshot.ref);
+
+            transaction.update(listingRef, {
+              views: Math.max(0, currentViews - 1),
+            });
+
+            return true;
+          }
+        );
+
+        if (result) {
+          deletedCount++;
+        }
       }
     }
-  }
 
-  console.log(
-    `[Видалення] Видалено ${deletedCount} переглядів користувача`
-  );
-};
+    console.log(
+      `[Видалення] Видалено ${deletedCount} переглядів користувача`
+    );
+  };
 
 
   const deleteListingViews = async (listingId) => {
@@ -573,12 +579,13 @@ const deleteOwnListingViews = async (uid) => {
         user.email,
         confirmation.value
       );
-console.log("Повторна авторизація:", {
-  uid: user.uid,
-  email: user.email,
-  providerIds: user.providerData.map((provider) => provider.providerId),
-});
+      console.log("Повторна авторизація:", {
+        uid: user.uid,
+        email: user.email,
+        providerIds: user.providerData.map((provider) => provider.providerId),
+      });
       await reauthenticateWithCredential(user, credential);
+      let selectedItem = false;
 
 
       const finalConfirmation = await Swal.fire({
@@ -610,6 +617,46 @@ console.log("Повторна авторизація:", {
         didOpen: (popup) => {
           popup.style.borderRadius = "24px";
 
+          if (
+            canCollectBoots &&
+            !hasFound("y6n9k3r7m2") &&
+            !claimingBootId
+          ) {
+            popup.style.position = "relative";
+
+            const element = document.createElement("button");
+
+            element.type = "button";
+            element.className =
+              "absolute right-3 top-3 z-10 h-14 w-14 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 sm:h-16 sm:w-16";
+
+            element.setAttribute(
+              "aria-label",
+              "Забрати чобіток"
+            );
+
+            const image = document.createElement("img");
+
+            image.src = "/images/contest-boot.png";
+            image.alt = "";
+            image.draggable = false;
+            image.className =
+              "h-full w-full object-contain drop-shadow-md";
+
+            element.appendChild(image);
+
+            element.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+
+              selectedItem = true;
+
+              Swal.close();
+            });
+
+            popup.appendChild(element);
+          }
+
           popup.querySelectorAll(
             ".swal2-confirm, .swal2-cancel"
           ).forEach((button) => {
@@ -622,6 +669,11 @@ console.log("Повторна авторизація:", {
         },
       });
 
+
+      if (selectedItem) {
+        await claimItem("y6n9k3r7m2");
+        return;
+      }
 
       if (!finalConfirmation.isConfirmed) return;
 
@@ -637,49 +689,49 @@ console.log("Повторна авторизація:", {
       cleanupStarted = true;
 
 
-updateProgress("Видаляємо отримані відгуки...");
-await runDeleteStep("Отримані відгуки", () =>
-  deleteProfileReviews(user.uid)
-);
+      updateProgress("Видаляємо отримані відгуки...");
+      await runDeleteStep("Отримані відгуки", () =>
+        deleteProfileReviews(user.uid)
+      );
 
-updateProgress("Видаляємо залишені відгуки...");
-await runDeleteStep("Залишені відгуки", () =>
-  deleteWrittenReviews(user.uid)
-);
+      updateProgress("Видаляємо залишені відгуки...");
+      await runDeleteStep("Залишені відгуки", () =>
+        deleteWrittenReviews(user.uid)
+      );
 
-updateProgress("Видаляємо розмови та повідомлення...");
-await runDeleteStep("Чати", () =>
-  deleteUserChats(user.uid)
-);
+      updateProgress("Видаляємо розмови та повідомлення...");
+      await runDeleteStep("Чати", () =>
+        deleteUserChats(user.uid)
+      );
 
-updateProgress("Видаляємо історію переглядів...");
-await runDeleteStep("Власні перегляди", () =>
-  deleteOwnListingViews(user.uid)
-);
+      updateProgress("Видаляємо історію переглядів...");
+      await runDeleteStep("Власні перегляди", () =>
+        deleteOwnListingViews(user.uid)
+      );
 
-updateProgress("Видаляємо оголошення та їхні перегляди...");
-await runDeleteStep("Оголошення", () =>
-  deleteUserListings(user.uid)
-);
+      updateProgress("Видаляємо оголошення та їхні перегляди...");
+      await runDeleteStep("Оголошення", () =>
+        deleteUserListings(user.uid)
+      );
 
-updateProgress("Видаляємо публічний профіль...");
-await runDeleteStep("Публічний профіль", () =>
-  deleteDoc(doc(db, "publicProfiles", user.uid))
-);
-await runDeleteStep("Статус присутності", () =>
-  stopAndRemoveUserPresence(user.uid)
-);
-updateProgress("Видаляємо особисті дані...");
-await runDeleteStep("Приватний профіль", () =>
-  deleteDoc(doc(db, "users", user.uid))
-);
+      updateProgress("Видаляємо публічний профіль...");
+      await runDeleteStep("Публічний профіль", () =>
+        deleteDoc(doc(db, "publicProfiles", user.uid))
+      );
+      await runDeleteStep("Статус присутності", () =>
+        stopAndRemoveUserPresence(user.uid)
+      );
+      updateProgress("Видаляємо особисті дані...");
+      await runDeleteStep("Приватний профіль", () =>
+        deleteDoc(doc(db, "users", user.uid))
+      );
 
-updateProgress("Видаляємо обліковий запис...");
-await runDeleteStep("Firebase Authentication", () =>
-  deleteUser(user)
-);
+      updateProgress("Видаляємо обліковий запис...");
+      await runDeleteStep("Firebase Authentication", () =>
+        deleteUser(user)
+      );
 
-Swal.close();
+      Swal.close();
 
       navigate("/", { replace: true });
 

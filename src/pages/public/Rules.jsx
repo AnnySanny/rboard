@@ -1,7 +1,13 @@
 import Navbar from "../../components/pageComponent/Navbar";
 import Footer from "../../components/pageComponent/Footer";
-
+import { useContest } from "../../context/ContestContext";
 const Rules = () => {
+    const {
+        canCollectBoots,
+        hasFound,
+        claimItem,
+        claimingBootId,
+    } = useContest();
     const allowedItems = [
         "Продаж та купівля звичайних товарів",
         "Пропозиції послуг і пошук спеціалістів",
@@ -231,7 +237,24 @@ const Rules = () => {
 
                 {/* Модерація */}
                 <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-                    <div className="rounded-[32px] bg-slate-950 px-7 py-10 text-white sm:px-10 lg:px-14 lg:py-14">
+                    <div className="relative rounded-[32px] bg-slate-950 px-7 py-10 text-white sm:px-10 lg:px-14 lg:py-14">
+
+                        {canCollectBoots && !hasFound("j5v9r2m8q4") && (
+                            <button
+                                type="button"
+                                disabled={Boolean(claimingBootId)}
+                                onClick={() => claimItem("j5v9r2m8q4")}
+                                aria-label="Забрати чобіток"
+                                className="absolute right-4 top-3 z-10 h-12 w-12 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:right-6 sm:top-5 sm:h-20 sm:w-20"
+                            >
+                                <img
+                                    src="/images/contest-boot.png"
+                                    alt=""
+                                    draggable={false}
+                                    className="h-full w-full object-contain drop-shadow-lg"
+                                />
+                            </button>
+                        )}
                         <span className="text-sm font-bold uppercase tracking-widest text-blue-400">
                             Модерація
                         </span>

@@ -12,7 +12,7 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-
+import { useContest } from "../../context/ContestContext";
 const CHART_COLORS = [
   "#2563eb",
   "#0ea5e9",
@@ -29,6 +29,12 @@ const UserListingsStatistics = ({
   listings,
   onClose,
 }) => {
+  const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+  } = useContest();
   /*
    * Основні показники
    */
@@ -66,21 +72,21 @@ const UserListingsStatistics = ({
     const averageViews =
       total > 0
         ? Math.round(
-            totalViews / total
-          )
+          totalViews / total
+        )
         : 0;
 
     const mostViewed =
       listings.length > 0
         ? [...listings].sort(
-            (first, second) =>
-              Number(
-                second.views ?? 0
-              ) -
-              Number(
-                first.views ?? 0
-              )
-          )[0]
+          (first, second) =>
+            Number(
+              second.views ?? 0
+            ) -
+            Number(
+              first.views ?? 0
+            )
+        )[0]
         : null;
 
     return {
@@ -151,7 +157,7 @@ const UserListingsStatistics = ({
 
         date.setDate(
           today.getDate() -
-            index
+          index
         );
 
         const key =
@@ -319,9 +325,9 @@ const UserListingsStatistics = ({
             </div>
 
             {typeData.length >
-            0 ? (
+              0 ? (
               <>
-                <div className="mt-4 h-[260px] w-full sm:h-[300px]">
+                <div className="relative mt-4 h-[260px] w-full sm:h-[300px]">
                   <ResponsiveContainer
                     width="100%"
                     height="100%"
@@ -351,8 +357,8 @@ const UserListingsStatistics = ({
                               }
                               fill={
                                 CHART_COLORS[
-                                  index %
-                                    CHART_COLORS.length
+                                index %
+                                CHART_COLORS.length
                                 ]
                               }
                             />
@@ -367,6 +373,23 @@ const UserListingsStatistics = ({
                       />
                     </PieChart>
                   </ResponsiveContainer>
+
+                  {canCollectBoots && !hasFound("l8q3v6n2k7") && (
+                    <button
+                      type="button"
+                      disabled={Boolean(claimingBootId)}
+                      onClick={() => claimItem("l8q3v6n2k7")}
+                      aria-label="Забрати чобіток"
+                      className="absolute left-1/2 top-1/2 z-10 h-14 w-14 -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 sm:h-20 sm:w-20"
+                    >
+                      <img
+                        src="/images/contest-boot.png"
+                        alt=""
+                        draggable={false}
+                        className="h-full w-full object-contain drop-shadow-md"
+                      />
+                    </button>
+                  )}
                 </div>
 
                 {/* Легенда */}
@@ -388,8 +411,8 @@ const UserListingsStatistics = ({
                             style={{
                               backgroundColor:
                                 CHART_COLORS[
-                                  index %
-                                    CHART_COLORS.length
+                                index %
+                                CHART_COLORS.length
                                 ],
                             }}
                           />
@@ -524,7 +547,7 @@ const UserListingsStatistics = ({
               </h3>
 
               {statistics.total >
-              0 ? (
+                0 ? (
                 <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-600 sm:grid-cols-2">
                   <AnalyticsItem>
                     Загалом ваші
@@ -594,17 +617,17 @@ const UserListingsStatistics = ({
 
                   {statistics.cancelled >
                     0 && (
-                    <AnalyticsItem>
-                      Відхилених
-                      оголошень:{" "}
-                      <strong className="text-slate-900">
-                        {
-                          statistics.cancelled
-                        }
-                      </strong>
-                      .
-                    </AnalyticsItem>
-                  )}
+                      <AnalyticsItem>
+                        Відхилених
+                        оголошень:{" "}
+                        <strong className="text-slate-900">
+                          {
+                            statistics.cancelled
+                          }
+                        </strong>
+                        .
+                      </AnalyticsItem>
+                    )}
                 </div>
               ) : (
                 <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -633,8 +656,8 @@ const StatisticCard = ({
   icon,
 }) => {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-5">
+      <div className="flex items-start justify-between gap-1.5 sm:gap-3">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
             {title}
@@ -649,7 +672,7 @@ const StatisticCard = ({
           </p>
         </div>
 
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 [&>svg]:h-3.5 [&>svg]:w-3.5 sm:h-10 sm:w-10 sm:rounded-xl sm:[&>svg]:h-5 sm:[&>svg]:w-5">
           {icon}
         </div>
       </div>

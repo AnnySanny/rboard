@@ -5,8 +5,14 @@ import {
     Send,
     Check,
 } from "lucide-react";
-
+import { useContest } from "../../../context/ContestContext";
 const SlideThree = () => {
+    const {
+    canCollectBoots,
+    hasFound,
+    claimItem,
+    claimingBootId,
+} = useContest();
     const steps = [
         {
             title: "Заповніть основну інформацію",
@@ -433,6 +439,27 @@ const SlideThree = () => {
         </div>
     </div>
 </div>
+
+{canCollectBoots && !hasFound("n7r2k5v9m4") && (
+    <button
+        type="button"
+        disabled={Boolean(claimingBootId)}
+        onClick={(event) => {
+            event.stopPropagation();
+            claimItem("n7r2k5v9m4");
+        }}
+        aria-label="Забрати чобіток"
+        className="absolute left-1/2 top-[55%] z-30 h-20 w-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-90 disabled:opacity-50 md:left-[70%] md:top-1/2 md:h-28 md:w-28"
+    >
+        <img
+            src="/images/contest-boot.png"
+            alt=""
+            draggable={false}
+            className="h-full w-full object-contain drop-shadow-lg"
+        />
+    </button>
+)}
+
         </section>
     );
 };
